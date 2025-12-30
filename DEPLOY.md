@@ -1,46 +1,44 @@
-# Sincronización con GitHub y Vercel
+# Guía de Despliegue: NEXA OS (Sovereign-RAG)
 
-Tu proyecto `nexa-os` está listo. Sigue estos pasos para subirlo a la nube.
+Tu sistema está listo. Para publicarlo en internet y usarlo desde tu móvil, recomendamos Vercel.
 
-## 1. GitHub (Subir el código)
-Si tienes GitHub Desktop o la terminal configurada:
+## 1. Verificación Previa
+El proyecto ya construye correctamente (`npm run build` pasó).
+Asegúrate de que tu repositorio incluye la carpeta `docs/` para que la memoria soberana funcione en la nube.
 
-1.  Abre una terminal en la carpeta del proyecto:
-    ```bash
-    cd c:\Users\pipog\.gemini\antigravity\playground\drifting-gemini\nexa-os
-    ```
-2.  Crea el repositorio y sube el código:
-    ```bash
-    git add .
-    git commit -m "Initial commit: NEXA OS v2 con Chat y Voz"
-    # Si tienes GH CLI:
-    gh repo create nexa-os --public --source=. --remote=origin --push
-    # Si NO tienes GH CLI, crea el repo en github.com y luego corre:
-    # git remote add origin https://github.com/TU_USUARIO/nexa-os.git
-    # git branch -M main
-    # git push -u origin main
-    ```
+## 2. Desplegar con Vercel CLI
+Es la forma más rápida. Abre la terminal en `nexa-os`:
 
-## 2. Vercel (Desplegar)
-La forma más fácil es usando la CLI de Vercel.
-
-1.  Instala Vercel CLI (si no la tienes):
-    ```bash
+1.  **Instalar CLI:**
+    ```powershell
     npm i -g vercel
     ```
-2.  Despliega con un comando:
-    ```bash
+
+2.  **Iniciar Despliegue:**
+    ```powershell
     vercel
     ```
-    - Sigue las instrucciones en pantalla (Login, Link to Project: Yes, etc.).
-    - Cuando te pida "Framework Preset", detectará **Next.js** automáticamente.
 
-## 3. Configurar API Keys (Importante)
-Para que el chat funcione en producción:
-1.  Ve al dashboard de tu proyecto en Vercel.
-2.  Ve a **Settings -> Environment Variables**.
-3.  Añade una llave llamada `OPENAI_API_KEY` con tu clave real de OpenAI (sk-...).
-4.  Redespliega el proyecto (o haz clic en "Redeploy" en Vercel).
+3.  **Responder Preguntas:**
+    - Set up and deploy? -> `Y`
+    - Which scope? -> (Da Enter para seleccionar tu usuario)
+    - Link to existing project? -> `N`
+    - Project name? -> `nexa-os` (o lo que quieras)
+    - Directory? -> `.` (Enter)
+    - **Want to modify settings?** -> `N` (Detectará Next.js automáticamente).
 
----
-**Tu Dominio**: El proyecto ya tiene configurado `metadataBase: new URL('https://www.nexa-ai.dev/')` en `layout.tsx`, listo para cuando conectes tu dominio personalizado en Vercel.
+## 3. Configurar Variables (CRÍTICO) 🛑
+NEXA **fallará** en la nube si no agregas tu llave de Google.
+
+1.  Ve al Dashboard de tu proyecto en [vercel.com](https://vercel.com/dashboard).
+2.  Entra a **Settings** > **Environment Variables**.
+3.  Agrega una nueva variable:
+    - **Key:** `GOOGLE_API_KEY`
+    - **Value:** (Tu clave copiada de `.env.local` o Google AI Studio)
+4.  Guarda.
+5.  **Re-despliega** (Ve a Deployments -> Redeploy) para que la llave surta efecto.
+
+## 4. Uso en Móvil
+Una vez desplegado:
+- Entra a la URL que te da Vercel (ej: `nexa-os.vercel.app`).
+- Añádelo a tu pantalla de inicio ("Add to Home Screen") para usarlo como App nativa a pantalla completa.
