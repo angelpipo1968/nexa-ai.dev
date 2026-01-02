@@ -4,11 +4,12 @@
   "webDir": "public",
   "bundledWebRuntime": false,
   "server": {
-    "url": "https://nexa-os.vercel.app",
+    "url": "https://www.nexa-ai.dev",
     "cleartext": false,
     "androidScheme": "https",
     "allowNavigation": [
-      "nexa-os.vercel.app"
+      "www.nexa-ai.dev",
+      "nexa-ai.dev"
     ]
   }
 }
