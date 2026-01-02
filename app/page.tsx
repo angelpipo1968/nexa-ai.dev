@@ -3,7 +3,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Mic, MicOff, Volume2, VolumeX, Plus, MessageSquare, AlertCircle, Square, Settings, Globe, HelpCircle, ArrowUp, Gift, Download, LogOut, User, ChevronLeft, ChevronRight, FolderPlus, Code, X } from 'lucide-react';
 import JSZip from 'jszip';
-import * as pdfjsLib from 'pdfjs-dist';
 
 declare global {
   interface Window {
@@ -37,11 +36,20 @@ export default function ChatApp() {
   const [pdfTexts, setPdfTexts] = useState<Array<{ name: string; text: string }>>([]);
 
   useEffect(() => {
-    // @ts-ignore
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.530/pdf.worker.min.js`;
+    const initPdf = async () => {
+      try {
+        const pdfjsLib = await import('pdfjs-dist');
+        // @ts-ignore
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      } catch (e) {
+        console.error("PDF init error", e);
+      }
+    };
+    initPdf();
   }, []);
 
   const extractPdfText = async (file: File) => {
+    const pdfjsLib = await import('pdfjs-dist');
     const data = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data }).promise;
     const parts: string[] = [];
