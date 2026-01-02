@@ -2,5 +2,9 @@
   "appId": "com.nexaos.app",
   "appName": "NEXA OS",
   "webDir": "out",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://www.nexa-ai.dev/",
+    "cleartext": true
+  }
 }
