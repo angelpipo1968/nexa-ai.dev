@@ -1,0 +1,14 @@
+{
+  "appId": "com.nexaos.app",
+  "appName": "NEXA OS",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://nexa-os.vercel.app",
+    "cleartext": false,
+    "androidScheme": "https",
+    "allowNavigation": [
+      "nexa-os.vercel.app"
+    ]
+  }
+}
