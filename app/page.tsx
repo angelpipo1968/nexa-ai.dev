@@ -1,8 +1,67 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Volume2, VolumeX, Plus, MessageSquare, AlertCircle, Square, Settings, Globe, HelpCircle, ArrowUp, Gift, Download, LogOut, User, ChevronLeft, ChevronRight, FolderPlus, Code, X } from 'lucide-react';
+import { Send, Mic, MicOff, Volume2, VolumeX, Plus, MessageSquare, AlertCircle, Settings, Globe, HelpCircle, ArrowUp, Gift, Download, LogOut, User, FolderPlus, Code, X, Search, Sparkles, Zap, Image, Video, Book, Briefcase, Calendar, PenTool, Lightbulb, FileText, Layout, Paperclip, Music, ChevronDown, ChevronUp, PanelLeft, Eye, EyeOff, Check, Copy, Clock, Loader2, Play, CheckCircle2, HardDrive, Shield, RotateCcw, Menu } from 'lucide-react';
 import JSZip from 'jszip';
+
+// CodeBlock Component
+const CodeBlock = ({ language, code }: { language: string, code: string }) => {
+  const [showPreview, setShowPreview] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Determine if code is previewable (HTML or SVG)
+  const isPreviewable = ['html', 'svg', 'xml'].includes(language.toLowerCase()) || 
+                       (language === '' && code.trim().startsWith('<'));
+
+  return (
+    <div className="my-4 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 shadow-sm">
+      <div className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-slate-200">
+        <span className="text-xs font-semibold text-slate-500 uppercase">{language || 'code'}</span>
+        <div className="flex items-center gap-2">
+           {isPreviewable && (
+             <button 
+               onClick={() => setShowPreview(!showPreview)} 
+               className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-white rounded-md transition-all"
+             >
+               {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+               {showPreview ? 'Ocultar' : 'Preview'}
+             </button>
+           )}
+           <button 
+             onClick={handleCopy} 
+             className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-slate-600 hover:text-green-600 hover:bg-white rounded-md transition-all"
+           >
+             {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+             {copied ? 'Copiado' : 'Copiar'}
+           </button>
+        </div>
+      </div>
+      
+      {showPreview ? (
+        <div className="p-0 bg-white border-b border-slate-200 relative group">
+           <iframe 
+             srcDoc={code} 
+             className="w-full h-[400px] border-0 bg-white" 
+             sandbox="allow-scripts"
+             title="Preview"
+           />
+        </div>
+      ) : (
+        <div className="relative group">
+            <pre className="p-4 overflow-x-auto text-sm font-mono text-slate-700 bg-slate-50 whitespace-pre">
+            {code}
+            </pre>
+        </div>
+      )}
+    </div>
+  )
+}
 
 declare global {
   interface Window {
@@ -28,37 +87,250 @@ export default function ChatApp() {
   const [attachments, setAttachments] = useState<File[]>([]);
   const [mode, setMode] = useState<'fast'|'deep'>('fast');
   const [codeMode, setCodeMode] = useState(false);
+  const [autoVoiceMode, setAutoVoiceMode] = useState(false);
+  const [showCreative, setShowCreative] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [pdfTexts, setPdfTexts] = useState<Array<{ name: string; text: string }>>([]);
+  const [isOnline, setIsOnline] = useState(true);
+  const [conversations, setConversations] = useState<Array<{id: string, title: string, date: string, messages: any[]}>>([]);
+  const [showConversations, setShowConversations] = useState(false);
+  const [showUploadMenu, setShowUploadMenu] = useState(false);
+  const [showAllApps, setShowAllApps] = useState(false);
+  // Video Gen States
+  const [showVideoGen, setShowVideoGen] = useState(false);
+  const [videoGenFile, setVideoGenFile] = useState<File | null>(null);
+  const [videoPrompt, setVideoPrompt] = useState('');
+  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [generatedVideo, setGeneratedVideo] = useState<boolean>(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const audioInputRef = useRef<HTMLInputElement | null>(null);
+  const docInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleGenerateVideo = () => {
+    setIsGeneratingVideo(true);
+    // Simulation of video generation process
+    setTimeout(() => {
+        setIsGeneratingVideo(false);
+        setGeneratedVideo(true);
+    }, 3000);
+  };
+
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+    const handleStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleStatus);
+    window.addEventListener('offline', handleStatus);
+    return () => {
+      window.removeEventListener('online', handleStatus);
+      window.removeEventListener('offline', handleStatus);
+    };
+  }, []);
 
   useEffect(() => {
     const initPdf = async () => {
+      if (typeof window === 'undefined') return;
       try {
+        // Use require to avoid some ESM issues in dev if import fails
         const pdfjsLib = await import('pdfjs-dist');
-        // @ts-ignore
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+        const lib = pdfjsLib.default || pdfjsLib;
+        
+        if (lib && lib.GlobalWorkerOptions) {
+            // Use unpkg for matching version, fallback to a stable recent version
+            const version = lib.version || '4.0.379';
+            lib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.js`;
+        }
       } catch (e) {
         console.error("PDF init error", e);
       }
     };
     initPdf();
+
+    // Load offline history
+    const savedHistory = localStorage.getItem('nexa_conversations');
+    if (savedHistory) {
+        try {
+            setConversations(JSON.parse(savedHistory));
+        } catch (e) { console.error(e); }
+    }
+
+    const savedMessages = localStorage.getItem('nexa_chat_history');
+    if (savedMessages) {
+        try {
+            setMessages(JSON.parse(savedMessages));
+        } catch (e) {
+            console.error("Error loading history", e);
+        }
+    }
   }, []);
 
-  const extractPdfText = async (file: File) => {
-    const pdfjsLib = await import('pdfjs-dist');
-    const data = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data }).promise;
-    const parts: string[] = [];
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
-      parts.push(content.items.map((it: any) => it.str).join(' '));
+  useEffect(() => {
+      localStorage.setItem('nexa_chat_history', JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+      localStorage.setItem('nexa_conversations', JSON.stringify(conversations));
+  }, [conversations]);
+
+  useEffect(() => {
+      localStorage.setItem('nexa_settings_language', language);
+  }, [language]);
+
+  useEffect(() => {
+      localStorage.setItem('nexa_settings_voice', JSON.stringify(voiceEnabled));
+  }, [voiceEnabled]);
+
+  useEffect(() => {
+      const savedLang = localStorage.getItem('nexa_settings_language');
+      if (savedLang && (savedLang === 'es' || savedLang === 'en' || savedLang === 'zh')) {
+          setLanguage(savedLang);
+      }
+      const savedVoice = localStorage.getItem('nexa_settings_voice');
+      if (savedVoice) {
+          setVoiceEnabled(JSON.parse(savedVoice));
+      }
+
+      // Auto-repair check
+      const checkAutoRepair = async () => {
+        const localConv = localStorage.getItem('nexa_conversations');
+        const localMsg = localStorage.getItem('nexa_chat_history');
+        
+        if ((!localConv || localConv === '[]') && (!localMsg || localMsg === '[]')) {
+             try {
+                const res = await fetch('/api/system/restore');
+                const data = await res.json();
+                if (data.success && data.data) {
+                    // Simulating "Auto Repair" by asking user
+                    if (confirm('⚠️ NEXA OS: Se detectó una posible pérdida de datos. ¿Deseas ejecutar la AUTO-REPARACIÓN desde la última copia de seguridad?')) {
+                        const { messages: msgs, conversations: convs, settings } = data.data;
+                        if(msgs) setMessages(msgs);
+                        if(convs) setConversations(convs);
+                        if(settings) {
+                            if(settings.language) setLanguage(settings.language);
+                            if(settings.userName) setUserName(settings.userName);
+                            if(settings.voiceEnabled !== undefined) setVoiceEnabled(settings.voiceEnabled);
+                        }
+                    }
+                }
+             } catch(e) { console.error("Auto-repair check failed", e); }
+        }
+     };
+     setTimeout(checkAutoRepair, 1500);
+  }, []);
+
+  const startNewChat = () => {
+      if (messages.length > 0) {
+          const newChat = {
+              id: Date.now().toString(),
+              title: messages[0].content.substring(0, 30) + '...',
+              date: new Date().toLocaleDateString(),
+              messages: [...messages]
+          };
+          setConversations(prev => [newChat, ...prev]);
+      }
+      setMessages([]);
+      setInput('');
+      setError(null);
+      stopSpeaking();
+      setShowConversations(false);
+  };
+
+  const loadConversation = (id: string) => {
+      const chat = conversations.find(c => c.id === id);
+      if (chat) {
+          if (messages.length > 0) {
+             // Save current before switching? Maybe optional.
+          }
+          setMessages(chat.messages);
+          setShowConversations(false);
+      }
+  };
+
+  const deleteConversation = (id: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setConversations(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleSystemBackup = async () => {
+    setIsBackingUp(true);
+    try {
+      const userData = {
+         messages,
+         conversations,
+         settings: { language, voiceEnabled, userName }
+      };
+      
+      const res = await fetch('/api/system/backup', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ userData })
+      });
+      
+      if (res.ok) {
+         alert('Copia de seguridad completada exitosamente en la carpeta /backups');
+      } else {
+         throw new Error('Error en el backup');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error al realizar la copia de seguridad');
+    } finally {
+      setIsBackingUp(false);
     }
-    return parts.join('\n\n');
+  };
+  
+  const handleSystemRestore = async () => {
+     if(!confirm('¿Estás seguro? Esto sobrescribirá tus datos actuales con la última copia de seguridad.')) return;
+     
+     try {
+       const res = await fetch('/api/system/restore');
+       const data = await res.json();
+       
+       if (data.success && data.data) {
+          const { messages: msgs, conversations: convs, settings } = data.data;
+          if(msgs) setMessages(msgs);
+          if(convs) setConversations(convs);
+          if(settings) {
+              if(settings.language) setLanguage(settings.language);
+              if(settings.userName) setUserName(settings.userName);
+              if(settings.voiceEnabled !== undefined) setVoiceEnabled(settings.voiceEnabled);
+          }
+          alert('Sistema restaurado correctamente.');
+          setShowSettings(false);
+       } else {
+          alert('No se encontró ninguna copia de seguridad válida.');
+       }
+     } catch (e) {
+       console.error(e);
+       alert('Error al restaurar el sistema');
+     }
+  };
+
+  const extractPdfText = async (file: File) => {
+    try {
+      // Use require to avoid ESM issues
+      const pdfjsLibModule = await import('pdfjs-dist');
+      const pdfjsLib = pdfjsLibModule.default || pdfjsLibModule;
+      
+      const data = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data }).promise;
+      const parts: string[] = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        // @ts-ignore
+        parts.push(content.items.map((it: any) => it.str).join(' '));
+      }
+      return parts.join('\n\n');
+    } catch (e) {
+      console.error("Error extracting PDF text:", e);
+      return "";
+    }
   };
 
   const scrollToBottom = () => {
@@ -109,6 +381,12 @@ export default function ChatApp() {
       recognitionRef.current.onresult = (event: any) => {
         const transcript = event.results[0][0].transcript;
         setInput(transcript);
+        if (autoVoiceMode && event.results[0].isFinal) {
+            // Give a small delay to ensure state is updated
+            setTimeout(() => {
+                document.getElementById('send-button')?.click();
+            }, 500);
+        }
         setIsListening(false);
       };
 
@@ -145,7 +423,7 @@ export default function ChatApp() {
         recognitionRef.current.stop();
       }
     };
-  }, []);
+  }, [autoVoiceMode]);
 
   const checkMicrophonePermission = async () => {
     try {
@@ -222,6 +500,9 @@ export default function ChatApp() {
       
       utterance.onend = () => {
         setIsSpeaking(false);
+        if (autoVoiceMode) {
+            setTimeout(() => toggleVoiceRecognition(), 500);
+        }
       };
       
       utterance.onerror = (event: any) => {
@@ -254,6 +535,29 @@ export default function ChatApp() {
 
   const sendMessage = async () => {
     if (!input.trim() || isLoading) return;
+
+    // INTERCEPTION: Detect video generation intent
+    const lowerInput = input.toLowerCase();
+    const isVideoRequest = lowerInput.includes('video') && (lowerInput.includes('generar') || lowerInput.includes('crear') || lowerInput.includes('haz') || lowerInput.includes('make') || lowerInput.includes('create'));
+    
+    if (isVideoRequest) {
+      const userMessage = { role: 'user', content: input.trim() };
+      setMessages(prev => [...prev, userMessage]);
+      setInput('');
+      setIsLoading(true);
+      
+      // Simulate processing time
+      setTimeout(() => {
+        setIsLoading(false);
+        setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: "¡Claro que sí! Puedo ayudarte a generar ese video. He abierto la herramienta **Video Gen** para ti. Por favor, ingresa los detalles en el panel que acaba de aparecer."
+        }]);
+        setShowVideoGen(true);
+        if (voiceEnabled) speakText("¡Claro que sí! Puedo ayudarte a generar ese video. He abierto la herramienta Video Gen para ti.");
+      }, 1000);
+      return;
+    }
 
     const attachmentNote = attachments.length ? `\nAdjuntos: ${attachments.map(f => f.name).join(', ')}` : '';
     const pdfNote = pdfTexts.length ? `\n\n${pdfTexts.map(p => `[PDF ${p.name}]\n${p.text}`).join('\n\n')}` : '';
@@ -392,175 +696,212 @@ export default function ChatApp() {
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 overflow-hidden">
+    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 overflow-hidden font-sans">
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <div 
         className={`${
-          sidebarOpen ? 'w-64' : 'w-16'
-        } transition-all duration-300 ease-in-out bg-white/90 backdrop-blur-xl border-r border-blue-100 flex flex-col shadow-sm relative`}
+          sidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-[72px] md:translate-x-0'
+        } transition-all duration-300 ease-in-out bg-gray-50/80 backdrop-blur-xl border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-40 md:relative md:z-20 h-full shadow-2xl md:shadow-none`}
       >
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute -right-3 top-6 z-50 w-6 h-6 bg-white border border-blue-200 rounded-full shadow-md hover:shadow-lg transition-all flex items-center justify-center text-slate-600 hover:text-blue-600"
-        >
-          {sidebarOpen ? <ChevronLeft className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-        </button>
-
-        <div className="p-3 space-y-2">
-          <button 
-            onClick={() => {
-              setMessages([]);
-              setInput('');
-              setError(null);
-              stopSpeaking();
-            }}
-            className="w-full p-3 rounded-lg hover:bg-blue-50 transition-all flex items-center gap-3 group"
-          >
-            <Plus className="w-5 h-5 text-slate-600 group-hover:text-blue-600 shrink-0" />
-            {sidebarOpen && <span className="text-sm text-slate-700 font-medium">Nueva conversación</span>}
-          </button>
+        {/* Header Section */}
+        <div className="flex flex-col pt-6 pb-4 px-4 gap-4">
+            <div className="flex items-center justify-between">
+                {sidebarOpen && (
+                    <h1 className="text-lg font-bold text-slate-800 tracking-tight ml-2">Nexa</h1>
+                )}
+                <button
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className={`p-2 rounded-lg hover:bg-gray-200/50 text-slate-500 transition-colors ${!sidebarOpen ? 'mx-auto' : ''}`}
+                >
+                  <PanelLeft className="w-5 h-5" />
+                </button>
+            </div>
         </div>
 
-        <div className="h-px bg-blue-100 mx-3"></div>
+        {/* Main Actions */}
+        <div className="flex flex-col px-3 gap-2">
+            <button 
+                onClick={startNewChat}
+                className={`flex items-center gap-2 p-2 rounded-lg transition-all text-slate-500 hover:bg-gray-100 hover:text-slate-900 ${!sidebarOpen ? 'justify-center' : ''}`}
+                title="New Chat"
+            >
+                <Plus className="w-4 h-4 shrink-0" />
+                {sidebarOpen && <span className="text-sm font-medium">New Chat</span>}
+            </button>
 
-        <div className="p-3 space-y-1">
-          <button className="w-full p-3 rounded-lg hover:bg-blue-50 transition-all flex items-center gap-3 group">
-            <MessageSquare className="w-5 h-5 text-slate-600 group-hover:text-blue-600 shrink-0" />
-            {sidebarOpen && <span className="text-sm text-slate-700">Conversaciones</span>}
-          </button>
-          
-          <button className="w-full p-3 rounded-lg hover:bg-blue-50 transition-all flex items-center gap-3 group">
-            <FolderPlus className="w-5 h-5 text-slate-600 group-hover:text-blue-600 shrink-0" />
-            {sidebarOpen && <span className="text-sm text-slate-700">Proyectos</span>}
-          </button>
+            <button 
+                onClick={() => setShowCreative(true)}
+                className={`flex items-center gap-2 p-2 rounded-lg transition-all text-slate-500 hover:bg-gray-100 hover:text-slate-900 ${!sidebarOpen ? 'justify-center' : ''}`}
+                title="New Project"
+            >
+                <FolderPlus className="w-4 h-4 shrink-0" />
+                {sidebarOpen && <span className="text-sm font-medium">New Project</span>}
+            </button>
 
-          <button 
-            onClick={() => setCodeMode(!codeMode)}
-            className="w-full p-3 rounded-lg hover:bg-blue-50 transition-all flex items-center gap-3 group"
-          >
-            <Code className="w-5 h-5 text-slate-600 group-hover:text-blue-600 shrink-0" />
-            {sidebarOpen && <span className="text-sm text-slate-700">{codeMode ? 'Código (ON)' : 'Código'}</span>}
-          </button>
+            <button 
+                onClick={() => {
+                    setShowConversations(!showConversations);
+                    if (!sidebarOpen) setSidebarOpen(true);
+                }}
+                className={`flex items-center gap-2 p-2 rounded-lg transition-all ${showConversations ? 'bg-gray-100 text-slate-900' : 'text-slate-500 hover:bg-gray-100 hover:text-slate-900'} ${!sidebarOpen ? 'justify-center' : ''}`}
+                title="All Chats"
+            >
+                <Search className="w-4 h-4 shrink-0" />
+                {sidebarOpen && <span className="text-sm font-medium">All Chats</span>}
+            </button>
         </div>
 
+        {/* Conversations List (Only when open) */}
         {sidebarOpen && (
-          <div className="flex-1 overflow-y-auto px-3 py-2">
-            {messages.length > 0 && (
-              <button className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-all text-left group">
-                <MessageSquare className="w-4 h-4 text-blue-500 shrink-0" />
-                <span className="text-sm text-slate-700 truncate">
-                  {messages[0]?.content?.substring(0, 25) || 'Conversación'}...
-                </span>
-              </button>
-            )}
+          <div className="flex-1 overflow-y-auto px-3 py-4 mt-2">
+            {showConversations ? (
+                <div className="space-y-2 animate-in fade-in slide-in-from-left-4 duration-300">
+                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-3">Historial</h3>
+                    {conversations.length === 0 && <p className="text-xs text-slate-400 text-center py-4">No hay conversaciones</p>}
+                    {conversations.map(chat => (
+                        <div key={chat.id} onClick={() => loadConversation(chat.id)} className="w-full p-2.5 rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100 transition-all cursor-pointer group relative">
+                            <p className="text-sm text-slate-700 font-medium truncate pr-6">{chat.title}</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{chat.date}</p>
+                            <button 
+                                onClick={(e) => deleteConversation(chat.id, e)}
+                                className="absolute right-2 top-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                                <X className="w-3 h-3" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
           </div>
         )}
 
-        <div className="border-t border-blue-100 mt-auto">
-          <button
-            onClick={() => setMenuExpanded(!menuExpanded)}
-            className="w-full p-3 flex items-center justify-between hover:bg-blue-50 transition-all group"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm shrink-0">
-                {userName.charAt(0).toUpperCase()}
-              </div>
-              {sidebarOpen && <span className="text-sm text-slate-600 font-medium truncate">{userName}</span>}
-            </div>
-            {sidebarOpen && (
-              <svg className={`w-4 h-4 text-slate-400 transition-transform shrink-0 ${menuExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"/>
-              </svg>
-            )}
-          </button>
-          
-          {sidebarOpen && (
-            <div className={`overflow-hidden transition-all duration-300 ${menuExpanded ? 'max-h-96' : 'max-h-0'}`}>
-              <div className="p-3 space-y-1">
-                <button onClick={handleNameChange} className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group">
-                  <User className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-                  <span className="text-sm text-slate-700">Cambiar nombre</span>
-                </button>
+        {/* Spacer if closed to push user to bottom */}
+        {!sidebarOpen && <div className="flex-1"></div>}
 
-                <button 
-                  onClick={() => setShowSettings(true)}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
-                >
-                  <Settings className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-                  <span className="text-sm text-slate-700">Configuración</span>
-                </button>
-
-                <button 
-                  onClick={() => {
-                    stopSpeaking();
-                    setVoiceEnabled(!voiceEnabled);
-                  }}
-                  className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
-                >
-                  <div className="flex items-center gap-3">
-                    {voiceEnabled ? <Volume2 className="w-4 h-4 text-slate-500 group-hover:text-blue-600" /> : <VolumeX className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />}
-                    <span className="text-sm text-slate-700">Síntesis de voz</span>
-                  </div>
-                  <div className={`w-9 h-5 rounded-full transition-colors ${voiceEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}>
-                    <div className={`w-4 h-4 bg-white rounded-full m-0.5 transition-transform ${voiceEnabled ? 'translate-x-4' : ''}`}></div>
-                  </div>
-                </button>
-
-                <div className="h-px bg-blue-100 my-2"></div>
-
-                <button 
-                  onClick={() => alert('Idioma: Actualmente solo soportamos Español.')}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
-                >
-                  <Globe className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-                  <span className="text-sm text-slate-700">Idioma</span>
-                </button>
-
-                <button 
-                  onClick={() => alert('Ayuda: Visita nuestra documentación en línea o contacta soporte.')}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
-                >
-                  <HelpCircle className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-                  <span className="text-sm text-slate-700">Ayuda</span>
-                </button>
-
-                <button 
-                  onClick={() => alert('Mejorar plan: Las opciones premium estarán disponibles pronto.')}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
-                >
-                  <ArrowUp className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-                  <span className="text-sm text-slate-700">Mejorar plan</span>
-                </button>
-
-                <button 
-                  onClick={() => alert('Regalar: ¡Gracias por tu interés! Pronto podrás regalar suscripciones.')}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
-                >
-                  <Gift className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-                  <span className="text-sm text-slate-700">Regalar NEXA OS</span>
-                </button>
-
-                <button 
-                  onClick={() => alert('Descargar: La aplicación de escritorio/móvil está en desarrollo.')}
-                  className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
-                >
-                  <Download className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-                  <span className="text-sm text-slate-700">Descargar app</span>
-                </button>
-
-                <div className="h-px bg-blue-100 my-2"></div>
-
-                <button onClick={handleLogout} className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-red-50 transition-all text-left group">
-                  <LogOut className="w-4 h-4 text-slate-500 group-hover:text-red-600" />
-                  <span className="text-sm text-slate-700 group-hover:text-red-700">Cerrar sesión</span>
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Bottom Section: User Profile */}
+        <div className="p-4 mt-auto border-t border-gray-200/50">
+             {userName === 'Invitado' ? (
+                sidebarOpen ? (
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={handleNameChange}
+                            className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm"
+                        >
+                            Log In
+                        </button>
+                        <button 
+                            onClick={handleNameChange}
+                            className="flex-1 py-2 px-3 bg-white border border-gray-200 hover:bg-gray-50 text-slate-700 text-xs font-bold rounded-lg transition-all shadow-sm"
+                        >
+                            Sign Up
+                        </button>
+                    </div>
+                ) : (
+                    <button 
+                        onClick={handleNameChange}
+                        className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-md mx-auto hover:scale-105 transition-transform"
+                        title="Log In / Sign Up"
+                    >
+                        <User className="w-4 h-4" />
+                    </button>
+                )
+             ) : (
+                 <div className={`flex items-center gap-3 ${!sidebarOpen ? 'justify-center' : ''}`}>
+                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shadow-md shrink-0">
+                        {userName.charAt(0).toUpperCase()}
+                    </div>
+                    {sidebarOpen && (
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-700 truncate">{userName}</p>
+                            <button onClick={handleNameChange} className="text-[10px] text-slate-400 hover:text-blue-600 transition-colors">
+                                Editar perfil
+                            </button>
+                        </div>
+                    )}
+                 </div>
+             )}
         </div>
-      </div>
+
+      {sidebarOpen && (
+        <div className="px-3 pb-4">
+            <div className="h-px bg-blue-100 my-2"></div>
+
+            <button 
+              onClick={() => setShowSettings(true)}
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+            >
+              <Settings className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
+              <span className="text-sm text-slate-700">Configuración</span>
+            </button>
+
+            <button 
+              onClick={() => {
+                  const nextLang = language === 'es' ? 'en' : 'es';
+                  setLanguage(nextLang);
+              }}
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+            >
+              <Globe className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
+              <span className="text-sm text-slate-700">Idioma: {language === 'es' ? 'Español' : 'English'}</span>
+            </button>
+
+            <button 
+              onClick={() => alert('Ayuda: Visita nuestra documentación en línea o contacta soporte.')}
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+            >
+              <HelpCircle className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
+              <span className="text-sm text-slate-700">Ayuda</span>
+            </button>
+
+            <button 
+              onClick={() => alert('Mejorar plan: Las opciones premium estarán disponibles pronto.')}
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+            >
+              <ArrowUp className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
+              <span className="text-sm text-slate-700">Mejorar plan</span>
+            </button>
+
+            <button 
+              onClick={() => alert('Regalar: ¡Gracias por tu interés! Pronto podrás regalar suscripciones.')}
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+            >
+              <Gift className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
+              <span className="text-sm text-slate-700">Regalar NEXA OS</span>
+            </button>
+
+            <button 
+              onClick={() => alert('Descargar: La aplicación de escritorio/móvil está en desarrollo.')}
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+            >
+              <Download className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
+              <span className="text-sm text-slate-700">Descargar app</span>
+            </button>
+
+            <div className="h-px bg-blue-100 my-2"></div>
+
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-red-50 transition-all text-left group">
+              <LogOut className="w-4 h-4 text-slate-500 group-hover:text-red-600" />
+              <span className="text-sm text-slate-700 group-hover:text-red-700">Cerrar sesión</span>
+            </button>
+        </div>
+      )}
+    </div>
 
       <div className="flex-1 flex flex-col min-w-0">
         <div className="bg-white/80 backdrop-blur-xl border-b border-blue-100 p-4 flex items-center gap-3 shadow-sm">
+          <button 
+             onClick={() => setSidebarOpen(true)}
+             className="md:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg mr-2"
+          >
+             <Menu className="w-6 h-6" />
+          </button>
           <div className="flex-1 flex items-center justify-center gap-2">
             <svg width="28" height="28" viewBox="0 0 100 100">
               <defs>
@@ -575,27 +916,6 @@ export default function ChatApp() {
             <span className="text-base font-semibold bg-gradient-to-r from-cyan-600 to-purple-600 bg-clip-text text-transparent">NEXA OS</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center bg-white border border-blue-200 rounded-lg overflow-hidden">
-              <button
-                onClick={() => setMode('fast')}
-                className={`px-3 py-1.5 text-sm ${mode==='fast'?'bg-blue-600 text-white':'text-slate-600 hover:bg-blue-50'}`}
-              >
-                Rápido
-              </button>
-              <button
-                onClick={() => setMode('deep')}
-                className={`px-3 py-1.5 text-sm ${mode==='deep'?'bg-blue-600 text-white':'text-slate-600 hover:bg-blue-50'}`}
-              >
-                Profundo
-              </button>
-            </div>
-            <button
-              onClick={() => setCodeMode(!codeMode)}
-              className={`px-3 py-1.5 text-sm rounded-lg border ${codeMode?'border-purple-300 bg-purple-50 text-purple-700':'border-blue-200 bg-white text-slate-600 hover:bg-blue-50'}`}
-              title="Modo Código"
-            >
-              {codeMode ? 'Código: ON' : 'Código: OFF'}
-            </button>
           </div>
 
           {isSpeaking && (
@@ -657,8 +977,16 @@ export default function ChatApp() {
                 
                 {msg.role === 'assistant' && (
                   <div className="flex justify-start">
-                    <div className="max-w-2xl bg-white/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-blue-100 shadow-sm">
-                      <p className="text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
+                    <div className="max-w-2xl w-full bg-white/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-blue-100 shadow-sm overflow-hidden">
+                      {msg.content.split(/(```[\s\S]*?```)/g).map((part, i) => {
+                          if (part.startsWith('```')) {
+                              const match = part.match(/```(\w+)?\n([\s\S]*?)```/);
+                              if (match) {
+                                  return <CodeBlock key={i} language={match[1] || ''} code={match[2]} />;
+                              }
+                          }
+                          return <p key={i} className="text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{part}</p>;
+                      })}
                     </div>
                   </div>
                 )}
@@ -701,13 +1029,13 @@ export default function ChatApp() {
         </div>
 
         <div className="border-t border-blue-100 p-4 bg-white/60 backdrop-blur-xl shadow-lg">
-          <div className="max-w-3xl mx-auto">
-            <div className="relative bg-white/80 backdrop-blur-sm border border-blue-200 rounded-2xl shadow-md focus-within:border-blue-300 focus-within:shadow-lg transition-all">
+          <div className="max-w-4xl mx-auto">
+            <div className="relative bg-white/40 backdrop-blur-md border border-white/50 rounded-[2rem] shadow-sm focus-within:shadow-md transition-all p-2">
               <input
-                ref={fileInputRef}
+                ref={docInputRef}
                 type="file"
                 multiple
-                accept=".txt,.md,.json,.pdf,.jpg,.jpeg,.png"
+                accept=".txt,.md,.json,.pdf,.doc,.docx,.xls,.xlsx,.csv"
                 className="hidden"
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
@@ -724,74 +1052,474 @@ export default function ChatApp() {
                   }
                 }}
               />
-              
-              {attachments.length > 0 && (
-                <div className="px-4 pt-3 flex flex-wrap gap-2">
-                  {attachments.map((f, idx) => (
-                    <div key={idx} className="flex items-center gap-2 px-2 py-1 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
-                      <span className="truncate max-w-[12rem]">{f.name}</span>
-                      <button
-                        onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                        className="text-blue-600 hover:text-blue-800"
-                        aria-label="Quitar adjunto"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder="Envía un mensaje a NEXA OS..."
-                className="w-full px-4 py-3 pr-24 outline-none resize-none text-slate-700 placeholder-slate-400 bg-transparent rounded-2xl text-base"
-                rows={1}
-                disabled={isLoading}
-                style={{ minHeight: '52px', maxHeight: '120px' }}
+              <input
+                ref={imageInputRef}
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length) setAttachments(prev => [...prev, ...files]);
+                }}
+              />
+              <input
+                ref={videoInputRef}
+                type="file"
+                multiple
+                accept="video/*"
+                className="hidden"
+                onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length) setAttachments(prev => [...prev, ...files]);
+                }}
+              />
+              <input
+                ref={audioInputRef}
+                type="file"
+                multiple
+                accept="audio/*"
+                className="hidden"
+                onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (files.length) setAttachments(prev => [...prev, ...files]);
+                }}
               />
               
-              <div className="absolute right-2 bottom-2 flex items-center gap-1">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isLoading}
-                  className="p-2.5 rounded-xl transition-all hover:bg-blue-50 text-slate-500"
-                  title="Adjuntar archivos"
-                >
-                  <FolderPlus className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={toggleVoiceRecognition}
-                  disabled={isLoading}
-                  className={`p-2.5 rounded-xl transition-all ${
-                    isListening ? 'bg-red-500 text-white shadow-lg' : 'hover:bg-blue-50 text-slate-500 disabled:opacity-50'
-                  }`}
-                >
-                  {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                </button>
+              {/* @ts-ignore */}
+              <input
+                  type="file"
+                  multiple
+                  // @ts-ignore
+                  webkitdirectory=""
+                  directory=""
+                  className="hidden"
+                  id="folder-upload"
+                  onChange={(e) => {
+                      // @ts-ignore
+                      const files = Array.from(e.target.files || []);
+                      if (files.length) setAttachments(prev => [...prev, ...files]);
+                  }}
+              />
 
-                <button
-                  onClick={isLoading ? stopGeneration : sendMessage}
-                  disabled={!isLoading && !input.trim()}
-                  className={`p-2.5 text-white rounded-xl transition-all shadow-md hover:shadow-lg ${
-                    isLoading ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 disabled:opacity-30 disabled:cursor-not-allowed'
-                  }`}
-                >
-                  {isLoading ? <Square className="w-4 h-4 fill-current" /> : <Send className="w-4 h-4" />}
-                </button>
+              {showUploadMenu && (
+                <div className="absolute bottom-[calc(100%+8px)] left-0 ml-2 w-60 bg-white/90 backdrop-blur-xl border border-white/50 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2">
+                    <div className="p-1.5 space-y-0.5">
+                        <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Upload</div>
+                        <button onClick={() => { setShowUploadMenu(false); docInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors">
+                            <div className="p-1.5 bg-blue-100 rounded-lg text-blue-600"><Paperclip className="w-4 h-4" /></div>
+                            <span className="font-medium">Document</span>
+                        </button>
+                        <button onClick={() => { setShowUploadMenu(false); imageInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-600 rounded-xl transition-colors">
+                             <div className="p-1.5 bg-purple-100 rounded-lg text-purple-600"><Image className="w-4 h-4" /></div>
+                            <span className="font-medium">Image</span>
+                        </button>
+                        <button onClick={() => { setShowUploadMenu(false); videoInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors">
+                             <div className="p-1.5 bg-red-100 rounded-lg text-red-600"><Video className="w-4 h-4" /></div>
+                            <span className="font-medium">Video</span>
+                        </button>
+                        <button onClick={() => { setShowUploadMenu(false); audioInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-colors">
+                             <div className="p-1.5 bg-amber-100 rounded-lg text-amber-600"><Music className="w-4 h-4" /></div>
+                            <span className="font-medium">Audio</span>
+                        </button>
+                         <button onClick={() => { setShowUploadMenu(false); document.getElementById('folder-upload')?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 rounded-xl transition-colors">
+                             <div className="p-1.5 bg-green-100 rounded-lg text-green-600"><FolderPlus className="w-4 h-4" /></div>
+                            <span className="font-medium">Folder</span>
+                        </button>
+                    </div>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="¿Cómo puedo ayudarte hoy?"
+                    className="w-full px-4 py-2 outline-none resize-none text-slate-700 placeholder-slate-400 bg-transparent text-lg font-medium"
+                    rows={1}
+                    disabled={isLoading}
+                    style={{ minHeight: '44px', maxHeight: '120px' }}
+                />
+
+                <div className="flex items-center justify-between px-2 pb-1">
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+                        <button
+                            onClick={() => setShowUploadMenu(!showUploadMenu)}
+                            disabled={isLoading}
+                            className={`p-2 rounded-full hover:bg-black/5 transition-colors ${showUploadMenu ? 'bg-blue-100 text-blue-600' : 'text-slate-500'}`}
+                            title="Adjuntar archivo"
+                        >
+                            <Plus className={`w-5 h-5 transition-transform ${showUploadMenu ? 'rotate-45' : ''}`} />
+                        </button>
+                        
+                        <div className="h-4 w-px bg-slate-200 mx-1"></div>
+
+                        <button
+                            onClick={() => setMode(mode === 'fast' ? 'deep' : 'fast')}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${mode === 'deep' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        >
+                            <Zap className="w-3 h-3" />
+                            {mode === 'deep' ? 'Thinking' : 'Rápido'}
+                        </button>
+
+                        <button
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
+                            onClick={() => alert("Búsqueda web próximamente")}
+                        >
+                            <Search className="w-3 h-3" />
+                            Search
+                        </button>
+
+                        <button
+                            onClick={() => setShowCreative(true)}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
+                        >
+                            <Sparkles className="w-3 h-3" />
+                            MCP
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                         <button
+                           onClick={() => setAutoVoiceMode(!autoVoiceMode)}
+                           className={`p-2 rounded-full transition-all ${autoVoiceMode ? 'bg-green-100 text-green-600' : 'hover:bg-black/5 text-slate-400'}`}
+                           title={autoVoiceMode ? "Auto: ON" : "Auto: OFF"}
+                         >
+                           <MessageSquare className="w-5 h-5" />
+                         </button>
+                        <button
+                            onClick={toggleVoiceRecognition}
+                            disabled={isLoading}
+                            className={`p-3 rounded-full transition-all shadow-sm ${
+                                isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-600 text-white hover:bg-blue-700'
+                            }`}
+                        >
+                            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                        </button>
+                        <button
+                            id="send-button"
+                            onClick={sendMessage}
+                            disabled={isLoading || !input.trim()}
+                            className={`p-3 rounded-full transition-all shadow-sm ${
+                                isLoading || !input.trim() 
+                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                                : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 active:scale-95'
+                            }`}
+                        >
+                            <Send className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {attachments.length > 0 && (
+                    <div className="px-4 pb-2 flex flex-wrap gap-2">
+                    {attachments.map((f, idx) => (
+                        <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-full text-xs text-slate-600 shadow-sm">
+                        <span className="truncate max-w-[12rem]">{f.name}</span>
+                        <button
+                            onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
+                            className="text-slate-400 hover:text-red-500"
+                        >
+                            <X className="w-3 h-3" />
+                        </button>
+                        </div>
+                    ))}
+                    </div>
+                )}
               </div>
             </div>
 
-            <p className="text-center text-xs text-slate-400 mt-2">
-              NEXA OS puede cometer errores. Verifica la información importante.
+            {/* Quick Actions Chips */}
+            <div className="mt-4 flex flex-col items-center gap-3 px-4">
+                <div className="flex flex-wrap gap-2 justify-center transition-all duration-300 ease-in-out">
+                {[
+                    { icon: Image, label: 'Image Edit', action: () => { setCodeMode(false); setInput('Edita esta imagen para que parezca...'); imageInputRef.current?.click(); } },
+                    { icon: Layout, label: 'Web Dev', action: () => { setCodeMode(true); setMode('fast'); setInput('Crea una landing page para...'); } },
+                    { icon: Book, label: 'Learn', action: () => { setCodeMode(false); setMode('deep'); setInput('Explícame el concepto de...'); } },
+                    { icon: Search, label: 'Deep Research', action: () => { setCodeMode(false); setMode('deep'); setInput('Investiga profundamente sobre...'); } },
+                    { icon: Sparkles, label: 'Image Gen', action: () => { setCodeMode(false); setInput('Genera una imagen de...'); } },
+                    { icon: Video, label: 'Video Gen', action: () => { setCodeMode(false); setInput('Crea un guion de video sobre...'); } },
+                    { icon: Briefcase, label: 'Artifacts', action: () => { setShowCreative(true); } },
+                    { icon: Calendar, label: 'Travel Planner', action: () => { setCodeMode(false); setInput('Planifica un viaje de 5 días a...'); } },
+                    { icon: Code, label: 'Code', action: () => { setCodeMode(true); setInput('Escribe una función en Python que...'); } },
+                    { icon: PenTool, label: 'Make a plan', action: () => { setCodeMode(false); setMode('deep'); setInput('Crea un plan detallado para...'); } },
+                    { icon: FileText, label: 'Summarize', action: () => { setCodeMode(false); setInput('Resume este texto: '); } },
+                    { icon: Lightbulb, label: 'Brainstorm', action: () => { setCodeMode(false); setInput('Dame 10 ideas creativas para...'); } },
+                ].slice(0, showAllApps ? undefined : 6).map((item, idx) => (
+                    <button
+                        key={idx}
+                        onClick={item.action}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/50 hover:bg-white border border-white/60 hover:border-blue-200 rounded-full text-xs text-slate-600 hover:text-blue-600 transition-all shadow-sm backdrop-blur-sm animate-in fade-in zoom-in duration-200"
+                    >
+                        <item.icon className="w-3.5 h-3.5" />
+                        {item.label}
+                    </button>
+                ))}
+                </div>
+                
+                <button
+                    onClick={() => setShowAllApps(!showAllApps)}
+                    className="flex items-center gap-1 px-4 py-1.5 bg-white/40 hover:bg-white/80 border border-white/50 rounded-full text-xs font-medium text-slate-500 hover:text-slate-700 transition-all shadow-sm backdrop-blur-sm"
+                >
+                    {showAllApps ? (
+                        <>
+                            Show Less <ChevronUp className="w-3 h-3" />
+                        </>
+                    ) : (
+                        <>
+                            More <ChevronDown className="w-3 h-3" />
+                        </>
+                    )}
+                </button>
+            </div>
+
+            <p className="text-center text-[10px] text-slate-400 mt-4 opacity-60">
+              NEXA OS v2.0 • AI Powered Workspace
             </p>
           </div>
         </div>
       </div>
 
+      {showVideoGen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-red-50 to-orange-50">
+                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
+                        <Video className="w-5 h-5 text-red-500" />
+                        Generador de Video AI
+                    </h3>
+                    <button onClick={() => setShowVideoGen(false)} className="p-1 hover:bg-white/50 rounded-full transition-colors">
+                        <X className="w-5 h-5 text-gray-500" />
+                    </button>
+                </div>
+                
+                <div className="p-6 overflow-y-auto space-y-6">
+                    {generatedVideo ? (
+                        <div className="flex flex-col items-center justify-center space-y-6">
+                             <div className="w-full h-64 md:h-80 bg-black rounded-xl overflow-hidden relative group shadow-2xl ring-1 ring-black/10 flex items-center justify-center">
+                                {videoGenFile && videoGenFile.type.startsWith('image') ? (
+                                    <img src={URL.createObjectURL(videoGenFile)} alt="Preview" className="w-full h-full object-cover opacity-60" />
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center text-white/50">
+                                         <Video className="w-16 h-16 mb-2 opacity-50" />
+                                         <p className="text-sm font-medium">Vista previa de video</p>
+                                    </div>
+                                )}
+                                <div className="absolute inset-0 flex items-center justify-center z-10">
+                                     <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform group-hover:bg-white/30" onClick={() => alert("Reproduciendo video generado...")}>
+                                         <Play className="w-10 h-10 text-white ml-1 fill-white" />
+                                     </div>
+                                </div>
+                                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-20">
+                                     <div className="flex items-center gap-3">
+                                        <button className="text-white hover:text-red-400"><Play className="w-4 h-4 fill-white" /></button>
+                                        <div className="h-1 bg-white/30 rounded-full overflow-hidden flex-1">
+                                            <div className="h-full w-1/3 bg-red-500 rounded-full"></div>
+                                        </div>
+                                        <span className="text-xs text-white font-mono">00:07 / 00:22</span>
+                                        <button className="text-white hover:text-red-400"><Download className="w-4 h-4" /></button>
+                                     </div>
+                                </div>
+                             </div>
+
+                             <div className="text-center space-y-2">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wider">
+                                    <CheckCircle2 className="w-3 h-3" /> Completado
+                                </div>
+                                <h3 className="text-2xl font-bold text-slate-800">¡Tu video está listo!</h3>
+                                <p className="text-slate-600 max-w-md mx-auto">
+                                    Hemos generado una animación basada en tu prompt: <span className="italic">&quot;{videoPrompt}&quot;</span>
+                                </p>
+                             </div>
+                             
+                             <div className="flex gap-3 w-full max-w-md">
+                                 <button onClick={() => { setShowVideoGen(false); setGeneratedVideo(false); setVideoGenFile(null); setVideoPrompt(''); }} className="flex-1 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors">
+                                     Descartar
+                                 </button>
+                                 <button onClick={() => {
+                                     setShowVideoGen(false);
+                                     setGeneratedVideo(false);
+                                     setMessages(prev => [...prev, {
+                                        role: 'assistant',
+                                        content: `🎥 **Video Generado**\n\nAquí tienes el resultado de tu solicitud: "${videoPrompt}"\n\n*[Video adjunto: generation_v2_480p.mp4]*`
+                                     }]);
+                                     setVideoGenFile(null);
+                                     setVideoPrompt('');
+                                 }} className="flex-1 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 transition-all transform hover:-translate-y-0.5">
+                                     Insertar en Chat
+                                 </button>
+                             </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="space-y-2">
+                               <label className="text-sm font-medium text-slate-700">1. Sube tu imagen o video de referencia</label>
+                                <div 
+                                    className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-all ${videoGenFile ? 'border-red-200 bg-red-50/30' : 'border-slate-200 hover:border-red-300 hover:bg-slate-50'}`}
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        const file = e.dataTransfer.files[0];
+                                        if(file) setVideoGenFile(file);
+                                    }}
+                                >
+                                    {videoGenFile ? (
+                                        <div className="text-center relative">
+                                            {videoGenFile.type.startsWith('image') ? (
+                                                <img src={URL.createObjectURL(videoGenFile)} alt="File preview" className="h-32 rounded-lg shadow-sm mb-2 object-cover" />
+                                            ) : (
+                                                <div className="h-32 w-32 bg-slate-100 rounded-lg flex items-center justify-center mb-2 mx-auto">
+                                                    <Video className="w-10 h-10 text-slate-400" />
+                                                </div>
+                                            )}
+                                            <p className="text-sm font-medium text-slate-700">{videoGenFile.name}</p>
+                                            <button onClick={() => setVideoGenFile(null)} className="text-xs text-red-500 hover:underline mt-1">Cambiar archivo</button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center cursor-pointer" onClick={() => document.getElementById('video-upload')?.click()}>
+                                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-red-500">
+                                                <Plus className="w-6 h-6" />
+                                            </div>
+                                            <p className="text-sm text-slate-600 font-medium">Haz clic o arrastra un archivo aquí</p>
+                                            <p className="text-xs text-slate-400 mt-1">Soporta JPG, PNG, MP4</p>
+                                        </div>
+                                    )}
+                                    <input type="file" id="video-upload" className="hidden" accept="image/*,video/*" onChange={(e) => e.target.files?.[0] && setVideoGenFile(e.target.files[0])} />
+                                </div>
+                            </div>
+
+                            {/* Prompt Section */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">2. Describe cómo quieres recrearlo</label>
+                                <textarea 
+                                    value={videoPrompt}
+                                    onChange={(e) => setVideoPrompt(e.target.value)}
+                                    placeholder="Ej: Haz que el paisaje se mueva suavemente, añade lluvia y una atmósfera melancólica..."
+                                    className="w-full p-3 rounded-xl border border-slate-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none resize-none h-24 text-sm"
+                                />
+                            </div>
+
+                            {/* Settings */}
+                            <div className="flex items-center gap-4 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-slate-400" />
+                                    <span>Duración: <strong>22 segundos</strong></span>
+                                </div>
+                                <div className="h-4 w-px bg-slate-200"></div>
+                                <div className="flex items-center gap-2">
+                                    <Sparkles className="w-4 h-4 text-slate-400" />
+                                    <span>Modelo: <strong>NEXA Video Gen 2.0</strong></span>
+                                </div>
+                            </div>
+
+                            {/* Generate Button */}
+                            <button 
+                                onClick={handleGenerateVideo}
+                                disabled={!videoGenFile || !videoPrompt || isGeneratingVideo}
+                                className={`w-full py-3 rounded-xl font-medium text-white shadow-lg shadow-red-500/20 transition-all flex items-center justify-center gap-2 ${
+                                    !videoGenFile || !videoPrompt || isGeneratingVideo
+                                    ? 'bg-slate-300 cursor-not-allowed' 
+                                    : 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 hover:scale-[1.02] active:scale-[0.98]'
+                                }`}
+                            >
+                                {isGeneratingVideo ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        Generando Video (Esto tomará unos segundos)...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Zap className="w-5 h-5" />
+                                        Generar Video
+                                    </>
+                                )}
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+      )}
+       {showCreative && (
+           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <Gift className="w-6 h-6 text-purple-600" />
+                    Estudio Creativo NEXA
+                  </h2>
+                  <button onClick={() => setShowCreative(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                    <X className="w-6 h-6 text-slate-500" />
+                  </button>
+                </div>
+ 
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                   {/* Web Generator */}
+                   <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100 hover:shadow-lg transition-all cursor-pointer group"
+                        onClick={() => {
+                            setCodeMode(true);
+                            setMode('fast');
+                            setInput("Crea una página web moderna y responsiva para [TU TEMA AQUÍ] que incluya una sección de héroe, características y contacto. Usa Tailwind CSS.");
+                            setShowCreative(false);
+                        }}>
+                       <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                           <Globe className="w-6 h-6 text-blue-600" />
+                       </div>
+                       <h3 className="text-lg font-semibold text-slate-800 mb-2">Diseñador Web</h3>
+                       <p className="text-sm text-slate-600">Crea sitios web completos, landing pages y componentes UI al instante.</p>
+                   </div>
+ 
+                   {/* Logo Creator */}
+                   <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100 hover:shadow-lg transition-all cursor-pointer group"
+                        onClick={() => {
+                            setCodeMode(true);
+                            setMode('fast');
+                            setInput("Genera el código SVG para un logo moderno y minimalista de [NOMBRE/EMPRESA]. El logo debe representar [CONCEPTO]. Usa colores vibrantes.");
+                            setShowCreative(false);
+                        }}>
+                       <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                           <Code className="w-6 h-6 text-purple-600" />
+                       </div>
+                       <h3 className="text-lg font-semibold text-slate-800 mb-2">Creador de Logos</h3>
+                       <p className="text-sm text-slate-600">Diseña logotipos vectoriales (SVG) listos para usar en tus proyectos.</p>
+                   </div>
+ 
+                   {/* Book Writer */}
+                   <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-2xl border border-amber-100 hover:shadow-lg transition-all cursor-pointer group"
+                        onClick={() => {
+                            setCodeMode(false);
+                            setMode('deep');
+                            setInput("Escribe el primer capítulo de un libro sobre [TEMA]. El tono debe ser [TONO]. Incluye diálogos y descripciones detalladas.");
+                            setShowCreative(false);
+                        }}>
+                       <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                           <FolderPlus className="w-6 h-6 text-amber-600" />
+                       </div>
+                       <h3 className="text-lg font-semibold text-slate-800 mb-2">Escritor de Libros</h3>
+                       <p className="text-sm text-slate-600">Ayuda para escribir novelas, cuentos o documentación técnica extensa.</p>
+                   </div>
+ 
+                   {/* Video Script */}
+                   <div className="bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-2xl border border-red-100 hover:shadow-lg transition-all cursor-pointer group"
+                        onClick={() => {
+                            setCodeMode(false);
+                            setMode('fast');
+                            setInput("Crea un guion detallado para un video de YouTube sobre [TEMA]. Incluye escenas, narración y sugerencias visuales.");
+                            setShowCreative(false);
+                        }}>
+                       <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                           <Volume2 className="w-6 h-6 text-red-600" />
+                       </div>
+                       <h3 className="text-lg font-semibold text-slate-800 mb-2">Guionista de Video</h3>
+                       <p className="text-sm text-slate-600">Genera guiones, ideas y estructuras para contenido audiovisual.</p>
+                   </div>
+                </div>
+              </div>
+           </div>
+         )}
        {showSettings && (
          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
@@ -819,6 +1547,13 @@ export default function ChatApp() {
                    placeholder="¿Cómo te llamas?"
                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                  />
+               </div>
+
+               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                 <span className="text-sm font-medium text-gray-700">Estado de Red</span>
+                 <span className={`text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                   {isOnline ? 'En línea' : 'Sin conexión'}
+                 </span>
                </div>
 
                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
@@ -856,6 +1591,51 @@ export default function ChatApp() {
                    <option value="zh">中文 (简体)</option>
                  </select>
                 </div>
+                
+                {/* Backup & Repair System */}
+                <div className="space-y-2">
+                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                   <HardDrive className="w-4 h-4" /> Copia de Seguridad y Reparación
+                 </label>
+                 <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100 space-y-3">
+                   <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                         <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                            <Shield className="w-5 h-5" />
+                         </div>
+                         <div>
+                            <p className="font-medium text-slate-700">Backup Automático</p>
+                            <p className="text-xs text-slate-500">Guarda proyecto y datos en /backups</p>
+                         </div>
+                      </div>
+                      <button 
+                        onClick={handleSystemBackup}
+                        disabled={isBackingUp}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      >
+                        {isBackingUp ? 'Guardando...' : 'Backup Ahora'}
+                      </button>
+                   </div>
+                   <div className="h-px bg-blue-200/50"></div>
+                   <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                         <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
+                            <RotateCcw className="w-5 h-5" />
+                         </div>
+                         <div>
+                            <p className="font-medium text-slate-700">Restauración</p>
+                            <p className="text-xs text-slate-500">Recuperar último estado seguro</p>
+                         </div>
+                      </div>
+                      <button 
+                        onClick={handleSystemRestore}
+                        className="px-3 py-1.5 bg-white border border-gray-200 text-slate-600 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Restaurar
+                      </button>
+                   </div>
+                 </div>
+               </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Exportar conversación</label>

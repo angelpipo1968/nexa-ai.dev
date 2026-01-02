@@ -1,15 +1,6 @@
 {
   "appId": "com.nexaos.app",
   "appName": "NEXA OS",
-  "webDir": "public",
-  "bundledWebRuntime": false,
-  "server": {
-    "url": "https://www.nexa-ai.dev",
-    "cleartext": false,
-    "androidScheme": "https",
-    "allowNavigation": [
-      "www.nexa-ai.dev",
-      "nexa-ai.dev"
-    ]
-  }
+  "webDir": "out",
+  "bundledWebRuntime": false
 }
