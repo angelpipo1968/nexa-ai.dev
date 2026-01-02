@@ -3,6 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Mic, MicOff, Volume2, VolumeX, Plus, MessageSquare, AlertCircle, Settings, Globe, HelpCircle, ArrowUp, Gift, Download, LogOut, User, FolderPlus, Code, X, Search, Sparkles, Zap, Image, Video, Book, Briefcase, Calendar, PenTool, Lightbulb, FileText, Layout, Paperclip, Music, ChevronDown, ChevronUp, PanelLeft, Eye, EyeOff, Check, Copy, Clock, Loader2, Play, CheckCircle2, HardDrive, Shield, RotateCcw, Menu } from 'lucide-react';
 import JSZip from 'jszip';
+import { AuthModal } from '../components/AuthModal';
+import { auth, db } from '../lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 // CodeBlock Component
 const CodeBlock = ({ language, code }: { language: string, code: string }) => {
@@ -81,6 +85,41 @@ export default function ChatApp() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState('Invitado');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setUserName(currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario');
+        
+        // Save user to Firestore if not exists
+        try {
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (!userDoc.exists()) {
+            await setDoc(userDocRef, {
+              uid: currentUser.uid,
+              email: currentUser.email,
+              displayName: currentUser.displayName,
+              photoURL: currentUser.photoURL,
+              createdAt: new Date().toISOString(),
+              role: 'user'
+            });
+          }
+        } catch (error) {
+          console.error("Error creating user document:", error);
+        }
+      } else {
+        setUserName('Invitado');
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
   const [menuExpanded, setMenuExpanded] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [language, setLanguage] = useState<'es' | 'en' | 'zh'>('es');
@@ -791,13 +830,19 @@ export default function ChatApp() {
                 sidebarOpen ? (
                     <div className="flex gap-2">
                         <button 
-                            onClick={handleNameChange}
+                            onClick={() => {
+                                setAuthMode('login');
+                                setIsAuthModalOpen(true);
+                            }}
                             className="flex-1 py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-all shadow-sm"
                         >
                             Log In
                         </button>
                         <button 
-                            onClick={handleNameChange}
+                            onClick={() => {
+                                setAuthMode('signup');
+                                setIsAuthModalOpen(true);
+                            }}
                             className="flex-1 py-2 px-3 bg-white border border-gray-200 hover:bg-gray-50 text-slate-700 text-xs font-bold rounded-lg transition-all shadow-sm"
                         >
                             Sign Up
@@ -805,7 +850,10 @@ export default function ChatApp() {
                     </div>
                 ) : (
                     <button 
-                        onClick={handleNameChange}
+                        onClick={() => {
+                            setAuthMode('login');
+                            setIsAuthModalOpen(true);
+                        }}
                         className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-md mx-auto hover:scale-105 transition-transform"
                         title="Log In / Sign Up"
                     >
@@ -820,14 +868,20 @@ export default function ChatApp() {
                     {sidebarOpen && (
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-slate-700 truncate">{userName}</p>
-                            <button onClick={handleNameChange} className="text-[10px] text-slate-400 hover:text-blue-600 transition-colors">
-                                Editar perfil
+                            <button onClick={() => signOut(auth)} className="text-[10px] text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1">
+                                <LogOut size={10} /> Cerrar Sesión
                             </button>
                         </div>
                     )}
                  </div>
              )}
         </div>
+
+        <AuthModal 
+          isOpen={isAuthModalOpen} 
+          onClose={() => setIsAuthModalOpen(false)} 
+          defaultMode={authMode} 
+        />
 
       {sidebarOpen && (
         <div className="px-3 pb-4">
