@@ -1084,7 +1084,7 @@ export default function ChatApp() {
         </div>
 
         <div className="border-t border-blue-100/50 p-4 md:pb-6 bg-white/80 backdrop-blur-xl shadow-lg z-20">
-          <div className="max-w-2xl mx-auto w-[92%] md:w-[85%] lg:w-[75%]">
+          <div className="max-w-2xl mx-auto w-[85%] md:w-[80%] lg:w-[70%]">
             <div className="relative bg-white shadow-lg border border-blue-100 rounded-[2rem] focus-within:ring-2 focus-within:ring-blue-100 transition-all p-2 mx-0">
               <input
                 ref={docInputRef}
