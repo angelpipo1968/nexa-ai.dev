@@ -11,6 +11,22 @@ const config: Config = {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        nexa: {
+            dark: "#0B0F14",
+            surface: "#111827",
+            primary: "#2563eb",
+            secondary: "#FF00E4",
+            text: {
+                DEFAULT: "#E5E7EB",
+                dim: "#9CA3AF"
+            }
+        }
+      },
+      keyframes: {
+        'music-bar': {
+          '0%, 100%': { height: '100%' },
+          '50%': { height: '40%' },
+        }
       },
     },
   },

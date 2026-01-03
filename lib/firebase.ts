@@ -1,7 +1,7 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getAnalytics, isSupported } from "firebase/analytics";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { getAuth, Auth } from "firebase/auth";
+import { getFirestore, Firestore } from "firebase/firestore";
+import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,17 +14,31 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
+let analytics: Analytics | undefined;
 
-let analytics;
-if (typeof window !== "undefined") {
-  isSupported().then((supported) => {
-    if (supported) {
-      analytics = getAnalytics(app);
+const isFirebaseConfigured = firebaseConfig.apiKey && firebaseConfig.projectId;
+
+if (isFirebaseConfigured) {
+  try {
+    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+
+    if (typeof window !== "undefined") {
+      isSupported().then((supported) => {
+        if (supported && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          analytics = getAnalytics(app);
+        }
+      }).catch(err => console.log("Firebase Analytics not supported:", err));
     }
-  });
+  } catch (error) {
+    console.error("Firebase init error:", error);
+  }
+} else {
+  console.warn("Firebase config missing. Auth and DB will not work.");
 }
 
 export { app, auth, db, analytics };

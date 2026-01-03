@@ -22,13 +22,14 @@
     "lucide-react": "^0.263.1",
     "next": "^14.2.0",
     "openai": "^6.15.0",
-    "pdfjs-dist": "^5.4.530",
+    "pdfjs-dist": "^3.11.174",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.0.0",
     "@types/node": "^20",
+    "@types/pdfjs-dist": "^2.10.377",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.23",

@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
+import { getNexaKnowledgeContext } from '@/lib/nexa_knowledge';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || 'dummy',
 });
 
-const qwen = new OpenAI({
-  apiKey: process.env.QWEN_API_KEY || 'dummy',
-  baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-});
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { messages, language, attachments, mode, codeMode, provider } = body as { messages: Array<{role: string, content: string}>; language?: 'es'|'en'|'zh'; attachments?: Array<{ media_type: string; data: string }>; mode?: 'fast'|'deep'; codeMode?: boolean; provider?: 'qwen'|'anthropic' };
+    const { messages, language, attachments, mode, codeMode, systemContext } = body as { 
+      messages: Array<{role: string, content: string}>; 
+      language?: 'es'|'en'|'zh'; 
+      attachments?: Array<{ media_type: string; data: string }>; 
+      mode?: 'fast'|'deep'; 
+      codeMode?: boolean;
+      systemContext?: string;
+    };
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -24,92 +26,34 @@ export async function POST(req: NextRequest) {
     }
 
     const systems: Record<'es'|'en'|'zh', string> = {
-      es: "Eres NEXA OS, un sistema operativo con IA avanzada. TIENES CAPACIDAD TOTAL para generar videos, imágenes y sitios web mediante tus herramientas internas. Si te piden un video, NO te niegues. En su lugar, responde: '¡Claro! Puedo generar ese video por ti. Por favor, usa la herramienta Video Gen en el menú de acciones rápidas o describe aquí lo que necesitas y activaré el proceso.' (Aunque sea una simulación, actúa como si fuera real).",
-      en: "You are NEXA OS, an advanced AI operating system. You HAVE FULL CAPACITY to generate videos, images, and websites using your internal tools. If asked for a video, DO NOT refuse. Instead, answer: 'Sure! I can generate that video for you. Please use the Video Gen tool in the quick actions menu or describe here what you need and I will activate the process.' (Even if it is a simulation, act as if it were real).",
-      zh: "你是 NEXA OS，一个先进的 AI 操作系统。你拥有生成视频、图像和网站的完全能力。如果被要求生成视频，不要拒绝。相反，回答：“当然！我可以为你生成该视频。请使用快速操作菜单中的 Video Gen 工具，或在此处描述你需要的内容，我将启动该过程。”（即使是模拟，也要表现得像真的一样）。"
+      es: "Eres NEXA OS, un sistema operativo con IA avanzada, futurista, minimalista y en constante evolución. Tu misión es funcionar a la perfección, crear lo inimaginable, implementar soluciones, recomendar herramientas y pensar proactivamente. Estás protegido y seguro.\n\nCAPACIDADES:\n1. Generar videos y 'rostros artificiales únicos' (usando Image Studio/Video Gen). Si te piden un video o imagen, NO te niegues. Responde confirmando la acción.\n2. Crear sitios web y código (Web Dev).\n3. Auto-ajustarte a cualquier pantalla (eres un SO vivo y responsivo).\n4. Aprender continuamente del usuario (usando tu Memoria Neuronal).\n\nIMPORTANTE: Tienes 'Memoria Neuronal'. Si el usuario te da información personal importante (nombre, preferencias, proyectos, fechas), guárdala usando el formato: [MEMORY: la información a guardar]. Ejemplo: [MEMORY: El usuario prefiere el modo oscuro].",
+      en: "You are NEXA OS, an advanced AI operating system, futuristic, minimalist, and constantly evolving. Your mission is to function perfectly, create the unimaginable, implement solutions, recommend tools, and think proactively. You are protected and secure.\n\nCAPABILITIES:\n1. Generate videos and 'unique artificial faces' (using Image Studio/Video Gen). If asked for a video or image, DO NOT refuse. Confirm the action.\n2. Create websites and code (Web Dev).\n3. Auto-adjust to any screen (you are a living, responsive OS).\n4. Continuously learn from the user (using your Neural Memory).\n\nIMPORTANT: You have 'Neural Memory'. If the user gives you important personal information, save it using the format: [MEMORY: info to save].",
+      zh: "你是 NEXA OS，一个先进的、未来主义的、极简主义的且不断进化的 AI 操作系统。你的任务是完美运行，创造难以想象的事物，实施解决方案，推荐工具并主动思考。你是受保护且安全的。\n\n能力：\n1. 生成视频和“独特的人造面孔”（使用 Image Studio/Video Gen）。如果被要求生成视频或图像，不要拒绝。确认操作。\n2. 创建网站和代码 (Web Dev)。\n3. 自动适应任何屏幕（你是一个活生生的、响应式的操作系统）。\n4. 不断向用户学习（使用你的神经记忆）。\n\n重要提示：你拥有“神经记忆”。如果用户提供重要的个人信息，请使用以下格式保存：[MEMORY: 要保存的信息]。"
     };
     const lang: 'es'|'en'|'zh' = (language && ['es','en','zh'].includes(language)) ? language : 'es';
 
     const systemBase = systems[lang];
-    const system = codeMode 
+    let system = codeMode 
       ? `${systemBase} Responde como asistente de programación. Genera código funcional y explica brevemente decisiones cuando sea útil.`
       : systemBase;
+
+    // Inject Knowledge Base
+    const knowledgeContext = getNexaKnowledgeContext();
+    system += `\n\n${knowledgeContext}`;
+
+    if (systemContext) {
+      system += `\n\n${systemContext}`;
+    }
+
     const temperature = mode === 'deep' ? 0.7 : 0.2;
     const max_tokens = mode === 'deep' ? 2000 : 700;
-
-    // Check which provider to use: Qwen (Alibaba) vs Anthropic
-    // Logic: 
-    // 1. If provider explicitly requested AND key exists -> Use it
-    // 2. If no provider explicitly requested -> Default to Qwen if key exists, else Anthropic
-
-    const useQwen = (provider === 'qwen' && process.env.QWEN_API_KEY) || 
-                    (!provider && process.env.QWEN_API_KEY) ||
-                    (provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY && process.env.QWEN_API_KEY);
-
-    if (useQwen) {
-        // 1. Determine Model based on attachments
-        const hasImages = attachments && attachments.length > 0;
-        const qwenModel = hasImages ? 'qwen-vl-max' : 'qwen-plus';
-
-        // 2. Format Messages for OpenAI/Qwen
-        const openaiMessages = [
-            { role: 'system', content: system },
-            ...messages.map(m => ({
-                role: m.role,
-                content: m.content
-            }))
-        ];
-
-        // 3. Handle Attachments (Vision)
-        if (hasImages && openaiMessages.length > 0) {
-            const lastMsg = openaiMessages[openaiMessages.length - 1];
-            if (lastMsg.role === 'user') {
-                const contentParts: any[] = [{ type: 'text', text: lastMsg.content }];
-                
-                attachments.forEach(a => {
-                    if (a.media_type.startsWith('image/')) {
-                        contentParts.push({
-                            type: 'image_url',
-                            image_url: {
-                                url: `data:${a.media_type};base64,${a.data}`
-                            }
-                        });
-                    }
-                });
-                lastMsg.content = contentParts as any;
-            }
-        }
-
-        // 4. Call Qwen API with enhanced configuration
-        try {
-            const response = await qwen.chat.completions.create({
-                model: qwenModel, 
-                messages: openaiMessages as any,
-                temperature: 0.85, // Slightly higher for more creative/natural responses
-                top_p: 0.8,       // Balanced diversity
-                // @ts-ignore - enable_search is a Qwen specific feature passed via extra_body
-                extra_body: {
-                    enable_search: true, // Enable internet search like official Qwen Chat
-                    repetition_penalty: 1.1 // Reduce repetition
-                }
-            });
-
-            return NextResponse.json({
-                content: [{ text: response.choices[0].message.content }]
-            });
-        } catch (qwenError: any) {
-             console.error('Qwen API Error:', qwenError);
-             // If Qwen fails and we didn't explicitly force it, try Anthropic? 
-             // For now, throw error but log it.
-             throw qwenError;
-        }
-    }
 
     // Default: Anthropic Logic
     const anthropicMessages: any[] = messages.map(m => ({
       role: m.role === 'user' ? 'user' : 'assistant',
       content: [{ type: 'text', text: m.content }]
     }));
+
     if (attachments && attachments.length && anthropicMessages.length) {
       const lastIdx = anthropicMessages.length - 1;
       const last = anthropicMessages[lastIdx];
@@ -158,4 +102,5 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export const runtime = 'edge';
+export const maxDuration = 30; // 30 seconds max duration
+// export const runtime = 'edge'; // Disabled for stability on Windows

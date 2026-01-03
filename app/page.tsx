@@ -1,12 +1,50 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Volume2, VolumeX, Plus, MessageSquare, AlertCircle, Settings, Globe, HelpCircle, ArrowUp, Gift, Download, LogOut, User, FolderPlus, Code, X, Search, Sparkles, Zap, Image, Video, Book, Briefcase, Calendar, PenTool, Lightbulb, FileText, Layout, Paperclip, Music, ChevronDown, ChevronUp, PanelLeft, Eye, EyeOff, Check, Copy, Clock, Loader2, Play, CheckCircle2, HardDrive, Shield, RotateCcw, Menu } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Send, Mic, MicOff, Volume2, VolumeX, Plus, MessageSquare, AlertCircle, Settings, Globe, HelpCircle, ArrowUp, Gift, Download, LogOut, User, FolderPlus, Code, X, Search, Sparkles, Zap, Image, Video, Book, Briefcase, Calendar, PenTool, Lightbulb, FileText, Layout, Paperclip, Music, ChevronDown, ChevronUp, PanelLeft, Eye, EyeOff, Check, Copy, Clock, Loader2, Play, CheckCircle2, HardDrive, Shield, RotateCcw, Menu, Palette, Compass, Newspaper, GraduationCap, MoreHorizontal, Headphones } from 'lucide-react';
 import JSZip from 'jszip';
 import { AuthModal } from '../components/AuthModal';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { SYSTEM_APPS, getAppById } from '../lib/apps';
+import { MemorySystem } from '../lib/memory';
+import VideoGen from '../components/apps/VideoGen';
+import ImageStudio from '../components/apps/ImageStudio';
+import MemoryBank from '../components/apps/MemoryBank';
+
+const APP_COMPONENTS: Record<string, React.ComponentType<any>> = {
+  'VideoGen': VideoGen,
+  'ImageStudio': ImageStudio,
+  'MemoryBank': MemoryBank,
+};
+
+const AttachmentPreview = ({ file }: { file: File }) => {
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setPreview(url);
+      return () => URL.revokeObjectURL(url);
+    }
+  }, [file]);
+
+  if (file.type.startsWith('image/') && preview) {
+    return (
+      <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-100 relative group-preview">
+         {/* eslint-disable-next-line @next/next/no-img-element */}
+         <img src={preview} alt="Attachment preview" className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-1.5 bg-blue-50 rounded-lg text-blue-600 flex-shrink-0">
+        <Paperclip className="w-4 h-4" />
+    </div>
+  );
+};
 
 // CodeBlock Component
 const CodeBlock = ({ language, code }: { language: string, code: string }) => {
@@ -24,14 +62,14 @@ const CodeBlock = ({ language, code }: { language: string, code: string }) => {
                        (language === '' && code.trim().startsWith('<'));
 
   return (
-    <div className="my-4 rounded-lg overflow-hidden border border-slate-200 bg-slate-50 shadow-sm">
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-slate-200">
-        <span className="text-xs font-semibold text-slate-500 uppercase">{language || 'code'}</span>
+    <div className="my-4 rounded-lg overflow-hidden border border-gray-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-200">
+        <span className="text-xs font-semibold text-gray-500 uppercase">{language || 'code'}</span>
         <div className="flex items-center gap-2">
            {isPreviewable && (
              <button 
                onClick={() => setShowPreview(!showPreview)} 
-               className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-white rounded-md transition-all"
+               className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-500 hover:text-blue-600 hover:bg-white rounded-md transition-all"
              >
                {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                {showPreview ? 'Ocultar' : 'Preview'}
@@ -39,16 +77,16 @@ const CodeBlock = ({ language, code }: { language: string, code: string }) => {
            )}
            <button 
              onClick={handleCopy} 
-             className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-slate-600 hover:text-green-600 hover:bg-white rounded-md transition-all"
+             className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-gray-500 hover:text-green-600 hover:bg-white rounded-md transition-all"
            >
              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
              {copied ? 'Copiado' : 'Copiar'}
-           </button>
-        </div>
-      </div>
-      
-      {showPreview ? (
-        <div className="p-0 bg-white border-b border-slate-200 relative group">
+          </button>
+       </div>
+    </div>
+    
+    {showPreview ? (
+        <div className="p-0 bg-white border-b border-gray-200 relative group">
            <iframe 
              srcDoc={code} 
              className="w-full h-[400px] border-0 bg-white" 
@@ -58,7 +96,7 @@ const CodeBlock = ({ language, code }: { language: string, code: string }) => {
         </div>
       ) : (
         <div className="relative group">
-            <pre className="p-4 overflow-x-auto text-sm font-mono text-slate-700 bg-slate-50 whitespace-pre">
+            <pre className="p-4 overflow-x-auto text-sm font-mono text-gray-800 bg-gray-50 whitespace-pre">
             {code}
             </pre>
         </div>
@@ -66,6 +104,26 @@ const CodeBlock = ({ language, code }: { language: string, code: string }) => {
     </div>
   )
 }
+
+const CopyButton = ({ text }: { text: string }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <button 
+        onClick={handleCopy}
+        className="absolute bottom-2 right-2 p-1.5 text-gray-400 hover:text-blue-600 bg-white/80 hover:bg-white rounded-full transition-all shadow-sm backdrop-blur-sm z-10"
+        title="Copiar mensaje"
+    >
+        {copied ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+    </button>
+  );
+};
 
 declare global {
   interface Window {
@@ -82,14 +140,22 @@ export default function ChatApp() {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState('Invitado');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  useEffect(() => {
+    // Open sidebar by default only on desktop
+    if (window.innerWidth >= 768) {
+      setSidebarOpen(true);
+    }
+  }, []);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
@@ -97,18 +163,20 @@ export default function ChatApp() {
         
         // Save user to Firestore if not exists
         try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          if (!userDoc.exists()) {
-            await setDoc(userDocRef, {
-              uid: currentUser.uid,
-              email: currentUser.email,
-              displayName: currentUser.displayName,
-              photoURL: currentUser.photoURL,
-              createdAt: new Date().toISOString(),
-              role: 'user'
-            });
+          if (db) {
+            const userDocRef = doc(db, 'users', currentUser.uid);
+            const userDoc = await getDoc(userDocRef);
+            
+            if (!userDoc.exists()) {
+              await setDoc(userDocRef, {
+                uid: currentUser.uid,
+                email: currentUser.email,
+                displayName: currentUser.displayName,
+                photoURL: currentUser.photoURL,
+                createdAt: new Date().toISOString(),
+                role: 'user'
+              });
+            }
           }
         } catch (error) {
           console.error("Error creating user document:", error);
@@ -132,33 +200,25 @@ export default function ChatApp() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const [pdfTexts, setPdfTexts] = useState<Array<{ name: string; text: string }>>([]);
+  const [fileTexts, setFileTexts] = useState<Array<{ name: string; text: string }>>([]);
   const [isOnline, setIsOnline] = useState(true);
   const [conversations, setConversations] = useState<Array<{id: string, title: string, date: string, messages: any[]}>>([]);
   const [showConversations, setShowConversations] = useState(false);
   const [showUploadMenu, setShowUploadMenu] = useState(false);
   const [showAllApps, setShowAllApps] = useState(false);
-  // Video Gen States
-  const [showVideoGen, setShowVideoGen] = useState(false);
-  const [videoGenFile, setVideoGenFile] = useState<File | null>(null);
-  const [videoPrompt, setVideoPrompt] = useState('');
-  const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
-  const [generatedVideo, setGeneratedVideo] = useState<boolean>(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const [inputHighlight, setInputHighlight] = useState(false);
+  const [wallpaper, setWallpaper] = useState<string | null>(null);
+  
+  // App System State
+  const [activeApp, setActiveApp] = useState<string | null>(null);
+  const [appFile, setAppFile] = useState<File | null>(null);
 
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const wallpaperInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
   const docInputRef = useRef<HTMLInputElement | null>(null);
-
-  const handleGenerateVideo = () => {
-    setIsGeneratingVideo(true);
-    // Simulation of video generation process
-    setTimeout(() => {
-        setIsGeneratingVideo(false);
-        setGeneratedVideo(true);
-    }, 3000);
-  };
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -175,14 +235,14 @@ export default function ChatApp() {
     const initPdf = async () => {
       if (typeof window === 'undefined') return;
       try {
-        // Use require to avoid some ESM issues in dev if import fails
-        const pdfjsLib = await import('pdfjs-dist');
-        const lib = pdfjsLib.default || pdfjsLib;
+        const pdfjsLibModule = await import('pdfjs-dist/build/pdf');
+        const pdfjsLib = pdfjsLibModule.default || pdfjsLibModule;
+        // Ensure version is set, default to installed version
+        const version = pdfjsLib.version || '3.11.174';
+        const workerSrc = `https://unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.js`;
         
-        if (lib && lib.GlobalWorkerOptions) {
-            // Use unpkg for matching version, fallback to a stable recent version
-            const version = lib.version || '4.0.379';
-            lib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${version}/build/pdf.worker.min.js`;
+        if (pdfjsLib.GlobalWorkerOptions) {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
         }
       } catch (e) {
         console.error("PDF init error", e);
@@ -350,25 +410,51 @@ export default function ChatApp() {
      }
   };
 
-  const extractPdfText = async (file: File) => {
+  const processFile = async (file: File): Promise<{name: string, text: string} | null> => {
     try {
-      // Use require to avoid ESM issues
-      const pdfjsLibModule = await import('pdfjs-dist');
-      const pdfjsLib = pdfjsLibModule.default || pdfjsLibModule;
-      
-      const data = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data }).promise;
-      const parts: string[] = [];
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        // @ts-ignore
-        parts.push(content.items.map((it: any) => it.str).join(' '));
+      if (file.type === 'application/pdf') {
+        try {
+            // Importar pdfjs-dist dinámicamente
+            const pdfjsLibModule = await import('pdfjs-dist/build/pdf');
+            const pdfjsLib = pdfjsLibModule.default || pdfjsLibModule;
+
+            // Configurar worker de manera segura
+            if (typeof window !== 'undefined' && pdfjsLib.GlobalWorkerOptions) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version || '3.11.174'}/build/pdf.worker.min.js`;
+            }
+            
+            const data = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data }).promise;
+            
+            const parts: string[] = [];
+            for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const content = await page.getTextContent();
+              parts.push(content.items.map((it: any) => it.str).join(' '));
+            }
+            return { name: file.name, text: parts.join('\n\n') };
+        } catch (pdfError) {
+            console.error("PDF Init Error:", pdfError);
+            // Fallback para errores de inicialización
+            return { name: file.name, text: "[Error al leer PDF: Intente subir el archivo nuevamente o verifique que no esté dañado]" };
+        }
+      } else if (
+        file.type.startsWith('text/') || 
+        file.name.endsWith('.md') || 
+        file.name.endsWith('.json') || 
+        file.name.endsWith('.ts') || 
+        file.name.endsWith('.tsx') || 
+        file.name.endsWith('.js') || 
+        file.name.endsWith('.csv') ||
+        file.name.endsWith('.txt')
+      ) {
+         const text = await file.text();
+         return { name: file.name, text };
       }
-      return parts.join('\n\n');
+      return null;
     } catch (e) {
-      console.error("Error extracting PDF text:", e);
-      return "";
+      console.error("Error processing file:", e);
+      return null;
     }
   };
 
@@ -403,83 +489,35 @@ export default function ChatApp() {
     }
   }, [input]);
 
+  // Refs for stable access in event handlers
+  const autoVoiceModeRef = useRef(autoVoiceMode);
+  const isListeningRef = useRef(isListening);
+
   useEffect(() => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      const langMap: Record<'es'|'en'|'zh', string> = { es: 'es-ES', en: 'en-US', zh: 'zh-CN' };
-      recognitionRef.current.lang = langMap[language];
-
-      recognitionRef.current.onstart = () => {
-        setIsListening(true);
-        setError(null);
-      };
-
-      recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setInput(transcript);
-        if (autoVoiceMode && event.results[0].isFinal) {
-            // Give a small delay to ensure state is updated
-            setTimeout(() => {
-                document.getElementById('send-button')?.click();
-            }, 500);
-        }
-        setIsListening(false);
-      };
-
-      recognitionRef.current.onerror = (event: any) => {
-        console.error('Error de reconocimiento:', event.error);
-        setIsListening(false);
-        
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        
-        switch(event.error) {
-          case 'no-speech':
-            setError('No se detectó voz. Intenta de nuevo.');
-            break;
-          case 'not-allowed':
-            setError(isIOS ? 
-              'Permite el acceso al micrófono en Configuración > Safari > Micrófono.' : 
-              'Permite el acceso al micrófono en la configuración del navegador.');
-            break;
-          case 'network':
-            setError('Error de red. Verifica tu conexión.');
-            break;
-          default:
-            setError('Error de reconocimiento de voz.');
-        }
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
-    }
-
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
+    autoVoiceModeRef.current = autoVoiceMode;
   }, [autoVoiceMode]);
 
-  const checkMicrophonePermission = async () => {
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  const checkMicrophonePermission = useCallback(async () => {
     try {
+      // @ts-ignore
       const result = await navigator.permissions.query({ name: 'microphone' });
       return result.state;
     } catch (err) {
       return 'prompt';
     }
-  };
+  }, []);
 
-  const toggleVoiceRecognition = async () => {
+  const toggleVoiceRecognition = useCallback(async () => {
     if (!recognitionRef.current) {
       setError('Reconocimiento de voz no disponible en este navegador.');
       return;
     }
 
-    if (isListening) {
+    if (isListeningRef.current) {
       recognitionRef.current.stop();
       return;
     }
@@ -510,48 +548,146 @@ export default function ChatApp() {
         setError('❌ Error al acceder al micrófono. Verifica los permisos del navegador.');
       }
     }
-  };
+  }, [checkMicrophonePermission]);
 
-  const speakText = (text: string) => {
+  useEffect(() => {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!recognitionRef.current) {
+         recognitionRef.current = new SpeechRecognition();
+      }
+      
+      const recognition = recognitionRef.current;
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      const langMap: Record<'es'|'en'|'zh', string> = { es: 'es-ES', en: 'en-US', zh: 'zh-CN' };
+      recognition.lang = langMap[language];
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setError(null);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setInput(transcript);
+        if (autoVoiceModeRef.current && event.results[0].isFinal) {
+            // Give a small delay to ensure state is updated
+            setTimeout(() => {
+                document.getElementById('send-button')?.click();
+            }, 500);
+        }
+        setIsListening(false);
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Error de reconocimiento:', event.error);
+        setIsListening(false);
+        
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        
+        switch(event.error) {
+          case 'no-speech':
+            setError('No se detectó voz. Intenta de nuevo.');
+            break;
+          case 'not-allowed':
+            setError(isIOS ? 
+              'Permite el acceso al micrófono en Configuración > Safari > Micrófono.' : 
+              'Permite el acceso al micrófono en la configuración del navegador.');
+            break;
+          case 'network':
+            setError('⚠️ Error de red en el reconocimiento de voz. Verifica tu conexión a internet o intenta escribir.');
+            // Si es modo auto, intentar reconectar una vez tras 2 segundos
+            if (autoVoiceModeRef.current) {
+                 setTimeout(() => {
+                     if (autoVoiceModeRef.current && !isListeningRef.current) toggleVoiceRecognition();
+                 }, 2000);
+            }
+            break;
+          default:
+            setError('Error de reconocimiento de voz.');
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+    }
+
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [language, toggleVoiceRecognition]);
+
+  const speakText = useCallback((text: string) => {
     if (!voiceEnabled || !window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
     
-    setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      
-      const voices = window.speechSynthesis.getVoices();
-      const voice = voices.find(v => {
-        if (language === 'es') return v.lang.toLowerCase().startsWith('es');
-        if (language === 'en') return v.lang.toLowerCase().startsWith('en');
-        return v.lang.toLowerCase().startsWith('zh');
-      });
-      if (voice) utterance.voice = voice;
-      const langMap: Record<'es'|'en'|'zh', string> = { es: 'es-ES', en: 'en-US', zh: 'zh-CN' };
-      utterance.lang = langMap[language];
-      utterance.rate = 1;
-      utterance.pitch = 1;
-      utterance.volume = 1;
-
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-      };
-      
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        if (autoVoiceMode) {
-            setTimeout(() => toggleVoiceRecognition(), 500);
+    const speak = () => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        let voices = window.speechSynthesis.getVoices();
+        // Si no hay voces, intentar cargarlas de nuevo o esperar evento (simplificado aquí)
+        if (voices.length === 0) {
+            console.warn("No voices found initially. Attempting to reload voices.");
+            // Pequeño hack para forzar carga en algunos navegadores
+            window.speechSynthesis.getVoices(); 
         }
-      };
-      
-      utterance.onerror = (event: any) => {
-        console.error('Error en síntesis de voz:', event);
-        setIsSpeaking(false);
-      };
+        
+        const voice = voices.find(v => {
+          if (language === 'es') return v.lang.toLowerCase().startsWith('es');
+          if (language === 'en') return v.lang.toLowerCase().startsWith('en');
+          return v.lang.toLowerCase().startsWith('zh');
+        });
 
-      window.speechSynthesis.speak(utterance);
-    }, 100);
-  };
+        if (voice) utterance.voice = voice;
+        const langMap: Record<'es'|'en'|'zh', string> = { es: 'es-ES', en: 'en-US', zh: 'zh-CN' };
+        utterance.lang = langMap[language];
+        utterance.rate = 1;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+        };
+        
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          if (autoVoiceModeRef.current) {
+              setTimeout(() => toggleVoiceRecognition(), 500);
+          }
+        };
+        
+        utterance.onerror = (event: any) => {
+          // Ignorar errores de cancelación o interrupción intencional
+          if (event.error === 'interrupted' || event.error === 'canceled') {
+              setIsSpeaking(false);
+              return;
+          }
+          console.error('Error en síntesis de voz:', event.error);
+          setIsSpeaking(false);
+        };
+
+        window.speechSynthesis.speak(utterance);
+    };
+
+    // Asegurar que las voces estén cargadas antes de hablar
+    if (window.speechSynthesis.getVoices().length === 0) {
+        window.speechSynthesis.onvoiceschanged = () => {
+            window.speechSynthesis.onvoiceschanged = null; // Limpiar listener
+            speak();
+        };
+        // Timeout de seguridad por si el evento nunca se dispara
+        setTimeout(() => {
+             if (window.speechSynthesis.getVoices().length > 0) speak();
+        }, 500);
+    } else {
+        setTimeout(speak, 100);
+    }
+  }, [voiceEnabled, language, toggleVoiceRecognition]);
 
   const stopSpeaking = () => {
     if (window.speechSynthesis) {
@@ -579,6 +715,10 @@ export default function ChatApp() {
     const lowerInput = input.toLowerCase();
     const isVideoRequest = lowerInput.includes('video') && (lowerInput.includes('generar') || lowerInput.includes('crear') || lowerInput.includes('haz') || lowerInput.includes('make') || lowerInput.includes('create'));
     
+    // INTERCEPTION: Detect image editing/generation intent
+    const isImageRequest = (lowerInput.includes('imagen') || lowerInput.includes('foto') || lowerInput.includes('image') || lowerInput.includes('photo')) && 
+                          (lowerInput.includes('editar') || lowerInput.includes('edit') || lowerInput.includes('generar') || lowerInput.includes('crear') || lowerInput.includes('make') || lowerInput.includes('create') || lowerInput.includes('retocar'));
+
     if (isVideoRequest) {
       const userMessage = { role: 'user', content: input.trim() };
       setMessages(prev => [...prev, userMessage]);
@@ -592,19 +732,44 @@ export default function ChatApp() {
             role: 'assistant',
             content: "¡Claro que sí! Puedo ayudarte a generar ese video. He abierto la herramienta **Video Gen** para ti. Por favor, ingresa los detalles en el panel que acaba de aparecer."
         }]);
-        setShowVideoGen(true);
+        setActiveApp('video_gen');
         if (voiceEnabled) speakText("¡Claro que sí! Puedo ayudarte a generar ese video. He abierto la herramienta Video Gen para ti.");
       }, 1000);
       return;
     }
 
+    if (isImageRequest) {
+        const userMessage = { role: 'user', content: input.trim() };
+        setMessages(prev => [...prev, userMessage]);
+        setInput('');
+        setIsLoading(true);
+        
+        // Check if there are attachments to edit
+        if (attachments.length > 0) {
+            setAppFile(attachments[0]);
+            setAttachments([]); // Move attachment to studio
+        }
+        
+        // Simulate processing time
+        setTimeout(() => {
+          setIsLoading(false);
+          setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: "¡Entendido! He abierto **Image Studio** para procesar tu solicitud. Puedes editar o generar imágenes avanzadas desde aquí."
+          }]);
+          setActiveApp('image_studio');
+          if (voiceEnabled) speakText("¡Entendido! He abierto Image Studio para procesar tu solicitud.");
+        }, 1000);
+        return;
+      }
+
     const attachmentNote = attachments.length ? `\nAdjuntos: ${attachments.map(f => f.name).join(', ')}` : '';
-    const pdfNote = pdfTexts.length ? `\n\n${pdfTexts.map(p => `[PDF ${p.name}]\n${p.text}`).join('\n\n')}` : '';
-    const userMessage = { role: 'user', content: input.trim() + attachmentNote + pdfNote };
+    const fileNote = fileTexts.length ? `\n\n${fileTexts.map(p => `[FILE ${p.name}]\n${p.text}`).join('\n\n')}` : '';
+    const userMessage = { role: 'user', content: input.trim() + attachmentNote + fileNote };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setAttachments([]);
-    setPdfTexts([]);
+    setFileTexts([]);
     setIsLoading(true);
     setError(null);
 
@@ -634,7 +799,42 @@ export default function ChatApp() {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      const imageAttachments = await Promise.all(imageFiles.map(readAsBase64)).catch(() => []);
+      const imageAttachments: Array<{ media_type: string; data: string }> = await Promise.all(imageFiles.map(readAsBase64)).catch(() => []);
+
+      // Get Memory Context
+      const systemContext = MemorySystem.getSystemContext();
+
+      // NEW: Check if previous assistant message has a generated image (blob url or https) and attach it for context
+      // This allows the AI to "see" what it just generated/edited in the previous turn
+      // We scan the last 3 assistant messages to catch the image even if there was a short conversation in between
+      const recentAssistantMsgs = conversationHistory
+          .filter(m => m.role === 'assistant')
+          .slice(-3)
+          .reverse();
+      
+      let contextImageFound = false;
+
+      for (const msg of recentAssistantMsgs) {
+          if (contextImageFound) break;
+
+          const blobMatch = msg.content.match(/\*\[Imagen adjunta: ((?:blob|https?):.*?)\]\*/);
+          if (blobMatch) {
+              const imageUrl = blobMatch[1];
+              try {
+                  const response = await fetch(imageUrl);
+                  const blob = await response.blob();
+                  const file = new File([blob], "generated_image.png", { type: blob.type });
+                  const base64Data = await readAsBase64(file);
+                  // Avoid duplicates if user manually re-uploaded (check by data length as approximation)
+                  if (!imageAttachments.some(img => img.data === base64Data.data)) {
+                       imageAttachments.push(base64Data);
+                       contextImageFound = true;
+                  }
+              } catch (e) {
+                  console.error("Failed to load previous context image:", e);
+              }
+          }
+      }
 
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -650,7 +850,8 @@ export default function ChatApp() {
           attachments: imageAttachments,
           mode,
           codeMode,
-          provider: modelProvider // Send selected provider
+          systemContext, // Send memory context
+          provider: 'anthropic' // Send selected provider
         }),
         signal: abortControllerRef.current.signal
       });
@@ -666,12 +867,56 @@ export default function ChatApp() {
         throw new Error('Respuesta inválida del servidor');
       }
 
+      let content = data.content[0].text;
+
+      // PROCESS MEMORY TAGS
+       const memoryMatch = content.match(/\[MEMORY: (.*?)\]/g);
+       if (memoryMatch) {
+           memoryMatch.forEach((tag: string) => {
+               const memoryContent = tag.replace('[MEMORY: ', '').replace(']', '');
+               MemorySystem.addMemory(memoryContent);
+               console.log("Memory stored:", memoryContent);
+           });
+           // Remove memory tags from display
+           content = content.replace(/\[MEMORY: .*?\]/g, '').trim();
+       }
+
       const assistantMessage = {
         role: 'assistant',
-        content: data.content[0].text
+        content: content
       };
 
       setMessages(prev => [...prev, assistantMessage]);
+
+      // Trigger tools based on AI response (fallback for when client interception is skipped)
+      const lowerResponse = content.toLowerCase();
+      if (lowerResponse.includes('abriendo image studio') || lowerResponse.includes('opening image studio')) {
+          setActiveApp('image_studio');
+      }
+      if ((lowerResponse.includes('video gen') || lowerResponse.includes('generador de video')) && (lowerResponse.includes('abriendo') || lowerResponse.includes('opening'))) {
+          setActiveApp('video_gen');
+          
+          // Auto-load context if available
+          // 1. Check current attachments (captured in closure)
+          if (attachments && attachments.length > 0 && attachments[0].type.startsWith('image/')) {
+              setAppFile(attachments[0]);
+          } else {
+              // 2. Check history for generated images
+               const lastImageMsg = [...messages].reverse().find(m => m.role === 'assistant' && m.content.includes('*[Imagen adjunta:'));
+               if (lastImageMsg) {
+                   const match = lastImageMsg.content.match(/\*\[Imagen adjunta: ((?:blob|https?):.*?)\]\*/);
+                   if (match) {
+                       fetch(match[1])
+                           .then(res => res.blob())
+                           .then(blob => {
+                               const file = new File([blob], "context_image.png", { type: blob.type });
+                               setAppFile(file);
+                           })
+                           .catch(e => console.error("Error loading context for video:", e));
+                   }
+               }
+          }
+      }
 
       if (voiceEnabled) {
         speakText(data.content[0].text);
@@ -682,10 +927,19 @@ export default function ChatApp() {
       }
       
       console.error('Error:', error);
-      setError(error.message || 'Error al procesar tu mensaje');
+      
+      let errorMessage = error.message || 'Error al procesar tu mensaje';
+      let assistantResponse = 'Lo siento, hubo un error al procesar tu mensaje. Por favor, intenta de nuevo.';
+
+      if (errorMessage.includes('401') || errorMessage.includes('API key')) {
+        errorMessage = '⚠️ Error de configuración: Falta la API Key de Anthropic. Por favor, agrégala en el archivo .env.local';
+        assistantResponse = '⚠️ **Error de Sistema**: No se ha detectado una API Key válida para Anthropic. Por favor, configura la variable `ANTHROPIC_API_KEY` en el archivo `.env.local` de tu proyecto.';
+      }
+
+      setError(errorMessage);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Lo siento, hubo un error al procesar tu mensaje. Por favor, intenta de nuevo.'
+        content: assistantResponse
       }]);
     } finally {
       setIsLoading(false);
@@ -735,8 +989,49 @@ export default function ChatApp() {
     setMenuExpanded(false);
   };
 
+  const handleQuickAction = (actionId: string) => {
+    // Check if it's an app that needs to be opened
+    const app = getAppById(actionId);
+    
+    if (app && (app.component || actionId === 'memory_bank')) {
+        setActiveApp(actionId);
+        if (voiceEnabled) speakText(`Abriendo ${app.name}.`);
+        return;
+    }
+    
+    // Fallback for non-app actions (legacy prompts)
+    const prompts: Record<string, string> = {
+        'web_dev': "Crea una página web que...",
+        'learn': "Explícame el concepto de...",
+        'research': "Investiga sobre...",
+        'code': "Escribe un código en Python para...",
+        'plan': "Crea un plan para...",
+        'news': "Búscame las últimas noticias sobre...",
+        'analyze': "Analiza esta imagen y dime...",
+        'summary': "Resume el siguiente texto:",
+        'write': "Ayúdame a redactar un...",
+        'idea': "Dame ideas para...",
+        'travel': "Planifica un viaje a..."
+    };
+
+    if (prompts[actionId]) {
+        setInput(prompts[actionId]);
+        setInputHighlight(true);
+        setTimeout(() => setInputHighlight(false), 500);
+        if (textareaRef.current) textareaRef.current.focus();
+    }
+  };
+
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 overflow-hidden font-sans">
+    <div className="flex h-[100dvh] bg-white overflow-hidden font-sans text-gray-900" style={wallpaper ? { backgroundImage: `url(${wallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+        :root { --font-sans: 'Inter', system-ui, sans-serif; }
+        body { font-family: var(--font-sans); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
+
       {/* Mobile Overlay */}
       {sidebarOpen && (
         <div 
@@ -747,18 +1042,20 @@ export default function ChatApp() {
 
       <div 
         className={`${
-          sidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-[72px] md:translate-x-0'
-        } transition-all duration-300 ease-in-out bg-gray-50/80 backdrop-blur-xl border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-40 md:relative md:z-20 h-full shadow-2xl md:shadow-none`}
+          sidebarOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64 md:translate-x-0 md:w-[72px]'
+        } transition-all duration-300 ease-in-out bg-white/90 backdrop-blur-xl border-r border-white/20 flex flex-col fixed inset-y-0 left-0 z-40 md:relative md:z-20 h-full shadow-2xl md:shadow-none`}
       >
         {/* Header Section */}
         <div className="flex flex-col pt-6 pb-4 px-4 gap-4">
             <div className="flex items-center justify-between">
                 {sidebarOpen && (
-                    <h1 className="text-lg font-bold text-slate-800 tracking-tight ml-2">Nexa</h1>
+                    <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent animate-pulse tracking-tight ml-2 drop-shadow-sm">
+                      Nexa OS
+                    </h1>
                 )}
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className={`p-2 rounded-lg hover:bg-gray-200/50 text-slate-500 transition-colors ${!sidebarOpen ? 'mx-auto' : ''}`}
+                  className={`p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors ${!sidebarOpen ? 'mx-auto' : ''}`}
                 >
                   <PanelLeft className="w-5 h-5" />
                 </button>
@@ -769,7 +1066,7 @@ export default function ChatApp() {
         <div className="flex flex-col px-3 gap-2">
             <button 
                 onClick={startNewChat}
-                className={`flex items-center gap-2 p-2 rounded-lg transition-all text-slate-500 hover:bg-gray-100 hover:text-slate-900 ${!sidebarOpen ? 'justify-center' : ''}`}
+                className={`flex items-center gap-2 p-2 rounded-lg transition-all text-gray-600 hover:bg-gray-100 hover:text-gray-900 ${!sidebarOpen ? 'justify-center' : ''}`}
                 title="New Chat"
             >
                 <Plus className="w-4 h-4 shrink-0" />
@@ -778,7 +1075,7 @@ export default function ChatApp() {
 
             <button 
                 onClick={() => setShowCreative(true)}
-                className={`flex items-center gap-2 p-2 rounded-lg transition-all text-slate-500 hover:bg-gray-100 hover:text-slate-900 ${!sidebarOpen ? 'justify-center' : ''}`}
+                className={`flex items-center gap-2 p-2 rounded-lg transition-all text-gray-600 hover:bg-gray-100 hover:text-gray-900 ${!sidebarOpen ? 'justify-center' : ''}`}
                 title="New Project"
             >
                 <FolderPlus className="w-4 h-4 shrink-0" />
@@ -790,7 +1087,7 @@ export default function ChatApp() {
                     setShowConversations(!showConversations);
                     if (!sidebarOpen) setSidebarOpen(true);
                 }}
-                className={`flex items-center gap-2 p-2 rounded-lg transition-all ${showConversations ? 'bg-gray-100 text-slate-900' : 'text-slate-500 hover:bg-gray-100 hover:text-slate-900'} ${!sidebarOpen ? 'justify-center' : ''}`}
+                className={`flex items-center gap-2 p-2 rounded-lg transition-all ${showConversations ? 'bg-gray-100 text-gray-900' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'} ${!sidebarOpen ? 'justify-center' : ''}`}
                 title="All Chats"
             >
                 <Search className="w-4 h-4 shrink-0" />
@@ -798,20 +1095,30 @@ export default function ChatApp() {
             </button>
         </div>
 
+        {/* System Status Badge */}
+        {sidebarOpen && (
+            <div className="px-3 mt-4 mb-2">
+                <div className="flex items-center gap-2 text-[10px] text-green-600 bg-green-50/50 px-2 py-1 rounded-md border border-green-100 select-none cursor-help" title="Sistema monitorizado y seguro">
+                    <Shield className="w-3 h-3 fill-green-100" />
+                    <span className="font-semibold tracking-wide uppercase">Nexa Secure Core</span>
+                </div>
+            </div>
+        )}
+
         {/* Conversations List (Only when open) */}
         {sidebarOpen && (
           <div className="flex-1 overflow-y-auto px-3 py-4 mt-2">
             {showConversations ? (
                 <div className="space-y-2 animate-in fade-in slide-in-from-left-4 duration-300">
-                    <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-3">Historial</h3>
-                    {conversations.length === 0 && <p className="text-xs text-slate-400 text-center py-4">No hay conversaciones</p>}
+                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2 mb-3">Historial</h3>
+                    {conversations.length === 0 && <p className="text-xs text-gray-400 text-center py-4">No hay conversaciones</p>}
                     {conversations.map(chat => (
-                        <div key={chat.id} onClick={() => loadConversation(chat.id)} className="w-full p-2.5 rounded-lg hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100 transition-all cursor-pointer group relative">
-                            <p className="text-sm text-slate-700 font-medium truncate pr-6">{chat.title}</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">{chat.date}</p>
+                        <div key={chat.id} onClick={() => loadConversation(chat.id)} className="w-full p-2.5 rounded-lg hover:bg-gray-50 hover:shadow-sm border border-transparent hover:border-gray-200 transition-all cursor-pointer group relative">
+                            <p className="text-sm text-gray-700 font-medium truncate pr-6">{chat.title}</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">{chat.date}</p>
                             <button 
                                 onClick={(e) => deleteConversation(chat.id, e)}
-                                className="absolute right-2 top-2 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute right-2 top-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                             >
                                 <X className="w-3 h-3" />
                             </button>
@@ -826,7 +1133,7 @@ export default function ChatApp() {
         {!sidebarOpen && <div className="flex-1"></div>}
 
         {/* Bottom Section: User Profile */}
-        <div className="p-4 mt-auto border-t border-gray-200/50">
+        <div className="p-4 mt-auto border-t border-gray-200">
              {userName === 'Invitado' ? (
                 sidebarOpen ? (
                     <div className="flex gap-2">
@@ -844,7 +1151,7 @@ export default function ChatApp() {
                                 setAuthMode('signup');
                                 setIsAuthModalOpen(true);
                             }}
-                            className="flex-1 py-2 px-3 bg-white border border-gray-200 hover:bg-gray-50 text-slate-700 text-xs font-bold rounded-lg transition-all shadow-sm"
+                            className="flex-1 py-2 px-3 bg-transparent border border-gray-200 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-lg transition-all shadow-sm"
                         >
                             Sign Up
                         </button>
@@ -868,8 +1175,8 @@ export default function ChatApp() {
                     </div>
                     {sidebarOpen && (
                         <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-700 truncate">{userName}</p>
-                            <button onClick={() => signOut(auth)} className="text-[10px] text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1">
+                            <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
+                            <button onClick={() => auth && signOut(auth)} className="text-[10px] text-gray-500 hover:text-blue-600 transition-colors flex items-center gap-1">
                                 <LogOut size={10} /> Cerrar Sesión
                             </button>
                         </div>
@@ -886,14 +1193,14 @@ export default function ChatApp() {
 
       {sidebarOpen && (
         <div className="px-3 pb-4">
-            <div className="h-px bg-blue-100 my-2"></div>
+            <div className="h-px bg-gray-200 my-2"></div>
 
             <button 
               onClick={() => setShowSettings(true)}
-              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-100 transition-all text-left group"
             >
-              <Settings className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-              <span className="text-sm text-slate-700">Configuración</span>
+              <Settings className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
+              <span className="text-sm text-gray-700">Configuración</span>
             </button>
 
             <button 
@@ -901,164 +1208,182 @@ export default function ChatApp() {
                   const nextLang = language === 'es' ? 'en' : 'es';
                   setLanguage(nextLang);
               }}
-              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-100 transition-all text-left group"
             >
-              <Globe className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-              <span className="text-sm text-slate-700">Idioma: {language === 'es' ? 'Español' : 'English'}</span>
+              <Globe className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
+              <span className="text-sm text-gray-700">Idioma: {language === 'es' ? 'Español' : 'English'}</span>
             </button>
 
             <button 
               onClick={() => alert('Ayuda: Visita nuestra documentación en línea o contacta soporte.')}
-              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-100 transition-all text-left group"
             >
-              <HelpCircle className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-              <span className="text-sm text-slate-700">Ayuda</span>
+              <HelpCircle className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
+              <span className="text-sm text-gray-700">Ayuda</span>
             </button>
 
             <button 
               onClick={() => alert('Mejorar plan: Las opciones premium estarán disponibles pronto.')}
-              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-100 transition-all text-left group"
             >
-              <ArrowUp className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-              <span className="text-sm text-slate-700">Mejorar plan</span>
+              <ArrowUp className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
+              <span className="text-sm text-gray-700">Mejorar plan</span>
             </button>
 
             <button 
               onClick={() => alert('Regalar: ¡Gracias por tu interés! Pronto podrás regalar suscripciones.')}
-              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-100 transition-all text-left group"
             >
-              <Gift className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-              <span className="text-sm text-slate-700">Regalar NEXA OS</span>
+              <Gift className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
+              <span className="text-sm text-gray-700">Regalar NEXA OS</span>
             </button>
 
             <button 
               onClick={() => alert('Descargar: La aplicación de escritorio/móvil está en desarrollo.')}
-              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-blue-50 transition-all text-left group"
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-100 transition-all text-left group"
             >
-              <Download className="w-4 h-4 text-slate-500 group-hover:text-blue-600" />
-              <span className="text-sm text-slate-700">Descargar app</span>
+              <Download className="w-4 h-4 text-gray-500 group-hover:text-blue-600" />
+              <span className="text-sm text-gray-700">Descargar app</span>
             </button>
 
-            <div className="h-px bg-blue-100 my-2"></div>
+            <div className="h-px bg-gray-200 my-2"></div>
 
             <button onClick={handleLogout} className="w-full flex items-center gap-3 p-2.5 rounded-lg hover:bg-red-50 transition-all text-left group">
-              <LogOut className="w-4 h-4 text-slate-500 group-hover:text-red-600" />
-              <span className="text-sm text-slate-700 group-hover:text-red-700">Cerrar sesión</span>
+              <LogOut className="w-4 h-4 text-gray-500 group-hover:text-red-500" />
+              <span className="text-sm text-gray-700 group-hover:text-red-600">Cerrar sesión</span>
             </button>
         </div>
       )}
     </div>
 
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="bg-white/80 backdrop-blur-xl border-b border-blue-100 p-4 flex items-center gap-3 shadow-sm">
-          <button 
-             onClick={() => setSidebarOpen(true)}
-             className="md:hidden p-2 text-slate-500 hover:bg-slate-100 rounded-lg mr-2"
-          >
-             <Menu className="w-6 h-6" />
+        {/* Simple Mobile Header */}
+        <header className="h-14 flex items-center justify-between px-4 bg-white/80 backdrop-blur-md border-b border-gray-100 sticky top-0 z-10">
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-gray-500">
+             <Menu className="w-5 h-5" />
           </button>
-          <div className="flex-1 flex items-center justify-center gap-2">
-            <svg width="28" height="28" viewBox="0 0 100 100">
-              <defs>
-                <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" style={{stopColor: '#06b6d4'}} />
-                  <stop offset="100%" style={{stopColor: '#a855f7'}} />
-                </linearGradient>
-              </defs>
-              <path d="M 20 20 L 50 50 L 20 80" stroke="url(#grad)" strokeWidth="10" fill="none" strokeLinecap="round"/>
-              <path d="M 80 20 L 50 50 L 80 80" stroke="url(#grad)" strokeWidth="10" fill="none" strokeLinecap="round"/>
-            </svg>
-            <span className="text-base font-semibold bg-gradient-to-r from-cyan-600 to-purple-600 bg-clip-text text-transparent">NEXA OS</span>
-          </div>
-          <div className="flex items-center gap-2">
-          </div>
-
-          {isSpeaking && (
-            <button onClick={stopSpeaking} className="px-4 py-1.5 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm flex items-center gap-2 hover:bg-red-100 transition-all animate-pulse">
-              <VolumeX className="w-4 h-4" />
-              Detener voz
-            </button>
-          )}
-        </div>
+          <span className="font-bold text-lg bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent animate-pulse tracking-tight drop-shadow-sm">Nexa OS</span>
+          <button 
+            onClick={() => setShowSettings(true)} 
+            className="text-gray-500 p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+             <Settings className="w-5 h-5" />
+          </button>
+        </header>
 
         {error && (
-          <div className="bg-red-50 border-b border-red-200 px-4 py-3 flex items-center justify-between">
+          <div className="bg-red-900/20 border-b border-red-900/30 px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2 flex-1">
-              <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
-              <span className="text-sm text-red-700 leading-relaxed">{error}</span>
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+              <span className="text-sm text-red-300 leading-relaxed">{error}</span>
             </div>
-            <button onClick={() => setError(null)} className="text-red-500 hover:text-red-700 ml-2">
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-200 ml-2">
               <X className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="max-w-3xl mx-auto space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 pb-24">
+          <div className="max-w-2xl mx-auto space-y-6">
             {messages.length === 0 && (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center space-y-4 max-w-lg">
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-cyan-100 to-purple-100 mb-4 shadow-lg">
-                    <svg width="40" height="40" viewBox="0 0 100 100">
-                      <defs>
-                        <linearGradient id="logo" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" style={{stopColor: '#06b6d4'}} />
-                          <stop offset="100%" style={{stopColor: '#a855f7'}} />
-                        </linearGradient>
-                      </defs>
-                      <path d="M 20 20 L 50 50 L 20 80" stroke="url(#logo)" strokeWidth="10" fill="none" strokeLinecap="round"/>
-                      <path d="M 80 20 L 50 50 L 80 80" stroke="url(#logo)" strokeWidth="10" fill="none" strokeLinecap="round"/>
-                    </svg>
-                  </div>
-                  <h2 className="text-3xl font-medium bg-gradient-to-r from-slate-700 to-slate-600 bg-clip-text text-transparent">
-                    {userName === 'Invitado' ? '¡Hola! Soy NEXA OS' : `¡Hola ${userName}!`}
-                  </h2>
-                  <p className="text-sm text-slate-500 leading-relaxed">
-                    ¿En qué puedo ayudarte hoy? Puedo asistirte con escritura, análisis, programación y mucho más.
-                  </p>
-                </div>
+              <div className="flex flex-col items-center justify-center h-full mt-20">
+                 <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 bg-clip-text text-transparent animate-pulse tracking-tight drop-shadow-sm">Nexa OS está listo.</div>
               </div>
             )}
 
             {messages.map((msg, idx) => (
-              <div key={idx}>
-                {msg.role === 'user' && (
-                  <div className="flex justify-end">
-                    <div className="max-w-2xl bg-gradient-to-r from-blue-100 to-cyan-100 rounded-2xl px-4 py-3 border border-blue-200 shadow-sm">
-                      <p className="text-slate-800 whitespace-pre-wrap break-words">{msg.content}</p>
-                    </div>
-                  </div>
-                )}
-                
-                {msg.role === 'assistant' && (
-                  <div className="flex justify-start">
-                    <div className="max-w-2xl w-full bg-white/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-blue-100 shadow-sm overflow-hidden">
-                      {msg.content.split(/(```[\s\S]*?```)/g).map((part, i) => {
+              <div key={idx} className={`flex w-full ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div 
+                  className={`max-w-[85%] px-5 py-4 rounded-3xl text-[15px] leading-relaxed shadow-sm relative group animate-in fade-in slide-in-from-bottom-2 duration-300 ${
+                    msg.role === 'user' 
+                      ? 'bg-gradient-to-br from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/25 rounded-br-sm' 
+                      : 'bg-white/80 backdrop-blur-md text-gray-800 border border-gray-100 rounded-bl-sm shadow-sm'
+                  }`}
+                >
+                  {msg.role === 'assistant' && <CopyButton text={msg.content} />}
+                  {msg.role === 'assistant' ? (
+                      msg.content.split(/(```[\s\S]*?```|\*\[Video adjunto: .*?\]\*|\*\[Imagen adjunta: .*?\]\*)/g).map((part, i) => {
                           if (part.startsWith('```')) {
                               const match = part.match(/```(\w+)?\n([\s\S]*?)```/);
                               if (match) {
                                   return <CodeBlock key={i} language={match[1] || ''} code={match[2]} />;
                               }
                           }
-                          return <p key={i} className="text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{part}</p>;
-                      })}
-                    </div>
-                  </div>
-                )}
+                          
+                          const videoMatch = part.match(/\*\[Video adjunto: (.*?)\]\*/);
+                          if (videoMatch) {
+                              const videoSrc = videoMatch[1];
+                              // Si es un archivo local simulado, usar una ruta relativa o absoluta si es necesario
+                              // Aquí asumimos que está en la raíz pública o es una URL completa
+                              return (
+                                <div key={i} className="my-3 rounded-xl overflow-hidden bg-black/5 border border-gray-200 shadow-sm group">
+                                    <div className="relative">
+                                        <video 
+                                            src={videoSrc} 
+                                            controls 
+                                            className="w-full max-h-[300px] object-contain bg-black" 
+                                            poster="/placeholder-video.jpg" // Opcional
+                                            onError={(e) => {
+                                                // Fallback visual si el video no carga (común en demos)
+                                                const target = e.target as HTMLVideoElement;
+                                                target.style.display = 'none';
+                                                target.parentElement?.querySelector('.video-error')?.classList.remove('hidden');
+                                            }}
+                                        />
+                                        <div className="video-error hidden absolute inset-0 flex flex-col items-center justify-center bg-gray-100 text-gray-400">
+                                            <Video className="w-12 h-12 mb-2 opacity-50" />
+                                            <span className="text-xs">Video no disponible (Demo)</span>
+                                        </div>
+                                    </div>
+                                    <div className="px-3 py-2 bg-white border-t border-gray-100 text-xs text-gray-500 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Video className="w-3.5 h-3.5" />
+                                            <span className="truncate max-w-[200px]">{videoSrc}</span>
+                                        </div>
+                                        <a href={videoSrc} download className="p-1 hover:bg-gray-100 rounded-md transition-colors" title="Descargar">
+                                            <Download className="w-3.5 h-3.5" />
+                                        </a>
+                                    </div>
+                                </div>
+                              );
+                          }
 
-                {msg.role === 'system' && (
-                  <div className="flex justify-center">
-                    <div className="bg-cyan-50 border border-cyan-200 rounded-xl px-3 py-2 shadow-sm">
-                      <p className="text-xs text-cyan-700">{msg.content}</p>
-                    </div>
-                  </div>
-                )}
+                          const imageMatch = part.match(/\*\[Imagen adjunta: (.*?)\]\*/);
+                          if (imageMatch) {
+                              const imgSrc = imageMatch[1];
+                              return (
+                                  <div key={i} className="my-3 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm group relative">
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img 
+                                          src={imgSrc} 
+                                          alt="Imagen generada" 
+                                          className="w-full max-h-[400px] object-contain bg-white"
+                                      />
+                                      <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex justify-end">
+                                          <a href={imgSrc} download="nexa_image.jpg" className="p-1.5 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors" title="Descargar imagen">
+                                              <Download className="w-4 h-4" />
+                                          </a>
+                                      </div>
+                                  </div>
+                              );
+                          }
+
+                          if (!part) return null;
+                          return <p key={i} className="whitespace-pre-wrap break-words">{part}</p>;
+                      })
+                  ) : (
+                      <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                  )}
+                </div>
               </div>
             ))}
 
+
+
+
             {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-white/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-blue-100 shadow-sm">
+                <div className="bg-nexa-surface/60 backdrop-blur-sm rounded-2xl px-4 py-3 border border-nexa-primary/20 shadow-sm">
                   <div className="flex gap-1">
                     <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
                     <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
@@ -1069,12 +1394,16 @@ export default function ChatApp() {
             )}
 
             {isListening && (
-              <div className="flex justify-center">
-                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2 shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Mic className="w-4 h-4 text-red-600 animate-pulse" />
-                    <p className="text-xs text-red-700 font-medium">Escuchando...</p>
-                  </div>
+              <div className="flex justify-center my-4">
+                <div className="bg-white/90 backdrop-blur-md border border-cyan-500/30 rounded-full px-6 py-3 flex items-center gap-4 shadow-lg shadow-cyan-500/10 animate-in fade-in zoom-in duration-300">
+                    <div className="flex items-center gap-1 h-4">
+                        <div className="w-1 bg-cyan-500 rounded-full animate-[wave_1s_ease-in-out_infinite]" style={{height: '40%'}}></div>
+                        <div className="w-1 bg-blue-500 rounded-full animate-[wave_1s_ease-in-out_infinite_0.1s]" style={{height: '100%'}}></div>
+                        <div className="w-1 bg-cyan-500 rounded-full animate-[wave_1s_ease-in-out_infinite_0.2s]" style={{height: '60%'}}></div>
+                        <div className="w-1 bg-blue-500 rounded-full animate-[wave_1s_ease-in-out_infinite_0.3s]" style={{height: '80%'}}></div>
+                        <div className="w-1 bg-cyan-500 rounded-full animate-[wave_1s_ease-in-out_infinite_0.4s]" style={{height: '50%'}}></div>
+                    </div>
+                    <span className="text-sm text-gray-700 font-medium tracking-wide">Escuchando...</span>
                 </div>
               </div>
             )}
@@ -1083,28 +1412,28 @@ export default function ChatApp() {
           </div>
         </div>
 
-        <div className="border-t border-blue-100/50 p-4 md:pb-6 bg-white/80 backdrop-blur-xl shadow-lg z-20">
-          <div className="max-w-2xl mx-auto w-[85%] md:w-[80%] lg:w-[70%]">
-            <div className="relative bg-white shadow-lg border border-blue-100 rounded-[2rem] focus-within:ring-2 focus-within:ring-blue-100 transition-all p-2 mx-0">
+      <div className="fixed bottom-0 w-full p-3 bg-white border-t border-gray-100 z-20">
+        <div className="max-w-2xl mx-auto flex flex-col gap-3">
+            {/* Input Container */}
+            <div className={`w-full flex items-center gap-3 bg-white/70 backdrop-blur-xl border border-white/40 rounded-2xl px-4 py-2 relative transition-all duration-300 shadow-lg shadow-blue-900/5 ${inputHighlight ? 'ring-2 ring-blue-400/50 bg-blue-50/50' : 'hover:bg-white/90 hover:shadow-xl hover:shadow-blue-900/10'}`}>
               <input
                 ref={docInputRef}
                 type="file"
                 multiple
-                accept=".txt,.md,.json,.pdf,.doc,.docx,.xls,.xlsx,.csv"
+                accept=".txt,.md,.json,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ts,.tsx,.js,.py,.html,.css"
                 className="hidden"
                 onChange={(e) => {
                   const files = Array.from(e.target.files || []);
                   if (files.length) {
                     setAttachments(prev => [...prev, ...files]);
                     files.forEach(async (f) => {
-                      if (f.type === 'application/pdf') {
-                        try {
-                          const text = await extractPdfText(f);
-                          setPdfTexts(prev => [...prev, { name: f.name, text }]);
-                        } catch {}
-                      }
+                       const result = await processFile(f);
+                       if (result) {
+                          setFileTexts(prev => [...prev, result]);
+                       }
                     });
                   }
+                  e.target.value = '';
                 }}
               />
               <input
@@ -1116,6 +1445,7 @@ export default function ChatApp() {
                 onChange={(e) => {
                     const files = Array.from(e.target.files || []);
                     if (files.length) setAttachments(prev => [...prev, ...files]);
+                    e.target.value = '';
                 }}
               />
               <input
@@ -1127,6 +1457,7 @@ export default function ChatApp() {
                 onChange={(e) => {
                     const files = Array.from(e.target.files || []);
                     if (files.length) setAttachments(prev => [...prev, ...files]);
+                    e.target.value = '';
                 }}
               />
               <input
@@ -1138,6 +1469,7 @@ export default function ChatApp() {
                 onChange={(e) => {
                     const files = Array.from(e.target.files || []);
                     if (files.length) setAttachments(prev => [...prev, ...files]);
+                    e.target.value = '';
                 }}
               />
               
@@ -1154,30 +1486,31 @@ export default function ChatApp() {
                       // @ts-ignore
                       const files = Array.from(e.target.files || []);
                       if (files.length) setAttachments(prev => [...prev, ...files]);
+                      e.target.value = '';
                   }}
               />
 
               {showUploadMenu && (
-                <div className="absolute bottom-[calc(100%+8px)] left-0 ml-2 w-60 bg-white/90 backdrop-blur-xl border border-white/50 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2">
+                <div className="absolute bottom-[calc(100%+8px)] left-0 ml-2 w-60 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden z-[60] animate-in fade-in slide-in-from-bottom-2">
                     <div className="p-1.5 space-y-0.5">
-                        <div className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Upload</div>
-                        <button onClick={() => { setShowUploadMenu(false); docInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors">
+                        <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Upload</div>
+                        <button onClick={() => { setShowUploadMenu(false); docInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-xl transition-colors">
                             <div className="p-1.5 bg-blue-100 rounded-lg text-blue-600"><Paperclip className="w-4 h-4" /></div>
                             <span className="font-medium">Document</span>
                         </button>
-                        <button onClick={() => { setShowUploadMenu(false); imageInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-purple-50 hover:text-purple-600 rounded-xl transition-colors">
+                        <button onClick={() => { setShowUploadMenu(false); imageInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 rounded-xl transition-colors">
                              <div className="p-1.5 bg-purple-100 rounded-lg text-purple-600"><Image className="w-4 h-4" /></div>
                             <span className="font-medium">Image</span>
                         </button>
-                        <button onClick={() => { setShowUploadMenu(false); videoInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors">
+                        <button onClick={() => { setShowUploadMenu(false); videoInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 rounded-xl transition-colors">
                              <div className="p-1.5 bg-red-100 rounded-lg text-red-600"><Video className="w-4 h-4" /></div>
                             <span className="font-medium">Video</span>
                         </button>
-                        <button onClick={() => { setShowUploadMenu(false); audioInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-colors">
+                        <button onClick={() => { setShowUploadMenu(false); audioInputRef.current?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-colors">
                              <div className="p-1.5 bg-amber-100 rounded-lg text-amber-600"><Music className="w-4 h-4" /></div>
                             <span className="font-medium">Audio</span>
                         </button>
-                         <button onClick={() => { setShowUploadMenu(false); document.getElementById('folder-upload')?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 hover:bg-green-50 hover:text-green-600 rounded-xl transition-colors">
+                         <button onClick={() => { setShowUploadMenu(false); document.getElementById('folder-upload')?.click(); }} className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 rounded-xl transition-colors">
                              <div className="p-1.5 bg-green-100 rounded-lg text-green-600"><FolderPlus className="w-4 h-4" /></div>
                             <span className="font-medium">Folder</span>
                         </button>
@@ -1185,335 +1518,183 @@ export default function ChatApp() {
                 </div>
               )}
 
-              <div className="flex flex-col gap-2">
-                <textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    onKeyDown={handleKeyPress}
-                    placeholder="¿Cómo puedo ayudarte hoy?"
-                    className="w-full px-4 py-2 outline-none resize-none text-slate-700 placeholder-slate-400 bg-transparent text-lg font-medium"
-                    rows={1}
-                    disabled={isLoading}
-                    style={{ minHeight: '44px', maxHeight: '120px' }}
-                />
+              <button
+                  onClick={() => setShowUploadMenu(!showUploadMenu)}
+                  disabled={isLoading}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                  <Plus className={`w-5 h-5 transition-transform ${showUploadMenu ? 'rotate-45' : ''}`} />
+              </button>
 
-                <div className="flex items-center justify-between px-2 pb-1">
-                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-                        <button
-                            onClick={() => setShowUploadMenu(!showUploadMenu)}
-                            disabled={isLoading}
-                            className={`p-2 rounded-full hover:bg-black/5 transition-colors ${showUploadMenu ? 'bg-blue-100 text-blue-600' : 'text-slate-500'}`}
-                            title="Adjuntar archivo"
-                        >
-                            <Plus className={`w-5 h-5 transition-transform ${showUploadMenu ? 'rotate-45' : ''}`} />
-                        </button>
-                        
-                        <div className="h-4 w-px bg-slate-200 mx-1"></div>
+              <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Escribe a Nexa..."
+                  className="flex-1 bg-transparent py-3 outline-none text-gray-900 resize-none overflow-hidden placeholder-gray-400"
+                  rows={1}
+                  disabled={isLoading}
+                  style={{ minHeight: '44px', maxHeight: '120px' }}
+              />
 
-                        <button
-                            onClick={() => setMode(mode === 'fast' ? 'deep' : 'fast')}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${mode === 'deep' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-                        >
-                            <Zap className="w-3 h-3" />
-                            {mode === 'deep' ? 'Thinking' : 'Rápido'}
-                        </button>
+              <div className="flex items-center gap-1">
+                 {/* Fluid Conversation Mode */}
+                 <button
+                    onClick={() => {
+                        const newState = !autoVoiceMode;
+                        setAutoVoiceMode(newState);
+                        if (newState) {
+                            toggleVoiceRecognition();
+                        } else {
+                            stopSpeaking();
+                            if (isListening) toggleVoiceRecognition();
+                        }
+                    }}
+                    className={`p-2 transition-all rounded-full ${autoVoiceMode ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
+                    title="Modo Conversación Fluida"
+                 >
+                    {autoVoiceMode ? <Headphones className="w-5 h-5 animate-pulse" /> : <Headphones className="w-5 h-5" />}
+                 </button>
 
-                        <button
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
-                            onClick={() => alert("Búsqueda web próximamente")}
-                        >
-                            <Search className="w-3 h-3" />
-                            Search
-                        </button>
+                 {input.trim() ? (
+                   <button
+                       onClick={sendMessage}
+                       disabled={isLoading}
+                       className="p-2 text-[#2563eb] hover:text-blue-600 transition-colors"
+                   >
+                       <Send className="w-5 h-5" />
+                   </button>
+                 ) : (
+                   <button
+                       onClick={toggleVoiceRecognition}
+                       className={`p-2 transition-colors ${isListening ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gray-600'}`}
+                   >
+                       {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                   </button>
+                 )}
+              </div>
 
-                        <button
-                            onClick={() => setShowCreative(true)}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all"
-                        >
-                            <Sparkles className="w-3 h-3" />
-                            MCP
-                        </button>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                         <button
-                           onClick={() => setAutoVoiceMode(!autoVoiceMode)}
-                           className={`p-2 rounded-full transition-all ${autoVoiceMode ? 'bg-green-100 text-green-600' : 'hover:bg-black/5 text-slate-400'}`}
-                           title={autoVoiceMode ? "Auto: ON" : "Auto: OFF"}
-                         >
-                           <MessageSquare className="w-5 h-5" />
-                         </button>
-                        <button
-                            onClick={toggleVoiceRecognition}
-                            disabled={isLoading}
-                            className={`p-3 rounded-full transition-all shadow-sm ${
-                                isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-600 text-white hover:bg-blue-700'
-                            }`}
-                        >
-                            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                        </button>
-                        <button
-                            id="send-button"
-                            onClick={sendMessage}
-                            disabled={isLoading || !input.trim()}
-                            className={`p-3 rounded-full transition-all shadow-sm ${
-                                isLoading || !input.trim() 
-                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                                : 'bg-blue-600 text-white hover:bg-blue-700 hover:scale-105 active:scale-95'
-                            }`}
-                        >
-                            <Send className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
 
                 {attachments.length > 0 && (
-                    <div className="px-4 pb-2 flex flex-wrap gap-2">
+                    <div className="absolute bottom-full left-0 w-full px-4 pb-2 flex flex-wrap gap-2 z-10">
                     {attachments.map((f, idx) => (
-                        <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-100 rounded-full text-xs text-slate-600 shadow-sm">
-                        <span className="truncate max-w-[12rem]">{f.name}</span>
+                        <div key={idx} className="flex items-center gap-2 px-2 py-1.5 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl text-xs shadow-sm animate-in fade-in zoom-in duration-200">
+                        <AttachmentPreview file={f} />
+                        <span className="truncate max-w-[10rem] font-medium text-gray-700">{f.name}</span>
                         <button
                             onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                            className="text-slate-400 hover:text-red-500"
+                            className="p-1 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full transition-colors"
                         >
-                            <X className="w-3 h-3" />
+                            <X className="w-3.5 h-3.5" />
                         </button>
                         </div>
                     ))}
                     </div>
                 )}
-              </div>
             </div>
 
-            {/* Quick Actions Chips */}
-            <div className="mt-4 flex flex-col items-center gap-3 px-4">
-                <div className="flex flex-wrap gap-2 justify-center transition-all duration-300 ease-in-out">
-                {[
-                    { icon: Image, label: 'Image Edit', action: () => { setCodeMode(false); setInput('Edita esta imagen para que parezca...'); imageInputRef.current?.click(); } },
-                    { icon: Layout, label: 'Web Dev', action: () => { setCodeMode(true); setMode('fast'); setInput('Crea una landing page para...'); } },
-                    { icon: Book, label: 'Learn', action: () => { setCodeMode(false); setMode('deep'); setInput('Explícame el concepto de...'); } },
-                    { icon: Search, label: 'Deep Research', action: () => { setCodeMode(false); setMode('deep'); setInput('Investiga profundamente sobre...'); } },
-                    { icon: Sparkles, label: 'Image Gen', action: () => { setCodeMode(false); setInput('Genera una imagen de...'); } },
-                    { icon: Video, label: 'Video Gen', action: () => { setCodeMode(false); setInput('Crea un guion de video sobre...'); } },
-                    { icon: Briefcase, label: 'Artifacts', action: () => { setShowCreative(true); } },
-                    { icon: Calendar, label: 'Travel Planner', action: () => { setCodeMode(false); setInput('Planifica un viaje de 5 días a...'); } },
-                    { icon: Code, label: 'Code', action: () => { setCodeMode(true); setInput('Escribe una función en Python que...'); } },
-                    { icon: PenTool, label: 'Make a plan', action: () => { setCodeMode(false); setMode('deep'); setInput('Crea un plan detallado para...'); } },
-                    { icon: FileText, label: 'Summarize', action: () => { setCodeMode(false); setInput('Resume este texto: '); } },
-                    { icon: Lightbulb, label: 'Brainstorm', action: () => { setCodeMode(false); setInput('Dame 10 ideas creativas para...'); } },
-                ].slice(0, showAllApps ? undefined : 6).map((item, idx) => (
+            {/* Quick Actions Menu - Mobile (Horizontal Scroll) */}
+            <div className="w-full overflow-x-auto no-scrollbar pb-1 md:hidden">
+               <div className="flex items-center gap-2 w-max px-1">
+                  {SYSTEM_APPS.map(app => (
                     <button
-                        key={idx}
-                        onClick={item.action}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/50 hover:bg-white border border-white/60 hover:border-blue-200 rounded-full text-xs text-slate-600 hover:text-blue-600 transition-all shadow-sm backdrop-blur-sm animate-in fade-in zoom-in duration-200"
+                      key={app.id}
+                      onClick={() => handleQuickAction(app.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border shadow-sm hover:brightness-95 transition-all whitespace-nowrap ${app.color}`}
                     >
-                        <item.icon className="w-3.5 h-3.5" />
-                        {item.label}
+                      <app.icon className="w-3.5 h-3.5" />
+                      <span className="text-xs font-medium text-gray-700">{app.name}</span>
                     </button>
-                ))}
+                  ))}
+               </div>
+            </div>
+
+            {/* Quick Actions Menu - Desktop (Minimalist Switch) */}
+            <div className="hidden md:flex flex-col w-full">
+                <div className="flex justify-center">
+                    <button 
+                        onClick={() => setMenuExpanded(!menuExpanded)}
+                        className="flex items-center gap-2 text-xs text-gray-400 hover:text-blue-500 transition-colors py-1"
+                    >
+                        {menuExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                        <span className="uppercase tracking-widest font-semibold">{menuExpanded ? 'Ocultar Herramientas' : 'Herramientas NEXA'}</span>
+                    </button>
                 </div>
                 
-                <button
-                    onClick={() => setShowAllApps(!showAllApps)}
-                    className="flex items-center gap-1 px-4 py-1.5 bg-white/40 hover:bg-white/80 border border-white/50 rounded-full text-xs font-medium text-slate-500 hover:text-slate-700 transition-all shadow-sm backdrop-blur-sm"
-                >
-                    {showAllApps ? (
-                        <>
-                            Show Less <ChevronUp className="w-3 h-3" />
-                        </>
-                    ) : (
-                        <>
-                            More <ChevronDown className="w-3 h-3" />
-                        </>
-                    )}
-                </button>
+                {menuExpanded && (
+                    <div className="grid grid-cols-4 gap-2 pt-2 animate-in slide-in-from-top-2 duration-300">
+                        {SYSTEM_APPS.map(app => (
+                            <button
+                            key={app.id}
+                            onClick={() => handleQuickAction(app.id)}
+                            className={`flex flex-col items-center gap-2 p-3 rounded-xl border hover:shadow-md transition-all ${app.color} bg-opacity-50 hover:bg-opacity-100`}
+                            >
+                            <app.icon className="w-3.5 h-3.5" />
+                            <span className="text-xs font-medium text-gray-700 text-center">{app.name}</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
-
-            <p className="text-center text-[10px] text-slate-400 mt-4 opacity-60">
-              NEXA OS v2.0 • AI Powered Workspace
-            </p>
           </div>
         </div>
-      </div>
+      
+      {(() => {
+        if (!activeApp) return null;
+        const appDef = getAppById(activeApp);
+        if (!appDef?.component) return null;
+        
+        const Component = APP_COMPONENTS[appDef.component];
+        if (!Component) return null;
 
-      {showVideoGen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                {/* Header */}
-                <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-red-50 to-orange-50">
-                    <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                        <Video className="w-5 h-5 text-red-500" />
-                        Generador de Video AI
-                    </h3>
-                    <button onClick={() => setShowVideoGen(false)} className="p-1 hover:bg-white/50 rounded-full transition-colors">
-                        <X className="w-5 h-5 text-gray-500" />
-                    </button>
-                </div>
-                
-                <div className="p-6 overflow-y-auto space-y-6">
-                    {generatedVideo ? (
-                        <div className="flex flex-col items-center justify-center space-y-6">
-                             <div className="w-full h-64 md:h-80 bg-black rounded-xl overflow-hidden relative group shadow-2xl ring-1 ring-black/10 flex items-center justify-center">
-                                {videoGenFile && videoGenFile.type.startsWith('image') ? (
-                                    <img src={URL.createObjectURL(videoGenFile)} alt="Preview" className="w-full h-full object-cover opacity-60" />
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center text-white/50">
-                                         <Video className="w-16 h-16 mb-2 opacity-50" />
-                                         <p className="text-sm font-medium">Vista previa de video</p>
-                                    </div>
-                                )}
-                                <div className="absolute inset-0 flex items-center justify-center z-10">
-                                     <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center cursor-pointer hover:scale-110 transition-transform group-hover:bg-white/30" onClick={() => alert("Reproduciendo video generado...")}>
-                                         <Play className="w-10 h-10 text-white ml-1 fill-white" />
-                                     </div>
-                                </div>
-                                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-20">
-                                     <div className="flex items-center gap-3">
-                                        <button className="text-white hover:text-red-400"><Play className="w-4 h-4 fill-white" /></button>
-                                        <div className="h-1 bg-white/30 rounded-full overflow-hidden flex-1">
-                                            <div className="h-full w-1/3 bg-red-500 rounded-full"></div>
-                                        </div>
-                                        <span className="text-xs text-white font-mono">00:07 / 00:22</span>
-                                        <button className="text-white hover:text-red-400"><Download className="w-4 h-4" /></button>
-                                     </div>
-                                </div>
-                             </div>
+        return (
+          <Component
+            isOpen={true}
+            onClose={() => { setActiveApp(null); setAppFile(null); }}
+            onInsert={(content: string, mediaSrc: string) => {
+              setActiveApp(null);
+              setAppFile(null);
+              
+              let prefix = '📱 **App Result**';
+              let attachmentType = 'Adjunto';
+              
+              if (activeApp === 'video_gen') {
+                 prefix = '🎥 **Video Generado**';
+                 attachmentType = 'Video adjunto';
+              } else if (activeApp === 'image_studio') {
+                 prefix = '🖼️ **Imagen Procesada**';
+                 attachmentType = 'Imagen adjunta';
+              }
+              
+              setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: `${prefix}\n\n${content}\n\n*[${attachmentType}: ${mediaSrc}]*`
+              }]);
+            }}
+            initialFile={appFile}
+          />
+        );
+      })()}
 
-                             <div className="text-center space-y-2">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold uppercase tracking-wider">
-                                    <CheckCircle2 className="w-3 h-3" /> Completado
-                                </div>
-                                <h3 className="text-2xl font-bold text-slate-800">¡Tu video está listo!</h3>
-                                <p className="text-slate-600 max-w-md mx-auto">
-                                    Hemos generado una animación basada en tu prompt: <span className="italic">&quot;{videoPrompt}&quot;</span>
-                                </p>
-                             </div>
-                             
-                             <div className="flex gap-3 w-full max-w-md">
-                                 <button onClick={() => { setShowVideoGen(false); setGeneratedVideo(false); setVideoGenFile(null); setVideoPrompt(''); }} className="flex-1 py-3 text-slate-600 font-medium hover:bg-slate-100 rounded-xl transition-colors">
-                                     Descartar
-                                 </button>
-                                 <button onClick={() => {
-                                     setShowVideoGen(false);
-                                     setGeneratedVideo(false);
-                                     setMessages(prev => [...prev, {
-                                        role: 'assistant',
-                                        content: `🎥 **Video Generado**\n\nAquí tienes el resultado de tu solicitud: "${videoPrompt}"\n\n*[Video adjunto: generation_v2_480p.mp4]*`
-                                     }]);
-                                     setVideoGenFile(null);
-                                     setVideoPrompt('');
-                                 }} className="flex-1 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 transition-all transform hover:-translate-y-0.5">
-                                     Insertar en Chat
-                                 </button>
-                             </div>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="space-y-2">
-                               <label className="text-sm font-medium text-slate-700">1. Sube tu imagen o video de referencia</label>
-                                <div 
-                                    className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-all ${videoGenFile ? 'border-red-200 bg-red-50/30' : 'border-slate-200 hover:border-red-300 hover:bg-slate-50'}`}
-                                    onDragOver={(e) => e.preventDefault()}
-                                    onDrop={(e) => {
-                                        e.preventDefault();
-                                        const file = e.dataTransfer.files[0];
-                                        if(file) setVideoGenFile(file);
-                                    }}
-                                >
-                                    {videoGenFile ? (
-                                        <div className="text-center relative">
-                                            {videoGenFile.type.startsWith('image') ? (
-                                                <img src={URL.createObjectURL(videoGenFile)} alt="File preview" className="h-32 rounded-lg shadow-sm mb-2 object-cover" />
-                                            ) : (
-                                                <div className="h-32 w-32 bg-slate-100 rounded-lg flex items-center justify-center mb-2 mx-auto">
-                                                    <Video className="w-10 h-10 text-slate-400" />
-                                                </div>
-                                            )}
-                                            <p className="text-sm font-medium text-slate-700">{videoGenFile.name}</p>
-                                            <button onClick={() => setVideoGenFile(null)} className="text-xs text-red-500 hover:underline mt-1">Cambiar archivo</button>
-                                        </div>
-                                    ) : (
-                                        <div className="text-center cursor-pointer" onClick={() => document.getElementById('video-upload')?.click()}>
-                                            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3 text-red-500">
-                                                <Plus className="w-6 h-6" />
-                                            </div>
-                                            <p className="text-sm text-slate-600 font-medium">Haz clic o arrastra un archivo aquí</p>
-                                            <p className="text-xs text-slate-400 mt-1">Soporta JPG, PNG, MP4</p>
-                                        </div>
-                                    )}
-                                    <input type="file" id="video-upload" className="hidden" accept="image/*,video/*" onChange={(e) => e.target.files?.[0] && setVideoGenFile(e.target.files[0])} />
-                                </div>
-                            </div>
 
-                            {/* Prompt Section */}
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-700">2. Describe cómo quieres recrearlo</label>
-                                <textarea 
-                                    value={videoPrompt}
-                                    onChange={(e) => setVideoPrompt(e.target.value)}
-                                    placeholder="Ej: Haz que el paisaje se mueva suavemente, añade lluvia y una atmósfera melancólica..."
-                                    className="w-full p-3 rounded-xl border border-slate-200 focus:border-red-400 focus:ring-2 focus:ring-red-100 outline-none resize-none h-24 text-sm"
-                                />
-                            </div>
-
-                            {/* Settings */}
-                            <div className="flex items-center gap-4 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                <div className="flex items-center gap-2">
-                                    <Clock className="w-4 h-4 text-slate-400" />
-                                    <span>Duración: <strong>22 segundos</strong></span>
-                                </div>
-                                <div className="h-4 w-px bg-slate-200"></div>
-                                <div className="flex items-center gap-2">
-                                    <Sparkles className="w-4 h-4 text-slate-400" />
-                                    <span>Modelo: <strong>NEXA Video Gen 2.0</strong></span>
-                                </div>
-                            </div>
-
-                            {/* Generate Button */}
-                            <button 
-                                onClick={handleGenerateVideo}
-                                disabled={!videoGenFile || !videoPrompt || isGeneratingVideo}
-                                className={`w-full py-3 rounded-xl font-medium text-white shadow-lg shadow-red-500/20 transition-all flex items-center justify-center gap-2 ${
-                                    !videoGenFile || !videoPrompt || isGeneratingVideo
-                                    ? 'bg-slate-300 cursor-not-allowed' 
-                                    : 'bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 hover:scale-[1.02] active:scale-[0.98]'
-                                }`}
-                            >
-                                {isGeneratingVideo ? (
-                                    <>
-                                        <Loader2 className="w-5 h-5 animate-spin" />
-                                        Generando Video (Esto tomará unos segundos)...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Zap className="w-5 h-5" />
-                                        Generar Video
-                                    </>
-                                )}
-                            </button>
-                        </>
-                    )}
-                </div>
-            </div>
-        </div>
-      )}
        {showCreative && (
            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200">
                 <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                     <Gift className="w-6 h-6 text-purple-600" />
                     Estudio Creativo NEXA
                   </h2>
-                  <button onClick={() => setShowCreative(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                    <X className="w-6 h-6 text-slate-500" />
+                  <button onClick={() => setShowCreative(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                    <X className="w-6 h-6 text-gray-500" />
                   </button>
                 </div>
  
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                    {/* Web Generator */}
-                   <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100 hover:shadow-lg transition-all cursor-pointer group"
+                   <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100 hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer group"
                         onClick={() => {
                             setCodeMode(true);
                             setMode('fast');
@@ -1523,12 +1704,12 @@ export default function ChatApp() {
                        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                            <Globe className="w-6 h-6 text-blue-600" />
                        </div>
-                       <h3 className="text-lg font-semibold text-slate-800 mb-2">Diseñador Web</h3>
-                       <p className="text-sm text-slate-600">Crea sitios web completos, landing pages y componentes UI al instante.</p>
+                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Diseñador Web</h3>
+                       <p className="text-sm text-gray-600">Crea sitios web completos, landing pages y componentes UI al instante.</p>
                    </div>
  
                    {/* Logo Creator */}
-                   <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100 hover:shadow-lg transition-all cursor-pointer group"
+                   <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100 hover:shadow-lg hover:shadow-purple-500/10 transition-all cursor-pointer group"
                         onClick={() => {
                             setCodeMode(true);
                             setMode('fast');
@@ -1538,12 +1719,12 @@ export default function ChatApp() {
                        <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                            <Code className="w-6 h-6 text-purple-600" />
                        </div>
-                       <h3 className="text-lg font-semibold text-slate-800 mb-2">Creador de Logos</h3>
-                       <p className="text-sm text-slate-600">Diseña logotipos vectoriales (SVG) listos para usar en tus proyectos.</p>
+                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Creador de Logos</h3>
+                       <p className="text-sm text-gray-600">Diseña logotipos vectoriales (SVG) listos para usar en tus proyectos.</p>
                    </div>
  
                    {/* Book Writer */}
-                   <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-2xl border border-amber-100 hover:shadow-lg transition-all cursor-pointer group"
+                   <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-2xl border border-amber-100 hover:shadow-lg hover:shadow-amber-500/10 transition-all cursor-pointer group"
                         onClick={() => {
                             setCodeMode(false);
                             setMode('deep');
@@ -1553,12 +1734,12 @@ export default function ChatApp() {
                        <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                            <FolderPlus className="w-6 h-6 text-amber-600" />
                        </div>
-                       <h3 className="text-lg font-semibold text-slate-800 mb-2">Escritor de Libros</h3>
-                       <p className="text-sm text-slate-600">Ayuda para escribir novelas, cuentos o documentación técnica extensa.</p>
+                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Escritor de Libros</h3>
+                       <p className="text-sm text-gray-600">Ayuda para escribir novelas, cuentos o documentación técnica extensa.</p>
                    </div>
  
                    {/* Video Script */}
-                   <div className="bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-2xl border border-red-100 hover:shadow-lg transition-all cursor-pointer group"
+                   <div className="bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-2xl border border-red-100 hover:shadow-lg hover:shadow-red-500/10 transition-all cursor-pointer group"
                         onClick={() => {
                             setCodeMode(false);
                             setMode('fast');
@@ -1568,155 +1749,179 @@ export default function ChatApp() {
                        <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                            <Volume2 className="w-6 h-6 text-red-600" />
                        </div>
-                       <h3 className="text-lg font-semibold text-slate-800 mb-2">Guionista de Video</h3>
-                       <p className="text-sm text-slate-600">Genera guiones, ideas y estructuras para contenido audiovisual.</p>
+                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Guionista de Video</h3>
+                       <p className="text-sm text-gray-600">Genera guiones, ideas y estructuras para contenido audiovisual.</p>
                    </div>
                 </div>
               </div>
            </div>
          )}
        {showSettings && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
-             <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-               <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-                 <Settings className="w-5 h-5 text-blue-500" />
-                 Configuración
-               </h3>
-               <button 
-                 onClick={() => setShowSettings(false)} 
-                 className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded-full transition-all"
-               >
-                 <X className="w-5 h-5" />
-               </button>
-             </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 border border-gray-200 flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50 shrink-0">
+              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-blue-600" />
+                Configuración
+              </h3>
+              <button 
+                onClick={() => setShowSettings(false)} 
+                className="text-gray-500 hover:text-gray-900 p-1 hover:bg-gray-200 rounded-full transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
              
-             <div className="p-6 space-y-6">
+             <div className="p-6 space-y-6 overflow-y-auto flex-1">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900">Tu Nombre</label>
+                <input 
+                  type="text" 
+                  value={userName} 
+                  onChange={(e) => setUserName(e.target.value)}
+                  onBlur={(e) => saveUserName(e.target.value)}
+                  placeholder="¿Cómo te llamas?"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all text-gray-900 placeholder-gray-400"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900">Fondo de Pantalla</label>
+                <div 
+                    onClick={() => wallpaperInputRef.current?.click()}
+                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                >
+                    <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center overflow-hidden">
+                        {wallpaper ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={wallpaper} alt="Wallpaper" className="w-full h-full object-cover" />
+                        ) : (
+                            <Image className="w-5 h-5 text-gray-400" />
+                        )}
+                    </div>
+                    <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">{wallpaper ? 'Fondo personalizado' : 'Fondo por defecto'}</p>
+                        <p className="text-xs text-gray-500">Click para cambiar</p>
+                    </div>
+                    {wallpaper && (
+                        <button 
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setWallpaper(null);
+                            }}
+                            className="p-1 hover:bg-gray-200 rounded-full text-gray-500"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+                <input 
+                    ref={wallpaperInputRef}
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden"
+                    onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                            const url = URL.createObjectURL(file);
+                            setWallpaper(url);
+                        }
+                    }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <span className="text-sm font-medium text-gray-900">Estado de Red</span>
+                <span className={`text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+                  {isOnline ? 'En línea' : 'Sin conexión'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${voiceEnabled ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-500'}`}>
+                    {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Respuesta por voz</p>
+                    <p className="text-xs text-gray-500">NEXA leerá las respuestas en voz alta</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => {
+                    stopSpeaking();
+                    setVoiceEnabled(!voiceEnabled);
+                  }}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${voiceEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                >
+                  <div 
+                    className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-all duration-300 ${voiceEnabled ? 'translate-x-6' : 'translate-x-0.5'}`}
+                  ></div>
+                </button>
+              </div>
+
                <div className="space-y-2">
-                 <label className="text-sm font-medium text-gray-700">Tu Nombre</label>
-                 <input 
-                   type="text" 
-                   value={userName} 
-                   onChange={(e) => setUserName(e.target.value)}
-                   onBlur={(e) => saveUserName(e.target.value)}
-                   placeholder="¿Cómo te llamas?"
-                   className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                 />
-               </div>
-
-               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                 <span className="text-sm font-medium text-gray-700">Estado de Red</span>
-                 <span className={`text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                   {isOnline ? 'En línea' : 'Sin conexión'}
-                 </span>
-               </div>
-
-               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
-                 <div className="flex items-center gap-3">
-                   <div className={`p-2 rounded-lg ${voiceEnabled ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-500'}`}>
-                     {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-                   </div>
-                   <div>
-                     <p className="font-medium text-gray-700">Respuesta por voz</p>
-                     <p className="text-xs text-gray-500">NEXA leerá las respuestas en voz alta</p>
-                   </div>
-                 </div>
-                 <button 
-                   onClick={() => {
-                     stopSpeaking();
-                     setVoiceEnabled(!voiceEnabled);
-                   }}
-                   className={`w-12 h-6 rounded-full transition-colors relative ${voiceEnabled ? 'bg-blue-500' : 'bg-gray-300'}`}
-                 >
-                   <div 
-                     className={`w-5 h-5 bg-white rounded-full shadow-sm absolute top-0.5 transition-all duration-300 ${voiceEnabled ? 'translate-x-6' : 'translate-x-0.5'}`}
-                   ></div>
-                 </button>
-               </div>
-
-               <div className="space-y-2">
-                 <label className="text-sm font-medium text-gray-700">Idioma</label>
+                 <label className="text-sm font-medium text-gray-900">Idioma</label>
                  <select 
                    value={language}
                    onChange={(e) => setLanguage(e.target.value as 'es'|'en'|'zh')}
-                   className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-600"
+                   className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 transition-all text-gray-900"
                  >
-                   <option value="es">Español (España)</option>
-                   <option value="en">English (US)</option>
-                   <option value="zh">中文 (简体)</option>
+                   <option value="es" className="bg-white">Español (España)</option>
+                   <option value="en" className="bg-white">English (US)</option>
+                   <option value="zh" className="bg-white">中文 (简体)</option>
                  </select>
                 </div>
                 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Modelo de Inteligencia</label>
-                  <div className="grid grid-cols-2 gap-2">
-                     <button
-                       onClick={() => setModelProvider('qwen')}
-                       className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${modelProvider === 'qwen' ? 'bg-blue-50 border-blue-200 text-blue-700 ring-1 ring-blue-200' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}
-                     >
-                       <Zap className={`w-4 h-4 ${modelProvider === 'qwen' ? 'text-blue-500' : 'text-gray-400'}`} />
-                       <span className="font-medium text-sm">NEXA (Qwen)</span>
-                     </button>
-                     <button
-                       onClick={() => setModelProvider('anthropic')}
-                       className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${modelProvider === 'anthropic' ? 'bg-purple-50 border-purple-200 text-purple-700 ring-1 ring-purple-200' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}
-                     >
-                       <Sparkles className={`w-4 h-4 ${modelProvider === 'anthropic' ? 'text-purple-500' : 'text-gray-400'}`} />
-                       <span className="font-medium text-sm">NEXA (Claude)</span>
-                     </button>
-                  </div>
-                  <p className="text-xs text-gray-500 px-1">
-                    {modelProvider === 'qwen' ? 'Potenciado por Alibaba Qwen. Mejor para visión y búsqueda.' : 'Potenciado por Anthropic Claude. Mejor para razonamiento complejo y código.'}
-                  </p>
-                </div>
+
 
                 {/* Backup & Repair System */}
-                <div className="space-y-2">
-                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                   <HardDrive className="w-4 h-4" /> Copia de Seguridad y Reparación
-                 </label>
-                 <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100 space-y-3">
-                   <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                         <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                            <Shield className="w-5 h-5" />
-                         </div>
-                         <div>
-                            <p className="font-medium text-slate-700">Backup Automático</p>
-                            <p className="text-xs text-slate-500">Guarda proyecto y datos en /backups</p>
-                         </div>
-                      </div>
-                      <button 
-                        onClick={handleSystemBackup}
-                        disabled={isBackingUp}
-                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                      >
-                        {isBackingUp ? 'Guardando...' : 'Backup Ahora'}
-                      </button>
-                   </div>
-                   <div className="h-px bg-blue-200/50"></div>
-                   <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                         <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
-                            <RotateCcw className="w-5 h-5" />
-                         </div>
-                         <div>
-                            <p className="font-medium text-slate-700">Restauración</p>
-                            <p className="text-xs text-slate-500">Recuperar último estado seguro</p>
-                         </div>
-                      </div>
-                      <button 
-                        onClick={handleSystemRestore}
-                        className="px-3 py-1.5 bg-white border border-gray-200 text-slate-600 text-xs font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                      >
-                        Restaurar
-                      </button>
-                   </div>
-                 </div>
-               </div>
+               <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                  <HardDrive className="w-4 h-4" /> Copia de Seguridad y Reparación
+                </label>
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                           <Shield className="w-5 h-5" />
+                        </div>
+                        <div>
+                           <p className="font-medium text-gray-900">Backup Automático</p>
+                           <p className="text-xs text-gray-500">Guarda proyecto y datos en /backups</p>
+                        </div>
+                     </div>
+                     <button 
+                       onClick={handleSystemBackup}
+                       disabled={isBackingUp}
+                       className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                     >
+                       {isBackingUp ? 'Guardando...' : 'Backup Ahora'}
+                     </button>
+                  </div>
+                  <div className="h-px bg-gray-200"></div>
+                  <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                        <div className="p-2 bg-pink-100 text-pink-600 rounded-lg">
+                           <RotateCcw className="w-5 h-5" />
+                        </div>
+                        <div>
+                           <p className="font-medium text-gray-900">Restauración</p>
+                           <p className="text-xs text-gray-500">Recuperar último estado seguro</p>
+                        </div>
+                     </div>
+                     <button 
+                       onClick={handleSystemRestore}
+                       className="px-3 py-1.5 bg-white border border-pink-200 text-pink-600 text-xs font-medium rounded-lg hover:bg-pink-50 transition-colors"
+                     >
+                       Restaurar
+                     </button>
+                  </div>
+                </div>
+              </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Exportar conversación</label>
+                  <label className="text-sm font-medium text-gray-900">Exportar conversación</label>
                   <div className="flex gap-2">
                     <button
                       onClick={() => {
@@ -1727,7 +1932,7 @@ export default function ChatApp() {
                         a.href = url; a.download = 'conversacion.txt'; a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 hover:bg-blue-100 transition-all text-sm"
+                      className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-blue-600 hover:bg-blue-50 transition-all text-sm"
                     >
                       Descargar .TXT
                     </button>
@@ -1739,7 +1944,7 @@ export default function ChatApp() {
                         a.href = url; a.download = 'conversacion.json'; a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 hover:bg-blue-100 transition-all text-sm"
+                      className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-blue-600 hover:bg-blue-50 transition-all text-sm"
                     >
                       Descargar .JSON
                     </button>
@@ -1765,7 +1970,7 @@ export default function ChatApp() {
                         w.focus();
                         w.print();
                       }}
-                      className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 hover:bg-blue-100 transition-all text-sm"
+                      className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-blue-600 hover:bg-blue-50 transition-all text-sm"
                     >
                       Guardar como PDF
                     </button>
@@ -1790,7 +1995,7 @@ export default function ChatApp() {
                         a.href = url; a.download = 'nexa_conversacion.zip'; a.click();
                         URL.revokeObjectURL(url);
                       }}
-                      className="px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 hover:bg-blue-100 transition-all text-sm"
+                      className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-blue-600 hover:bg-blue-50 transition-all text-sm"
                     >
                       Descargar .ZIP
                     </button>
@@ -1798,7 +2003,7 @@ export default function ChatApp() {
                 </div>
  
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Plantillas rápidas de código</label>
+                  <label className="text-sm font-medium text-gray-900">Plantillas rápidas de código</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => {
@@ -1806,7 +2011,7 @@ export default function ChatApp() {
                         setInput("Crea un componente React funcional con:\n- botón \"Incrementar\"\n- contador en estado\n- estilos básicos Tailwind\nIncluye TypeScript.");
                         setShowSettings(false);
                       }}
-                      className="px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 hover:bg-purple-100 transition-all text-sm"
+                      className="px-3 py-2 bg-pink-50 border border-pink-200 rounded-lg text-pink-600 hover:bg-pink-100 transition-all text-sm"
                     >
                       React: Contador
                     </button>
@@ -1816,7 +2021,7 @@ export default function ChatApp() {
                         setInput("Crea una ruta API de Next.js (app/api/example/route.ts) que acepte POST con JSON {name} y responda {greeting: \"Hola {name}\"} con validación y tipos TypeScript.");
                         setShowSettings(false);
                       }}
-                      className="px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 hover:bg-purple-100 transition-all text-sm"
+                      className="px-3 py-2 bg-pink-50 border border-pink-200 rounded-lg text-pink-600 hover:bg-pink-100 transition-all text-sm"
                     >
                       Next.js: API
                     </button>
@@ -1826,7 +2031,7 @@ export default function ChatApp() {
                         setInput("Escribe una función TypeScript utilitaria:\n- nombre: formatCurrency\n- parámetros: amount:number, currency?:string=\"EUR\", locale?:string=\"es-ES\"\n- retorna string con Intl.NumberFormat\n- añade pruebas básicas de uso.");
                         setShowSettings(false);
                       }}
-                      className="px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 hover:bg-purple-100 transition-all text-sm"
+                      className="px-3 py-2 bg-pink-50 border border-pink-200 rounded-lg text-pink-600 hover:bg-pink-100 transition-all text-sm"
                     >
                       TS: Utilidad
                     </button>
@@ -1836,7 +2041,7 @@ export default function ChatApp() {
                         setInput("Genera un README breve para un proyecto Next.js con:\n- requisitos\n- instalación\n- scripts\n- despliegue en Vercel\n- estructura de carpetas.");
                         setShowSettings(false);
                       }}
-                      className="px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg text-purple-700 hover:bg-purple-100 transition-all text-sm"
+                      className="px-3 py-2 bg-nexa-secondary/10 border border-nexa-secondary/20 rounded-lg text-nexa-secondary hover:bg-nexa-secondary/20 transition-all text-sm"
                     >
                       README rápido
                     </button>
@@ -1844,10 +2049,10 @@ export default function ChatApp() {
                 </div>
               </div>
 
-              <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+              <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end shrink-0">
                 <button 
                   onClick={() => setShowSettings(false)}
-                  className="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white rounded-lg font-medium transition-all shadow-lg shadow-blue-500/20"
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all shadow-sm"
                 >
                   Listo
                 </button>
@@ -1855,6 +2060,7 @@ export default function ChatApp() {
             </div>
           </div>
        )}
+    </div>
     </div>
   );
 }

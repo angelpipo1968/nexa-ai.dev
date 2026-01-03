@@ -23,6 +23,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
     setError('');
     setLoading(true);
 
+    if (!auth) {
+        setError('Configuración de Firebase faltante. Revisa .env.local');
+        setLoading(false);
+        return;
+    }
+
     try {
       if (mode === 'signup') {
         await createUserWithEmailAndPassword(auth, email, password);
@@ -40,6 +46,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
   const handleGoogleLogin = async () => {
     setError('');
     setLoading(true);
+
+    if (!auth) {
+        setError('Configuración de Firebase faltante. Revisa .env.local');
+        setLoading(false);
+        return;
+    }
+
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
@@ -52,16 +65,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-[#1a1a1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="relative p-6 border-b border-white/5">
-          <h2 className="text-2xl font-bold text-white text-center">
+        <div className="relative p-6 border-b border-gray-100">
+          <h2 className="text-2xl font-bold text-gray-900 text-center">
             {mode === 'login' ? 'Bienvenido a NEXA' : 'Crear Cuenta'}
           </h2>
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 text-white/50 hover:text-white transition-colors rounded-full hover:bg-white/5"
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100"
           >
             <X size={20} />
           </button>
@@ -71,14 +84,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
         <div className="p-6 space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm text-white/70 ml-1">Email</label>
+              <label className="text-sm text-gray-600 ml-1">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={18} />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   placeholder="tu@email.com"
                   required
                 />
@@ -86,14 +99,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm text-white/70 ml-1">Contraseña</label>
+              <label className="text-sm text-gray-600 ml-1">Contraseña</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" size={18} />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                   placeholder="••••••••"
                   required
                 />
@@ -101,7 +114,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
             </div>
 
             {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm text-center">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm text-center">
                 {error}
               </div>
             )}
@@ -109,7 +122,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -127,10 +140,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/10"></div>
+              <div className="w-full border-t border-gray-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-[#1a1a1a] text-white/40">O continúa con</span>
+              <span className="px-2 bg-white text-gray-500">O continúa con</span>
             </div>
           </div>
 
@@ -138,7 +151,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
             type="button"
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+            className="w-full bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-medium py-3 rounded-xl transition-all flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -162,12 +175,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, defaultMo
           </button>
 
           <div className="text-center text-sm">
-            <span className="text-white/40">
+            <span className="text-gray-500">
               {mode === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}
             </span>
             <button
               onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-              className="ml-2 text-blue-400 hover:text-blue-300 font-medium transition-colors"
+              className="ml-2 text-blue-600 hover:text-blue-500 font-medium transition-colors"
             >
               {mode === 'login' ? 'Regístrate' : 'Inicia Sesión'}
             </button>
