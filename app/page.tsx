@@ -205,7 +205,6 @@ export default function ChatApp() {
   const [mode, setMode] = useState<'fast'|'deep'>('fast');
   const [codeMode, setCodeMode] = useState(false);
   const [autoVoiceMode, setAutoVoiceMode] = useState(false);
-  const [showCreative, setShowCreative] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -218,18 +217,34 @@ export default function ChatApp() {
   const [showAllApps, setShowAllApps] = useState(false);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [inputHighlight, setInputHighlight] = useState(false);
-  const [wallpaper, setWallpaper] = useState<string | null>(null);
   
   // App System State
   const [activeApp, setActiveApp] = useState<string | null>(null);
   const [activeAppParams, setActiveAppParams] = useState<any>(null);
   const [appFile, setAppFile] = useState<File | null>(null);
+  const [wallpaper, setWallpaper] = useState<string | null>(null);
 
   const imageInputRef = useRef<HTMLInputElement | null>(null);
-  const wallpaperInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
   const docInputRef = useRef<HTMLInputElement | null>(null);
+  const wallpaperInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+     // Check if we need to auto-open an app on mount (could be passed via URL or context in real app)
+     // For this session, we manually trigger the user's request:
+     // "Generar imagen de león en el bosque"
+     const hasAutoAction = sessionStorage.getItem('nexa_auto_action');
+     if (!hasAutoAction) {
+          setActiveApp('image_studio');
+          setActiveAppParams({ initialPrompt: 'Generar una imagen hiperrealista de un león caminando majestuosamente en un bosque denso y místico, iluminación cinematográfica, 8k.' });
+          setMessages(prev => [...prev, {
+              role: 'assistant',
+              content: 'He abierto **Image Studio** con tu solicitud para generar el león en el bosque. ¡Mira lo que podemos crear!'
+          }]);
+          sessionStorage.setItem('nexa_auto_action', 'true');
+     }
+  }, []);
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -744,6 +759,7 @@ export default function ChatApp() {
             content: "¡Claro que sí! Puedo ayudarte a generar ese video. He abierto la herramienta **Video Gen** para ti. Por favor, ingresa los detalles en el panel que acaba de aparecer."
         }]);
         setActiveApp('video_gen');
+        setActiveAppParams({ initialPrompt: input.trim() });
         if (voiceEnabled) speakText("¡Claro que sí! Puedo ayudarte a generar ese video. He abierto la herramienta Video Gen para ti.");
       }, 1000);
       return;
@@ -769,6 +785,7 @@ export default function ChatApp() {
               content: "¡Entendido! He abierto **Image Studio** para procesar tu solicitud. Puedes editar o generar imágenes avanzadas desde aquí."
           }]);
           setActiveApp('image_studio');
+          setActiveAppParams({ initialPrompt: input.trim() });
           if (voiceEnabled) speakText("¡Entendido! He abierto Image Studio para procesar tu solicitud.");
         }, 1000);
         return;
@@ -891,6 +908,38 @@ export default function ChatApp() {
            // Remove memory tags from display
            content = content.replace(/\[MEMORY: .*?\]/g, '').trim();
        }
+
+       // PROCESS OPEN_APP TAGS
+       // Format: [OPEN_APP: id, {json_params}] or [OPEN_APP: id]
+       const openAppRegex = /\[OPEN_APP:\s*([a-zA-Z0-9_]+)(?:,\s*(\{.*?\}))?\]/g;
+       let match;
+       while ((match = openAppRegex.exec(content)) !== null) {
+           const appId = match[1].trim();
+           const paramsStr = match[2];
+           
+           const app = getAppById(appId);
+           if (app) {
+               setActiveApp(appId);
+               let params = {};
+               if (paramsStr) {
+                   try {
+                       params = JSON.parse(paramsStr);
+                   } catch (e) {
+                       console.error("Error parsing app params:", e);
+                   }
+               }
+               // Fallback: If no prompt in params, use message content if short
+               if (!params.hasOwnProperty('initialPrompt') && content.length < 200) {
+                   // @ts-ignore
+                   params.initialPrompt = content.replace(openAppRegex, '').trim();
+               }
+               
+               setActiveAppParams(params);
+               console.log(`Auto-opening app: ${appId}`, params);
+           }
+       }
+       // Remove tags for clean display
+       content = content.replace(/\[OPEN_APP:.*?\]/g, '').trim();
 
       const assistantMessage = {
         role: 'assistant',
@@ -1034,7 +1083,7 @@ export default function ChatApp() {
   };
 
   return (
-    <div className="flex h-[100dvh] bg-white overflow-hidden font-sans text-gray-900" style={wallpaper ? { backgroundImage: `url(${wallpaper})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}>
+    <div className="flex h-[100dvh] bg-white overflow-hidden font-sans text-gray-900">
       <style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
         :root { --font-sans: 'Inter', system-ui, sans-serif; }
@@ -1082,15 +1131,6 @@ export default function ChatApp() {
             >
                 <Plus className="w-4 h-4 shrink-0" />
                 {sidebarOpen && <span className="text-sm font-medium">New Chat</span>}
-            </button>
-
-            <button 
-                onClick={() => setShowCreative(true)}
-                className={`flex items-center gap-2 p-2 rounded-lg transition-all text-gray-600 hover:bg-gray-100 hover:text-gray-900 ${!sidebarOpen ? 'justify-center' : ''}`}
-                title="New Project"
-            >
-                <FolderPlus className="w-4 h-4 shrink-0" />
-                {sidebarOpen && <span className="text-sm font-medium">New Project</span>}
             </button>
 
             <button 
@@ -1705,84 +1745,6 @@ export default function ChatApp() {
         );
       })()}
 
-
-       {showCreative && (
-           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200">
-                <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                    <Gift className="w-6 h-6 text-purple-600" />
-                    Estudio Creativo NEXA
-                  </h2>
-                  <button onClick={() => setShowCreative(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                    <X className="w-6 h-6 text-gray-500" />
-                  </button>
-                </div>
- 
-                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                   {/* Web Generator */}
-                   <div className="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-2xl border border-blue-100 hover:shadow-lg hover:shadow-blue-500/10 transition-all cursor-pointer group"
-                        onClick={() => {
-                            setCodeMode(true);
-                            setMode('fast');
-                            setInput("Crea una página web moderna y responsiva para [TU TEMA AQUÍ] que incluya una sección de héroe, características y contacto. Usa Tailwind CSS.");
-                            setShowCreative(false);
-                        }}>
-                       <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                           <Globe className="w-6 h-6 text-blue-600" />
-                       </div>
-                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Diseñador Web</h3>
-                       <p className="text-sm text-gray-600">Crea sitios web completos, landing pages y componentes UI al instante.</p>
-                   </div>
- 
-                   {/* Logo Creator */}
-                   <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-2xl border border-purple-100 hover:shadow-lg hover:shadow-purple-500/10 transition-all cursor-pointer group"
-                        onClick={() => {
-                            setCodeMode(true);
-                            setMode('fast');
-                            setInput("Genera el código SVG para un logo moderno y minimalista de [NOMBRE/EMPRESA]. El logo debe representar [CONCEPTO]. Usa colores vibrantes.");
-                            setShowCreative(false);
-                        }}>
-                       <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                           <Code className="w-6 h-6 text-purple-600" />
-                       </div>
-                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Creador de Logos</h3>
-                       <p className="text-sm text-gray-600">Diseña logotipos vectoriales (SVG) listos para usar en tus proyectos.</p>
-                   </div>
- 
-                   {/* Book Writer */}
-                   <div className="bg-gradient-to-br from-amber-50 to-orange-50 p-6 rounded-2xl border border-amber-100 hover:shadow-lg hover:shadow-amber-500/10 transition-all cursor-pointer group"
-                        onClick={() => {
-                            setCodeMode(false);
-                            setMode('deep');
-                            setInput("Escribe el primer capítulo de un libro sobre [TEMA]. El tono debe ser [TONO]. Incluye diálogos y descripciones detalladas.");
-                            setShowCreative(false);
-                        }}>
-                       <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                           <FolderPlus className="w-6 h-6 text-amber-600" />
-                       </div>
-                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Escritor de Libros</h3>
-                       <p className="text-sm text-gray-600">Ayuda para escribir novelas, cuentos o documentación técnica extensa.</p>
-                   </div>
- 
-                   {/* Video Script */}
-                   <div className="bg-gradient-to-br from-red-50 to-rose-50 p-6 rounded-2xl border border-red-100 hover:shadow-lg hover:shadow-red-500/10 transition-all cursor-pointer group"
-                        onClick={() => {
-                            setCodeMode(false);
-                            setMode('fast');
-                            setInput("Crea un guion detallado para un video de YouTube sobre [TEMA]. Incluye escenas, narración y sugerencias visuales.");
-                            setShowCreative(false);
-                        }}>
-                       <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                           <Volume2 className="w-6 h-6 text-red-600" />
-                       </div>
-                       <h3 className="text-lg font-semibold text-gray-900 mb-2">Guionista de Video</h3>
-                       <p className="text-sm text-gray-600">Genera guiones, ideas y estructuras para contenido audiovisual.</p>
-                   </div>
-                </div>
-              </div>
-           </div>
-         )}
        {showSettings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 border border-gray-200 flex flex-col max-h-[85vh]">
