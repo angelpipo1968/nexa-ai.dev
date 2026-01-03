@@ -649,7 +649,8 @@ export default function ChatApp() {
           language,
           attachments: imageAttachments,
           mode,
-          codeMode
+          codeMode,
+          provider: modelProvider // Send selected provider
         }),
         signal: abortControllerRef.current.signal
       });
@@ -1646,6 +1647,29 @@ export default function ChatApp() {
                  </select>
                 </div>
                 
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Modelo de Inteligencia</label>
+                  <div className="grid grid-cols-2 gap-2">
+                     <button
+                       onClick={() => setModelProvider('qwen')}
+                       className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${modelProvider === 'qwen' ? 'bg-blue-50 border-blue-200 text-blue-700 ring-1 ring-blue-200' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}
+                     >
+                       <Zap className={`w-4 h-4 ${modelProvider === 'qwen' ? 'text-blue-500' : 'text-gray-400'}`} />
+                       <span className="font-medium text-sm">NEXA (Qwen)</span>
+                     </button>
+                     <button
+                       onClick={() => setModelProvider('anthropic')}
+                       className={`flex items-center justify-center gap-2 p-3 rounded-xl border transition-all ${modelProvider === 'anthropic' ? 'bg-purple-50 border-purple-200 text-purple-700 ring-1 ring-purple-200' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}
+                     >
+                       <Sparkles className={`w-4 h-4 ${modelProvider === 'anthropic' ? 'text-purple-500' : 'text-gray-400'}`} />
+                       <span className="font-medium text-sm">NEXA (Claude)</span>
+                     </button>
+                  </div>
+                  <p className="text-xs text-gray-500 px-1">
+                    {modelProvider === 'qwen' ? 'Potenciado por Alibaba Qwen. Mejor para visión y búsqueda.' : 'Potenciado por Anthropic Claude. Mejor para razonamiento complejo y código.'}
+                  </p>
+                </div>
+
                 {/* Backup & Repair System */}
                 <div className="space-y-2">
                  <label className="text-sm font-medium text-gray-700 flex items-center gap-2">

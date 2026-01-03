@@ -14,7 +14,7 @@ const qwen = new OpenAI({
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { messages, language, attachments, mode, codeMode } = body as { messages: Array<{role: string, content: string}>; language?: 'es'|'en'|'zh'; attachments?: Array<{ media_type: string; data: string }>; mode?: 'fast'|'deep'; codeMode?: boolean };
+    const { messages, language, attachments, mode, codeMode, provider } = body as { messages: Array<{role: string, content: string}>; language?: 'es'|'en'|'zh'; attachments?: Array<{ media_type: string; data: string }>; mode?: 'fast'|'deep'; codeMode?: boolean; provider?: 'qwen'|'anthropic' };
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -37,8 +37,16 @@ export async function POST(req: NextRequest) {
     const temperature = mode === 'deep' ? 0.7 : 0.2;
     const max_tokens = mode === 'deep' ? 2000 : 700;
 
-    // Check which provider to use: Qwen (Alibaba) if key exists, else Anthropic
-    if (process.env.QWEN_API_KEY) {
+    // Check which provider to use: Qwen (Alibaba) vs Anthropic
+    // Logic: 
+    // 1. If provider explicitly requested AND key exists -> Use it
+    // 2. If no provider explicitly requested -> Default to Qwen if key exists, else Anthropic
+
+    const useQwen = (provider === 'qwen' && process.env.QWEN_API_KEY) || 
+                    (!provider && process.env.QWEN_API_KEY) ||
+                    (provider === 'anthropic' && !process.env.ANTHROPIC_API_KEY && process.env.QWEN_API_KEY);
+
+    if (useQwen) {
         // 1. Determine Model based on attachments
         const hasImages = attachments && attachments.length > 0;
         const qwenModel = hasImages ? 'qwen-vl-max' : 'qwen-plus';
@@ -91,8 +99,8 @@ export async function POST(req: NextRequest) {
             });
         } catch (qwenError: any) {
              console.error('Qwen API Error:', qwenError);
-             // Fallback to Anthropic if Qwen fails? Or just throw. 
-             // Let's throw to let user know config is wrong if they set the key.
+             // If Qwen fails and we didn't explicitly force it, try Anthropic? 
+             // For now, throw error but log it.
              throw qwenError;
         }
     }
