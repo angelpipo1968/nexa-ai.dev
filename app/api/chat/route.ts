@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+  apiKey: process.env.ANTHROPIC_API_KEY || 'dummy',
+});
+
+const qwen = new OpenAI({
+  apiKey: process.env.QWEN_API_KEY || 'dummy',
+  baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
 });
 
 export async function POST(req: NextRequest) {
@@ -24,6 +30,74 @@ export async function POST(req: NextRequest) {
     };
     const lang: 'es'|'en'|'zh' = (language && ['es','en','zh'].includes(language)) ? language : 'es';
 
+    const systemBase = systems[lang];
+    const system = codeMode 
+      ? `${systemBase} Responde como asistente de programación. Genera código funcional y explica brevemente decisiones cuando sea útil.`
+      : systemBase;
+    const temperature = mode === 'deep' ? 0.7 : 0.2;
+    const max_tokens = mode === 'deep' ? 2000 : 700;
+
+    // Check which provider to use: Qwen (Alibaba) if key exists, else Anthropic
+    if (process.env.QWEN_API_KEY) {
+        // 1. Determine Model based on attachments
+        const hasImages = attachments && attachments.length > 0;
+        const qwenModel = hasImages ? 'qwen-vl-max' : 'qwen-plus';
+
+        // 2. Format Messages for OpenAI/Qwen
+        const openaiMessages = [
+            { role: 'system', content: system },
+            ...messages.map(m => ({
+                role: m.role,
+                content: m.content
+            }))
+        ];
+
+        // 3. Handle Attachments (Vision)
+        if (hasImages && openaiMessages.length > 0) {
+            const lastMsg = openaiMessages[openaiMessages.length - 1];
+            if (lastMsg.role === 'user') {
+                const contentParts: any[] = [{ type: 'text', text: lastMsg.content }];
+                
+                attachments.forEach(a => {
+                    if (a.media_type.startsWith('image/')) {
+                        contentParts.push({
+                            type: 'image_url',
+                            image_url: {
+                                url: `data:${a.media_type};base64,${a.data}`
+                            }
+                        });
+                    }
+                });
+                lastMsg.content = contentParts as any;
+            }
+        }
+
+        // 4. Call Qwen API with enhanced configuration
+        try {
+            const response = await qwen.chat.completions.create({
+                model: qwenModel, 
+                messages: openaiMessages as any,
+                temperature: 0.85, // Slightly higher for more creative/natural responses
+                top_p: 0.8,       // Balanced diversity
+                // @ts-ignore - enable_search is a Qwen specific feature passed via extra_body
+                extra_body: {
+                    enable_search: true, // Enable internet search like official Qwen Chat
+                    repetition_penalty: 1.1 // Reduce repetition
+                }
+            });
+
+            return NextResponse.json({
+                content: [{ text: response.choices[0].message.content }]
+            });
+        } catch (qwenError: any) {
+             console.error('Qwen API Error:', qwenError);
+             // Fallback to Anthropic if Qwen fails? Or just throw. 
+             // Let's throw to let user know config is wrong if they set the key.
+             throw qwenError;
+        }
+    }
+
+    // Default: Anthropic Logic
     const anthropicMessages: any[] = messages.map(m => ({
       role: m.role === 'user' ? 'user' : 'assistant',
       content: [{ type: 'text', text: m.content }]
@@ -42,13 +116,6 @@ export async function POST(req: NextRequest) {
       anthropicMessages[lastIdx] = last;
     }
 
-    const systemBase = systems[lang];
-    const system = codeMode 
-      ? `${systemBase} Responde como asistente de programación. Genera código funcional y explica brevemente decisiones cuando sea útil.`
-      : systemBase;
-    const temperature = mode === 'deep' ? 0.7 : 0.2;
-    const max_tokens = mode === 'deep' ? 2000 : 700;
-
     const response = await anthropic.messages.create({
       model: 'claude-3-haiku-20240307',
       max_tokens,
@@ -58,6 +125,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json(response);
+
   } catch (error: any) {
     console.error('Error in chat API:', error);
     
