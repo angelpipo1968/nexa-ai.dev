@@ -12,11 +12,21 @@ import { MemorySystem } from '../lib/memory';
 import VideoGen from '../components/apps/VideoGen';
 import ImageStudio from '../components/apps/ImageStudio';
 import MemoryBank from '../components/apps/MemoryBank';
+import Security from '../components/apps/Security';
+import WebDev from '../components/apps/WebDev';
+import Learn from '../components/apps/Learn';
+import Research from '../components/apps/Research';
+import CodeEditor from '../components/apps/CodeEditor';
 
 const APP_COMPONENTS: Record<string, React.ComponentType<any>> = {
   'VideoGen': VideoGen,
   'ImageStudio': ImageStudio,
   'MemoryBank': MemoryBank,
+  'Security': Security,
+  'WebDev': WebDev,
+  'Learn': Learn,
+  'Research': Research,
+  'CodeEditor': CodeEditor,
 };
 
 const AttachmentPreview = ({ file }: { file: File }) => {
@@ -212,6 +222,7 @@ export default function ChatApp() {
   
   // App System State
   const [activeApp, setActiveApp] = useState<string | null>(null);
+  const [activeAppParams, setActiveAppParams] = useState<any>(null);
   const [appFile, setAppFile] = useState<File | null>(null);
 
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -1652,10 +1663,25 @@ export default function ChatApp() {
         return (
           <Component
             isOpen={true}
-            onClose={() => { setActiveApp(null); setAppFile(null); }}
-            onInsert={(content: string, mediaSrc: string) => {
+            onClose={() => { setActiveApp(null); setAppFile(null); setActiveAppParams(null); }}
+            onInsert={(content: string, typeOrSrc: string = '') => {
+              // Handle Prompts (System Instructions)
+              if (typeOrSrc === 'system' || typeOrSrc === 'web_dev_prompt' || typeOrSrc === 'code_prompt') {
+                  setActiveApp(null);
+                  setAppFile(null);
+                  setActiveAppParams(null);
+                  
+                  setInput(content);
+                  setInputHighlight(true);
+                  setTimeout(() => setInputHighlight(false), 500);
+                  if (textareaRef.current) textareaRef.current.focus();
+                  return;
+              }
+
+              // Handle App Results (Images, Videos, etc.)
               setActiveApp(null);
               setAppFile(null);
+              setActiveAppParams(null);
               
               let prefix = '📱 **App Result**';
               let attachmentType = 'Adjunto';
@@ -1670,10 +1696,11 @@ export default function ChatApp() {
               
               setMessages(prev => [...prev, {
                 role: 'assistant',
-                content: `${prefix}\n\n${content}\n\n*[${attachmentType}: ${mediaSrc}]*`
+                content: `${prefix}\n\n${content}\n\n*[${attachmentType}: ${typeOrSrc}]*`
               }]);
             }}
             initialFile={appFile}
+            {...activeAppParams}
           />
         );
       })()}

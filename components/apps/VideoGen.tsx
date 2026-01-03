@@ -6,11 +6,12 @@ interface VideoGenProps {
   onClose: () => void;
   onInsert: (content: string, videoSrc: string) => void;
   initialFile?: File | null;
+  initialPrompt?: string;
 }
 
-export default function VideoGen({ isOpen, onClose, onInsert, initialFile }: VideoGenProps) {
+export default function VideoGen({ isOpen, onClose, onInsert, initialFile, initialPrompt }: VideoGenProps) {
   const [videoGenFile, setVideoGenFile] = useState<File | null>(initialFile || null);
-  const [videoPrompt, setVideoPrompt] = useState('');
+  const [videoPrompt, setVideoPrompt] = useState(initialPrompt || '');
   const [optimizePrompt, setOptimizePrompt] = useState(true);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [generatedVideo, setGeneratedVideo] = useState(false);

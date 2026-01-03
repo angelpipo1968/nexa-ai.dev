@@ -44,7 +44,8 @@ export const SYSTEM_APPS: AppDefinition[] = [
     category: 'productivity', 
     color: 'text-blue-600 bg-blue-50 border-blue-200',
     isOpen: false,
-    minimized: false 
+    minimized: false,
+    component: 'WebDev'
   },
   { 
     id: 'learn', 
@@ -54,7 +55,8 @@ export const SYSTEM_APPS: AppDefinition[] = [
     category: 'productivity', 
     color: 'text-green-600 bg-green-50 border-green-200',
     isOpen: false,
-    minimized: false 
+    minimized: false,
+    component: 'Learn'
   },
   { 
     id: 'research', 
@@ -64,7 +66,8 @@ export const SYSTEM_APPS: AppDefinition[] = [
     category: 'productivity', 
     color: 'text-amber-600 bg-amber-50 border-amber-200',
     isOpen: false,
-    minimized: false 
+    minimized: false,
+    component: 'Research'
   },
   { 
     id: 'code', 
@@ -74,7 +77,8 @@ export const SYSTEM_APPS: AppDefinition[] = [
     category: 'productivity', 
     color: 'text-slate-600 bg-slate-50 border-slate-200',
     isOpen: false,
-    minimized: false 
+    minimized: false,
+    component: 'CodeEditor'
   },
   { 
     id: 'memory_bank', 
@@ -86,6 +90,17 @@ export const SYSTEM_APPS: AppDefinition[] = [
     isOpen: false,
     minimized: false,
     component: 'MemoryBank'
+  },
+  { 
+    id: 'security', 
+    name: 'Seguridad', 
+    description: 'Centro de seguridad y protección', 
+    icon: Shield, 
+    category: 'system', 
+    color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+    isOpen: false,
+    minimized: false,
+    component: 'Security'
   }
 ];
 

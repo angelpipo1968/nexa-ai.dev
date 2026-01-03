@@ -6,11 +6,12 @@ interface ImageStudioProps {
   onClose: () => void;
   onInsert: (content: string, imageSrc: string) => void;
   initialFile?: File | null;
+  initialPrompt?: string;
 }
 
-export default function ImageStudio({ isOpen, onClose, onInsert, initialFile }: ImageStudioProps) {
+export default function ImageStudio({ isOpen, onClose, onInsert, initialFile, initialPrompt }: ImageStudioProps) {
   const [imageStudioFile, setImageStudioFile] = useState<File | null>(initialFile || null);
-  const [imagePrompt, setImagePrompt] = useState('');
+  const [imagePrompt, setImagePrompt] = useState(initialPrompt || '');
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -20,8 +21,10 @@ export default function ImageStudio({ isOpen, onClose, onInsert, initialFile }: 
     if (initialFile) {
         setImageStudioFile(initialFile);
         setMode('edit');
+    } else if (initialPrompt) {
+        setMode('generate');
     }
-  }, [initialFile]);
+  }, [initialFile, initialPrompt]);
 
   useEffect(() => {
     if (imageStudioFile) {
