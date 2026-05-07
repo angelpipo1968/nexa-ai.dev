@@ -6,4 +6,3 @@ startCommand = "npm run start:railway"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 3
