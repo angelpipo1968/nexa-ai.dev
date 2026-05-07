@@ -3,6 +3,7 @@ const nextConfig = {
     reactStrictMode: true,
     eslint: { ignoreDuringBuilds: true },
     typescript: { ignoreBuildErrors: true },
+    output: 'standalone',
     images: {
         remotePatterns: [
             { protocol: 'https', hostname: 'ykzoeytmcxlsodwdavtv.supabase.co' },
@@ -23,4 +24,4 @@ const nextConfig = {
     },
 };
 
-export default next.config.mjs
+export default nextConfig;
