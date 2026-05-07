@@ -6,6 +6,7 @@
     },
     "steps": {
         "install": {
+            "inputs": [{"local": true}],
             "commands": ["npm install --legacy-peer-deps"]
         },
         "build": {
