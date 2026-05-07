@@ -1,0 +1,19 @@
+{
+    "$schema": "https://schema.railpack.com",
+    "provider": "node",
+    "packages": {
+        "node": "20"
+    },
+    "steps": {
+        "install": {
+            "commands": ["npm install --legacy-peer-deps"]
+        },
+        "build": {
+            "inputs": [{"step": "install"}],
+            "commands": ["NODE_OPTIONS='--max-old-space-size=4096' npm run build"]
+        }
+    },
+    "deploy": {
+        "startCommand": "npm start"
+    }
+}
