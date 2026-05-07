@@ -112,6 +112,9 @@ export function NexaApp() {
     const [activeConvMenu, setActiveConvMenu] = useState<string | null>(null);
     const [activeMsgMenu, setActiveMsgMenu] = useState<string | null>(null);
     const [showSettings, setShowSettings] = useState(false);
+    const [reasoning, setReasoning] = useState<string[]>([]);
+    const [showReasoning, setShowReasoning] = useState(false);
+    const [analyzingImage, setAnalyzingImage] = useState(false);
     
     // Auth
     const [user, setUser] = useState<any>(null);
@@ -289,7 +292,7 @@ export function NexaApp() {
 
     const exportConv = (id: string, format: 'json' | 'txt') => {
         const c = convs.find(cv => cv.id === id);
-        const content = format === 'json' ? JSON.stringify({ title: c?.title, messages: msgs }, null, 2) : msgs.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
+        const content = format === 'json' ? JSON.stringify({ title: c?.title, messages: msgs }, null, 2) : msgs.map(m => `${m.role.toUpperCase()}: ${renderMessageContent(m.content)}`).join('\n\n');
         const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -381,6 +384,77 @@ export function NexaApp() {
         window.speechSynthesis.speak(u);
     };
 
+    // ─── Visión: Analizar imagen ───
+    const analyzeImage = async (file: File, question?: string) => {
+        setAnalyzingImage(true);
+        try {
+            const reader = new FileReader();
+            const base64 = await new Promise<string>((res, rej) => {
+                reader.onload = () => {
+                    const r = reader.result as string;
+                    res(r.split(',')[1]);
+                };
+                reader.onerror = rej;
+                reader.readAsDataURL(file);
+            });
+
+            const qMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: question || '🖼️ [Imagen enviada para análisis]', ts: Date.now() };
+            setMsgs(p => [...p, qMsg]);
+            setThinking(true);
+
+            const res = await fetch('/api/vision', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image: base64, mimeType: file.type, question }),
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                const aMsg: Msg = { id: `a-${Date.now()}`, role: 'assistant', content: data.response, ts: Date.now() };
+                setMsgs(p => [...p, aMsg]);
+                if (autoSpeak) speak(data.response);
+            } else {
+                const err = await res.json().catch(() => ({}));
+                setMsgs(p => [...p, { id: `a-${Date.now()}`, role: 'assistant', content: `❌ Error al analizar imagen: ${err.error || 'Error desconocido'}`, ts: Date.now() }]);
+            }
+        } catch (e: any) {
+            setMsgs(p => [...p, { id: `a-${Date.now()}`, role: 'assistant', content: `❌ Error: ${e.message}`, ts: Date.now() }]);
+        } finally {
+            setAnalyzingImage(false);
+            setThinking(false);
+        }
+    };
+
+    // ─── Renderizado de código en mensajes ───
+    const renderMessageContent = (content: string) => {
+        // Split by code blocks
+        const parts = content.split(/(```[\s\S]*?```)/g);
+        return parts.map((part, i) => {
+            if (part.startsWith('```')) {
+                const match = part.match(/```(\w+)?\n?([\s\S]*?)```/);
+                if (match) {
+                    const lang = match[1] || 'code';
+                    const code = match[2].trim();
+                    return (
+                        <div key={i} style={{ margin: '12px 0', borderRadius: 12, overflow: 'hidden', border: '1px solid #27272a' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: '#1a1a1a', borderBottom: '1px solid #27272a' }}>
+                                <span style={{ fontSize: 12, color: '#00e5a0', fontWeight: 600, textTransform: 'uppercase' }}>{lang}</span>
+                                <button onClick={() => navigator.clipboard.writeText(code)} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    📋 Copiar
+                                </button>
+                            </div>
+                            <pre style={{ padding: '14px', background: '#0a0a0a', overflow: 'auto', maxHeight: 400, margin: 0 }}>
+                                <code style={{ fontSize: 13, lineHeight: 1.6, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", color: '#e0e0e0' }}>{code}</code>
+                            </pre>
+                        </div>
+                    );
+                }
+            }
+            // Regular text with markdown-like formatting
+            return <span key={i} style={{ whiteSpace: 'pre-wrap' }}>{part}</span>;
+        });
+    };
+
     const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); };
 
     const filtered = convs.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
@@ -454,7 +528,7 @@ export function NexaApp() {
                                 <div style={{ cursor: 'pointer' }} onClick={checkConn}>
                                     <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: 1.2 }}>NEXA CORE</div>
                                     <div style={{ fontSize: 9, color: thinking || streaming ? accent : T.muted, letterSpacing: 1, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        {thinking ? 'Pensando...' : streaming ? 'Transmitiendo...' : conn === 'ok' ? 'En línea' : 'Desconectado'}
+                                        {thinking ? '🧠 Pensando y razonando...' : streaming ? 'Transmitiendo...' : conn === 'ok' ? 'En línea' : 'Desconectado'}
                                         <span style={{ color: accent, opacity: 0.7 }}>• Protected</span>
                                     </div>
                                 </div>
@@ -506,7 +580,7 @@ export function NexaApp() {
                                             wordBreak: 'break-word',
                                             boxShadow: m.role === 'assistant' ? '0 4px 20px rgba(0,0,0,0.2)' : 'none'
                                         }}>
-                                            {m.content}
+                                            {renderMessageContent(m.content)}
                                         </div>
                                         {m.role === 'assistant' && !m.streaming && (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 10, paddingLeft: 6, position: 'relative' }}>
@@ -632,7 +706,24 @@ function FileUpload({ isOpen, onClose, onFilesSelected }: { isOpen: boolean; onC
                 processed.push({ id: `f-${Date.now()}-${Math.random()}`, type, name: file.name, size: file.size, preview: result.preview, data: result.data, mimeType: file.type || 'application/octet-stream' });
             } catch { }
         }
-        if (processed.length > 0) { onFilesSelected(processed); onClose(); }
+        if (processed.length > 0) { 
+            // Auto-analyze images with vision
+            if ((type === 'image' || type === 'camera') && processed.length > 0) {
+                onClose();
+                for (const f of processed) {
+                    const byteString = atob(f.data);
+                    const ab = new ArrayBuffer(byteString.length);
+                    const ia = new Uint8Array(ab);
+                    for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+                    const blob = new Blob([ab], { type: f.mimeType });
+                    const file = new File([blob], f.name, { type: f.mimeType });
+                    await analyzeImage(file);
+                }
+                return;
+            }
+            onFilesSelected(processed); 
+            onClose(); 
+        }
     };
 
     return (

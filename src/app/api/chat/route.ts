@@ -1,42 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { InputValidator } from '@/lib/security/InputValidator';
+import { getSystemPrompt } from '@/lib/nexa-core/prompts';
+import { detectIntent } from '@/lib/nexa-core/tools';
 
 export async function POST(req: NextRequest) {
     try {
-        const { messages } = await req.json();
+        const body = await req.json();
+        const { messages, images, mode } = body;
 
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
-            return NextResponse.json({ error: 'Se requiere al menos un mensaje' }, { status: 400 });
+            return NextResponse.json({ error: 'Se requiere al menos un mensaje', code: 'EMPTY_MESSAGES' }, { status: 400 });
         }
 
-        // --- SECURITY CHECK ---
+        if (messages.length > 50) {
+            return NextResponse.json({ error: 'Conversación demasiado larga. Inicia un nuevo chat.', code: 'CONVERSATION_TOO_LONG' }, { status: 400 });
+        }
+
+        // Security check
         const validator = new InputValidator();
         const lastMessage = messages[messages.length - 1]?.content || '';
-        const validation = validator.validate(lastMessage);
+        const validation = validator.validate(typeof lastMessage === 'string' ? lastMessage : JSON.stringify(lastMessage));
         
         if (!validation.safe) {
             console.warn('NEXA Security: Blocked message:', validation.reason);
             return NextResponse.json({ error: `Seguridad NEXA: ${validation.reason}` }, { status: 403 });
         }
-        // ----------------------
 
-        const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY || process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
-        const googleKey = process.env.GOOGLE_API_KEY || process.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
-        const groqKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY;
+        // Detect intent for smarter routing
+        const intent = detectIntent(typeof lastMessage === 'string' ? lastMessage : '');
+        const systemPrompt = getSystemPrompt(mode || (intent.type === 'code' ? 'code' : 'default'));
 
-        console.log('NEXA API Keys Status:', { anthropic: !!anthropicKey, google: !!googleKey, groq: !!groqKey });
+        const groqKey = process.env.GROQ_API_KEY;
+        const googleKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+        const anthropicKey = process.env.ANTHROPIC_API_KEY;
+        const openaiKey = process.env.OPENAI_API_KEY;
 
-        // 1. TRY GROQ (Fastest & Most Reliable currently)
+        // Build messages array with system prompt
+        const apiMessages = [
+            { role: 'system', content: systemPrompt },
+            ...messages.map((m: any) => ({
+                role: m.role,
+                content: m.content
+            }))
+        ];
+
+        // ─── Try Groq (Fast) ───
         if (groqKey) {
             try {
-                console.log('NEXA: Attempting Groq...');
                 const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${groqKey}`,
+                    },
                     body: JSON.stringify({
                         model: 'llama-3.3-70b-versatile',
-                        messages: [{ role: 'system', content: 'Eres NEXA, una IA avanzada.' }, ...messages],
+                        messages: apiMessages,
                         stream: true,
+                        temperature: 0.7,
+                        max_tokens: 8192,
                     }),
                 });
 
@@ -55,47 +77,131 @@ export async function POST(req: NextRequest) {
                                         if (done) break;
                                         
                                         const chunk = decoder.decode(value, { stream: true });
-                                        const lines = chunk.split('\n');
-                                        
-                                        for (const line of lines) {
-                                            const trimmedLine = line.trim();
-                                            if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
-                                            
-                                            if (trimmedLine.startsWith('data: ')) {
-                                                try {
-                                                    const data = JSON.parse(trimmedLine.slice(6));
-                                                    const content = data.choices[0]?.delta?.content || '';
-                                                    if (content) {
-                                                        fullResponse += content;
-                                                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content })}\n\n`));
-                                                    }
-                                                } catch (e) {
-                                                    // Skip partial JSON or non-JSON lines
-                                                }
+                                        for (const line of chunk.split('\n')) {
+                                            if (!line.startsWith('data: ')) continue;
+                                            const data = line.slice(6).trim();
+                                            if (data === '[DONE]') {
+                                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'groq' })}\n\n`));
+                                                break;
                                             }
+                                            try {
+                                                const parsed = JSON.parse(data);
+                                                const text = parsed.choices?.[0]?.delta?.content || '';
+                                                if (text) {
+                                                    fullResponse += text;
+                                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+                                                }
+                                            } catch {}
                                         }
                                     }
-                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse })}\n\n`));
-                                } catch (e: any) {
-                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: e.message })}\n\n`));
+                                } catch (e) {
+                                    console.error('Stream error:', e);
                                 }
                             }
                             controller.close();
                         },
                     });
-                    return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } });
-                } else {
-                    const err = await response.text();
-                    console.error('NEXA: Groq failed:', response.status, err);
+
+                    return new Response(stream, {
+                        headers: {
+                            'Content-Type': 'text/event-stream',
+                            'Cache-Control': 'no-cache',
+                            'Connection': 'keep-alive',
+                        },
+                    });
                 }
-            } catch (e) { console.error('NEXA: Groq exception:', e); }
+            } catch (e) {
+                console.error('Groq error:', e);
+            }
         }
 
-        // 2. TRY ANTHROPIC (High Intelligence)
+        // ─── Try Gemini ───
+        if (googleKey) {
+            try {
+                // Convert messages for Gemini format
+                const geminiMessages = messages
+                    .filter((m: any) => m.role !== 'system')
+                    .map((m: any) => ({
+                        role: m.role === 'assistant' ? 'model' : 'user',
+                        parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }]
+                    }));
+
+                const systemMsg = messages.find((m: any) => m.role === 'system');
+
+                const res = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${googleKey}`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            system_instruction: { parts: [{ text: systemPrompt }] },
+                            contents: geminiMessages,
+                            generationConfig: {
+                                temperature: 0.7,
+                                maxOutputTokens: 8192,
+                            }
+                        }),
+                    }
+                );
+
+                if (res.ok) {
+                    const stream = new ReadableStream({
+                        async start(controller) {
+                            const encoder = new TextEncoder();
+                            const reader = res.body?.getReader();
+                            const decoder = new TextDecoder();
+                            let fullResponse = '';
+
+                            if (reader) {
+                                try {
+                                    while (true) {
+                                        const { done, value } = await reader.read();
+                                        if (done) break;
+                                        
+                                        const chunk = decoder.decode(value, { stream: true });
+                                        for (const line of chunk.split('\n')) {
+                                            if (!line.startsWith('data: ')) continue;
+                                            try {
+                                                const data = JSON.parse(line.slice(6));
+                                                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                                                if (text) {
+                                                    fullResponse += text;
+                                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+                                                }
+                                            } catch {}
+                                        }
+                                    }
+                                } catch {}
+                            }
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'gemini' })}\n\n`));
+                            controller.close();
+                        },
+                    });
+
+                    return new Response(stream, {
+                        headers: {
+                            'Content-Type': 'text/event-stream',
+                            'Cache-Control': 'no-cache',
+                            'Connection': 'keep-alive',
+                        },
+                    });
+                }
+            } catch (e) {
+                console.error('Gemini error:', e);
+            }
+        }
+
+        // ─── Try Anthropic ───
         if (anthropicKey) {
             try {
-                console.log('NEXA: Attempting Anthropic...');
-                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                const anthropicMessages = messages
+                    .filter((m: any) => m.role !== 'system')
+                    .map((m: any) => ({
+                        role: m.role,
+                        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
+                    }));
+
+                const res = await fetch('https://api.anthropic.com/v1/messages', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -103,100 +209,72 @@ export async function POST(req: NextRequest) {
                         'anthropic-version': '2023-06-01',
                     },
                     body: JSON.stringify({
-                        model: 'claude-3-5-sonnet-latest',
-                        max_tokens: 4096,
-                        system: 'Eres NEXA, una IA avanzada. Responde en el idioma del usuario.',
-                        messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
+                        model: 'claude-3-5-sonnet-20241022',
+                        max_tokens: 8192,
+                        system: systemPrompt,
+                        messages: anthropicMessages,
                         stream: true,
                     }),
                 });
 
-                if (response.ok) {
+                if (res.ok) {
                     const stream = new ReadableStream({
                         async start(controller) {
                             const encoder = new TextEncoder();
-                            const reader = response.body?.getReader();
+                            const reader = res.body?.getReader();
                             const decoder = new TextDecoder();
                             let fullResponse = '';
+
                             if (reader) {
                                 try {
                                     while (true) {
                                         const { done, value } = await reader.read();
                                         if (done) break;
+                                        
                                         const chunk = decoder.decode(value, { stream: true });
                                         for (const line of chunk.split('\n')) {
-                                            if (line.startsWith('data: ')) {
-                                                try {
-                                                    const data = JSON.parse(line.slice(6));
-                                                    if (data.type === 'content_block_delta' && data.delta?.text) {
-                                                        fullResponse += data.delta.text;
-                                                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: data.delta.text })}\n\n`));
+                                            if (!line.startsWith('data: ')) continue;
+                                            try {
+                                                const data = JSON.parse(line.slice(6));
+                                                if (data.type === 'content_block_delta') {
+                                                    const text = data.delta?.text || '';
+                                                    if (text) {
+                                                        fullResponse += text;
+                                                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
                                                     }
-                                                    if (data.type === 'message_stop') {
-                                                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse })}\n\n`));
-                                                    }
-                                                } catch { }
-                                            }
+                                                }
+                                                if (data.type === 'message_stop') {
+                                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'anthropic' })}\n\n`));
+                                                }
+                                            } catch {}
                                         }
                                     }
-                                } catch (e: any) {
-                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: e.message })}\n\n`));
-                                }
+                                } catch {}
                             }
                             controller.close();
                         },
                     });
-                    return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } });
-                } else {
-                    const err = await response.text();
-                    console.error('NEXA: Anthropic failed:', response.status, err);
-                }
-            } catch (e) { console.error('NEXA: Anthropic exception:', e); }
-        }
 
-        // 3. TRY GOOGLE (Context)
-        if (googleKey) {
-            try {
-                console.log('NEXA: Attempting Google...');
-                const geminiMsgs = messages
-                    .filter((m: any) => m.role !== 'system')
-                    .map((m: any) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
-
-                const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${googleKey}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            system_instruction: { parts: [{ text: 'Eres NEXA, una IA avanzada.' }] },
-                            contents: geminiMsgs,
-                            generationConfig: { temperature: 0.7 },
-                        }),
-                    }
-                );
-
-                if (res.ok) {
-                    const data = await res.json();
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                    const encoder = new TextEncoder();
-                    const stream = new ReadableStream({
-                        start(controller) {
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse: text })}\n\n`));
-                            controller.close();
+                    return new Response(stream, {
+                        headers: {
+                            'Content-Type': 'text/event-stream',
+                            'Cache-Control': 'no-cache',
+                            'Connection': 'keep-alive',
                         },
                     });
-                    return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } });
-                } else {
-                    const err = await res.text();
-                    console.error('NEXA: Google failed:', res.status, err);
                 }
-            } catch (e) { console.error('NEXA: Google exception:', e); }
+            } catch (e) {
+                console.error('Anthropic error:', e);
+            }
         }
 
-        return NextResponse.json({ error: 'NEXA ERROR: All AI providers failed. Check keys.' }, { status: 503 });
+        return NextResponse.json({ 
+            error: 'No hay proveedor de IA configurado. Configura GROQ_API_KEY, GOOGLE_API_KEY, OPENAI_API_KEY o ANTHROPIC_API_KEY.',
+            code: 'NO_AI_PROVIDER'
+        }, { status: 503 });
 
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (e: any) {
+        console.error('Chat error:', e);
+        return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }
