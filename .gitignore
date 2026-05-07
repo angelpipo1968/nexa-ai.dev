@@ -22,11 +22,6 @@ nul
 .env.*
 !.env.example
 mcp_config.json*
-render.yaml
-railway.json
-railway.toml
-vercel.json
-Procfile
 hf_secrets.py
 execution/
 scripts/
