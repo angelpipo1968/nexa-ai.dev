@@ -1,4 +1,7 @@
+[build]
+builder = "dockerfile"
+
 [deploy]
-startCommand = "npm start"
+startCommand = ""
 healthcheckPath = "/api/health"
 restartPolicyType = "on_failure"
