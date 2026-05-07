@@ -3,7 +3,6 @@ const nextConfig = {
     reactStrictMode: true,
     eslint: { ignoreDuringBuilds: true },
     typescript: { ignoreBuildErrors: true },
-    output: 'standalone',
     images: {
         remotePatterns: [
             { protocol: 'https', hostname: 'ykzoeytmcxlsodwdavtv.supabase.co' },
@@ -18,13 +17,6 @@ const nextConfig = {
                     { key: 'X-Frame-Options', value: 'DENY' },
                     { key: 'X-Content-Type-Options', value: 'nosniff' },
                     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-                    { key: 'X-DNS-Prefetch-Control', value: 'on' },
-                ],
-            },
-            {
-                source: '/api/(.*)',
-                headers: [
-                    { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' },
                 ],
             },
         ];
