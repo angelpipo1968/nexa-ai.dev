@@ -6,7 +6,12 @@ export async function POST(req: NextRequest) {
         const { messages } = await req.json();
 
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
-            return NextResponse.json({ error: 'Se requiere al menos un mensaje' }, { status: 400 });
+            return NextResponse.json({ error: 'Se requiere al menos un mensaje', code: 'EMPTY_MESSAGES' }, { status: 400 });
+        }
+
+        // Rate limiting check - max 50 messages per conversation
+        if (messages.length > 50) {
+            return NextResponse.json({ error: 'Conversación demasiado larga. Inicia un nuevo chat.', code: 'CONVERSATION_TOO_LONG' }, { status: 400 });
         }
 
         // --- SECURITY CHECK ---
