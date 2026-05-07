@@ -318,7 +318,13 @@ export function NexaApp() {
         setTimeout(() => { setMsgs(p => [...p, { id: aid, role: 'assistant', content: '', ts: Date.now(), streaming: true }]); setThinking(false); setStreaming(true); }, 200);
         try {
             const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: [...msgs, um].map(m => ({ role: m.role, content: m.content })) }), });
-            if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || `Error ${res.status}`); }
+            if (!res.ok) { 
+                const e = await res.json().catch(() => ({})); 
+                if (res.status === 403) {
+                    throw new Error(e.error || 'Mensaje bloqueado por seguridad NEXA.');
+                }
+                throw new Error(e.error || `Error ${res.status}`); 
+            }
             const reader = res.body?.getReader(); const dec = new TextDecoder(); let full = '';
             if (reader) {
                 while (true) {
@@ -447,8 +453,9 @@ export function NexaApp() {
                                 </div>
                                 <div style={{ cursor: 'pointer' }} onClick={checkConn}>
                                     <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: 1.2 }}>NEXA CORE</div>
-                                    <div style={{ fontSize: 9, color: thinking || streaming ? accent : T.muted, letterSpacing: 1, textTransform: 'uppercase' }}>
+                                    <div style={{ fontSize: 9, color: thinking || streaming ? accent : T.muted, letterSpacing: 1, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
                                         {thinking ? 'Pensando...' : streaming ? 'Transmitiendo...' : conn === 'ok' ? 'En línea' : 'Desconectado'}
+                                        <span style={{ color: accent, opacity: 0.7 }}>• Protected</span>
                                     </div>
                                 </div>
                             </div>

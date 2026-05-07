@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { InputValidator } from '@/lib/security/InputValidator';
 
 export async function POST(req: NextRequest) {
     try {
@@ -7,6 +8,17 @@ export async function POST(req: NextRequest) {
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
             return NextResponse.json({ error: 'Se requiere al menos un mensaje' }, { status: 400 });
         }
+
+        // --- SECURITY CHECK ---
+        const validator = new InputValidator();
+        const lastMessage = messages[messages.length - 1]?.content || '';
+        const validation = validator.validate(lastMessage);
+        
+        if (!validation.safe) {
+            console.warn('NEXA Security: Blocked message:', validation.reason);
+            return NextResponse.json({ error: `Seguridad NEXA: ${validation.reason}` }, { status: 403 });
+        }
+        // ----------------------
 
         const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY || process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
         const googleKey = process.env.GOOGLE_API_KEY || process.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
