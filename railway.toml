@@ -1,6 +1,7 @@
 [build]
-builder = "dockerfile"
-dockerfilePath = "Dockerfile"
+builder = "nixpacks"
+buildCommand = "NODE_OPTIONS='--max-old-space-size=4096' npm run build"
+cacheOption = "disabled"
 
 [deploy]
 startCommand = "npm start"
