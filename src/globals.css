@@ -1,0 +1,437 @@
+/* Premium Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,200..900;1,200..900&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══ TEMA OSCURO (default) ═══ */
+:root,
+[data-theme='dark'] {
+    --bg: #0a0a0a;
+    --bg-secondary: #111111;
+    --surface: #141414;
+    --surface-hover: #1e1e1e;
+    --border: #222222;
+    --accent: #00e5a0;
+    --accent-muted: #00e5a033;
+    --text: #f0f0f0;
+    --text-secondary: #b0b0b0;
+    --text-muted: #606060;
+    --shadow: rgba(0, 0, 0, 0.5);
+}
+
+/* ═══ TEMA CLARO ═══ */
+[data-theme='light'] {
+    --bg: #fafafa;
+    --bg-secondary: #f0f0f0;
+    --surface: #ffffff;
+    --surface-hover: #f5f5f5;
+    --border: #e0e0e0;
+    --accent: #00b377;
+    --accent-muted: #00b37722;
+    --text: #1a1a1a;
+    --text-secondary: #555555;
+    --text-muted: #999999;
+    --shadow: rgba(0, 0, 0, 0.1);
+}
+
+/* Transición suave al cambiar tema */
+* {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+}
+
+    /* --- Nexa Gemini Light Theme (Refined) --- */
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f1f5f9;
+
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-tertiary: #64748b;
+    --text-muted: #94a3b8;
+
+    --accent-primary: #1a73e8;
+    --accent-secondary: #8ab4f8;
+    --accent-glow: rgba(26, 115, 232, 0.15);
+
+    --border-color: rgba(0, 0, 0, 0.08);
+    --border-hover: rgba(26, 115, 232, 0.3);
+
+    --card-bg: #ffffff;
+    --card-hover-bg: #f8fafc;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --vp-accent-purple: #8100FF; /* Keep for brand accents */
+    --status-bar-height: 2rem; /* ✅ Espacio para la cámara del S26 Ultra */
+}
+
+/* Dark Theme - The Classic Gemini Dark */
+[data-theme="dark"] {
+    --bg-primary: #131314;
+    --bg-secondary: #1e1f20;
+    --bg-tertiary: #2b2c2e;
+
+    --text-primary: #e3e3e3;
+    --text-secondary: #c4c7c5;
+    --text-tertiary: #a4a7a5;
+    --text-muted: #747775;
+
+    --accent-primary: #8ab4f8;
+    --accent-secondary: #1a73e8;
+    --accent-glow: rgba(138, 180, 248, 0.15);
+
+    --border-color: rgba(255, 255, 255, 0.1);
+    --border-hover: rgba(138, 180, 248, 0.3);
+
+    --card-bg: #1e1f20;
+    --card-hover-bg: #2b2c2e;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.8);
+
+    /* --- Futuristic Grid Tokens --- */
+    --grid-color: rgba(0, 229, 255, 0.03);
+    --grid-size: 40px;
+}
+
+/* --- Persona Themes (Mejora 5) --- */
+[data-personality="profesora"] {
+    --accent-primary: #10b981; /* Esmeralda/Educación */
+    --vp-accent-purple: #059669;
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #ecfdf5 0%, #f8fafc 100%);
+}
+
+[data-personality="amiga"] {
+    --accent-primary: #f43f5e; /* Rosa/Amistad */
+    --vp-accent-purple: #e11d48;
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #fff1f2 0%, #f8fafc 100%);
+}
+
+[data-personality="ejecutiva"] {
+    --accent-primary: #475569; /* Slate/Corporativo */
+    --vp-accent-purple: #1e293b;
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #f1f5f9 0%, #f8fafc 100%);
+}
+
+[data-personality="creativa"] {
+    --accent-primary: #a855f7; /* Púrpura/Creatividad */
+    --vp-accent-purple: #7e22ce;
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #faf5ff 0%, #f8fafc 100%);
+}
+
+[data-personality="analitica"] {
+    --accent-primary: #0ea5e9; /* Cyan/Tecnología */
+    --vp-accent-purple: #0284c7;
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #f0f9ff 0%, #f8fafc 100%);
+}
+
+/* Dark Mode Overrides for Personas */
+[data-theme="dark"][data-personality="profesora"] {
+    --accent-primary: #34d399;
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #064e3b 0%, #131314 100%);
+}
+
+[data-theme="dark"][data-personality="amiga"] {
+    --accent-primary: #fb7185;
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #4c0519 0%, #131314 100%);
+}
+
+[data-theme="dark"][data-personality="ejecutiva"] {
+    --accent-primary: #94a3b8;
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #1e293b 0%, #131314 100%);
+}
+
+[data-theme="dark"][data-personality="creativa"] {
+    --accent-primary: #c084fc;
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #3b0764 0%, #131314 100%);
+}
+
+[data-theme="dark"][data-personality="analitica"] {
+    --accent-primary: #38bdf8;
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #0c4a6e 0%, #131314 100%);
+}
+
+.neon-glow-text {
+    /* Subtle highlight instead of heavy neon */
+    text-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* Light Theme - Refined Premium Soft Grey Aesthetic */
+[data-theme="light"] {
+    --bg-primary: #f8fafc;
+    /* Slate 50 - Very clean soft grey-white */
+    --bg-secondary: #f1f5f9;
+    /* Slate 100 - Distinct but subtle grey */
+    --bg-tertiary: #e2e8f0;
+    /* Slate 200 */
+
+    --text-primary: #0f172a;
+    /* Slate 900 */
+    --text-secondary: #334155;
+    /* Slate 700 */
+    --text-tertiary: #64748b;
+    /* Slate 500 */
+    --text-muted: #94a3b8;
+    /* Slate 400 */
+
+    --card-bg: #ffffff;
+    /* Pure White to "pop" against grey background */
+    --card-hover-bg: #ffffff;
+    --card-border: rgba(148, 163, 184, 0.2);
+
+    --border-color: rgba(148, 163, 184, 0.2);
+    --border-hover: #3b82f6;
+
+    --shadow-color: rgba(15, 23, 42, 0.04);
+    --shadow-lg: 0 10px 30px rgba(15, 23, 42, 0.06);
+
+    /* Accent colors for light mode (Azure Cobalt) */
+    --vp-accent-purple: #2563eb;
+    --vp-accent-cyan: #0ea5e9;
+
+    /* Adjust glassmorphism for light mode - More opaque white for contrast */
+    --vp-glass-base: rgba(255, 255, 255, 0.6);
+    --vp-glass-border: rgba(148, 163, 184, 0.15);
+    --vp-glass-border-hover: rgba(59, 130, 246, 0.3);
+    --vp-glass-highlight: rgba(255, 255, 255, 0.1);
+
+    /* Background for light mode - Soft Slate Fade */
+    --vp-bg-radial: radial-gradient(circle at 50% 0%, #f1f5f9 0%, #f8fafc 60%, #fcfdfe 100%);
+}
+
+/* Smooth theme transitions */
+*,
+*::before,
+*::after {
+    transition: background-color 0.3s ease,
+        border-color 0.3s ease,
+        color 0.3s ease,
+        box-shadow 0.3s ease;
+}
+
+@layer base {
+    html {
+        height: 100%;
+        height: -webkit-fill-available;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+    }
+    body {
+        height: 100%;
+        height: -webkit-fill-available;
+        @apply font-sans overflow-hidden antialiased;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        position: relative;
+    }
+
+    body::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: 
+            linear-gradient(var(--grid-color) 1px, transparent 1px),
+            linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+        background-size: var(--grid-size) var(--grid-size);
+        pointer-events: none;
+        z-index: -1;
+        mask-image: radial-gradient(circle at 50% 50%, black, transparent 80%);
+    }
+}
+
+@layer utilities {
+    .vp-app {
+        position: relative;
+        display: flex;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg-primary);
+        color: var(--vp-text-primary);
+    }
+    
+    @media (max-width: 768px) {
+        .vp-app {
+            padding-bottom: env(safe-area-inset-bottom, 24px) !important;
+        }
+    }
+
+
+
+    @media (min-width: 769px) {
+        .vp-app {
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+        }
+    }
+
+    .vp-bg-glow {
+        position: absolute;
+        width: 800px;
+        height: 800px;
+        border-radius: 9999px;
+        filter: blur(120px);
+        opacity: 0.15;
+        /* Subtle glow */
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .vp-bg-glow--left {
+        background: var(--vp-accent-purple);
+        top: -200px;
+        left: -200px;
+        animation: pulse-glow 10s infinite alternate;
+    }
+
+    .vp-bg-glow--right {
+        background: var(--vp-accent-cyan);
+        bottom: -200px;
+        right: -200px;
+        animation: pulse-glow 12s infinite alternate-reverse;
+    }
+
+    /* Glassmorphism 2.0 Classes */
+    .glass-panel {
+        background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.05) 0%,
+            rgba(255, 255, 255, 0.01) 100%
+        );
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+        border: 1px solid rgba(255, 252, 252, 0.1);
+        box-shadow: 
+            0 8px 32px 0 rgba(0, 0, 0, 0.37),
+            inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+    }
+
+    .glass-input {
+        background: rgba(255, 255, 255, 0.7); /* ✅ Blanco cristalino en modo claro */
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
+        border: 1px solid rgba(26, 115, 232, 0.2);
+        box-shadow: 
+            0 8px 32px 0 rgba(15, 23, 42, 0.08),
+            inset 0 0 15px rgba(255, 255, 255, 0.5);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    [data-theme="dark"] .glass-input {
+        background: rgba(15, 15, 20, 0.6); /* ✅ Negro profundo en modo oscuro */
+        border: 1px solid rgba(0, 229, 255, 0.2);
+        box-shadow: 
+            0 8px 32px 0 rgba(0, 0, 0, 0.3),
+            inset 0 0 15px rgba(0, 229, 255, 0.05);
+    }
+ 
+    .glass-input:focus-within {
+        border-color: var(--accent-primary);
+        box-shadow: 
+            0 0 30px var(--accent-glow),
+            inset 0 0 20px rgba(26, 115, 232, 0.05);
+        transform: translateY(-1px);
+    }
+
+    /* Premium Paper Sheet class */
+    .paper-sheet {
+        background-color: var(--paper-bg);
+        box-shadow: var(--paper-shadow);
+        background-image: linear-gradient(to right, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+        background-size: 100% 2rem;
+        /* Subtle line hint */
+    }
+
+    /* Scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Animations */
+    @keyframes pulse-glow {
+        0% {
+            opacity: 0.1;
+            transform: scale(1);
+        }
+
+        100% {
+            opacity: 0.25;
+            transform: scale(1.1);
+        }
+    }
+
+    /* Force hide browser extensions */
+    lt-toolbar,
+    lt-div,
+    .lt-comp-icon,
+    grammarly-extension,
+    [data-grammarly-shadow-root] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    /* Mobile Edge-to-Edge Fix */
+    @media (max-width: 768px) {
+        .px-4, .px-8, .px-3, .px-2 {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+        .mx-auto {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+        /* Forzamos que el input sea cuadrado abajo y pegue al borde */
+        .glass-input {
+            border-bottom-left-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            margin-bottom: 0 !important;
+            border-left: none !important;
+            border-right: none !important;
+            border-bottom: none !important;
+            width: 100% !important;
+        }
+        .fixed.bottom-0 {
+            bottom: 0 !important;
+            padding-bottom: env(safe-area-inset-bottom, 24px) !important;
+        }
+    }
+}
+
+/* Scrollbar sutil para el sidebar */
+.scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}

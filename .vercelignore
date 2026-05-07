@@ -1,0 +1,82 @@
+# Dependencies
+node_modules
+.turbo
+.pnpm-store
+
+# Build artifacts (Vercel builds from source)
+dist
+.vite
+
+# Git & CI
+.git
+.github
+.husky
+.vscode
+.idea
+
+# Backups (CRITICAL - reduce upload size)
+src_backup_*
+backup
+backups
+_backup
+NEXA_ECHO_VAULT
+
+# Python backend (not deployed to Vercel)
+nexa_agente
+nexa_agente_legacy
+nexa_ai_core.py
+nexa_ai_core_v5.py
+nexa_completo.py
+__pycache__
+*.pyc
+
+# Android / Mobile
+android
+*.apk
+*.aab
+
+# Large files / logs
+*.log
+tsc.log
+tsc_utf8.log
+eslint_report.json
+tsconfig.tsbuildinfo
+coverage
+
+# Scripts & docs (not needed by Vercel build)
+*.ps1
+*.sh
+*.sql
+*.bat
+*.service
+*.sig
+*.vsix
+*.zip
+
+# Temporary
+.tmp
+scratch
+.nexa-debug
+nul
+
+# Docs (not needed in build)
+docs
+blogs
+prompts_library.md
+YAMADA_NEXA_*.md
+README_PYTHON_TEST.md
+TESTING_SETUP.md
+ENHANCEMENT_PLAN.md
+IMPLEMENTATION_*.md
+DEPLOYMENT_CHECKLIST.md
+RECOMMENDATIONS.md
+NEXA_CHINA_AI_STRATEGY.md
+NEXA_COMPREHENSIVE_GUIDE.md
+NEXA_VSCODE_INTEGRATION.md
+god_mode_protocol.md
+nexa_os_ultimate_protocol.md
+
+# Ollama / Docker
+ollama-docker
+hf_deploy
+infra

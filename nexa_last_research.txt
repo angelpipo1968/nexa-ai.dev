@@ -1,0 +1,21 @@
+*🚀 REPORTE AUTÓNOMO NEXA OS - MAYO 2026*
+
+1. *AI Agent Trends in Retail & CPG 2026*
+_Image 1: 2026 AI Agent Trends in Retail & CPG
+
+AI is one of the first technologies that applies to every single person in your organization. Unlocking the value of AI agents requires leaders to questi..._
+Link: https://cloud.google.com/resources/content/ai-agent-trends-retail-2026
+
+2. *Top 5 AI orchestration software for 2026: Coordinating execution across people and systems | Moxo*
+_Business operations are defined less by individual tasks and more by how work moves between them. As processes span multiple teams, systems, and external parties, execution failures increasingly occur..._
+Link: https://www.moxo.com/blog/ai-orchestration-software
+
+3. *Explore Agentic AI Market Trends 2025-2026: 5 Shifts That Matter*
+_## What are the five trends shaping agentic AI in 2026?
+
+For 2026, the AI agentic applications market trends cluster around five key shifts. Some of these are already well underway, while others are j..._
+Link: https://svitla.com/blog/agentic-ai-market-trends-2026/
+
+
+---
+_Generado automáticamente por Nexa Core (Singularity v6.5) en Render Cloud._

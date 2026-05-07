@@ -1,0 +1,76 @@
+# NEXT.JS
+.next/
+out/
+build/
+node_modules/
+dist/
+.vercel/
+
+# OS
+.DS_Store
+Thumbs.db
+nul
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# CONFIG & SECRETS
+.env
+.env.*
+!.env.example
+mcp_config.json*
+render.yaml
+railway.json
+railway.toml
+vercel.json
+Procfile
+hf_secrets.py
+execution/
+scripts/
+*.sig
+*.vsix
+*.apk
+*.exe
+*.bin
+
+# BACKUPS
+backup/
+backups/
+_backup/
+_backups/
+src_backup_*
+*.bak
+*.old
+
+# LOGS
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lint_debug.txt
+eslint_debug.txt
+error.txt
+help.txt
+output.txt
+temp.txt
+tsc.txt
+logcat.txt
+
+# DATABASE
+*.sql
+*.sqlite
+*.db
+
+# MISC
+temp/
+coverage/
+__pycache__/
+*.pyc
+nixpacks.toml
+Procfile
+Makefile
+Dockerfile
+docker-compose.yml

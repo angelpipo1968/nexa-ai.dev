@@ -1,0 +1,133 @@
+{
+    "common": {
+        "appName": "NEXA AI",
+        "loading": "Loading...",
+        "error": "Error",
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "confirm": "Confirm",
+        "close": "Close",
+        "back": "Back",
+        "search": "Search",
+        "noResults": "No results",
+        "copied": "Copied",
+        "copy": "Copy",
+        "download": "Download",
+        "share": "Share",
+        "export": "Export",
+        "import": "Import"
+    },
+    "chat": {
+        "title": "Chat",
+        "newConversation": "New conversation",
+        "inputPlaceholder": "Type a message...",
+        "send": "Send",
+        "thinking": "Thinking...",
+        "searching": "Searching...",
+        "generating": "Generating...",
+        "attachImage": "Attach image",
+        "voiceMode": "Voice mode",
+        "regenerate": "Regenerate response",
+        "stopGeneration": "Stop generation",
+        "deleteMessage": "Delete message",
+        "copyMessage": "Copy message",
+        "welcomeTitle": "Hi, I'm NEXA",
+        "welcomeSubtitle": "Your AI assistant. Ask me anything — code, analysis, ideas, design.",
+        "suggestion1": "Explain how quantum computing works",
+        "suggestion2": "Design a modern landing page",
+        "suggestion3": "Create a REST API in Node.js",
+        "suggestion4": "Analyze this data and give me insights",
+        "disclaimer": "NEXA may make mistakes. Verify important information."
+    },
+    "sidebar": {
+        "title": "History",
+        "openPanel": "Open history",
+        "closePanel": "Close panel",
+        "newChat": "New conversation",
+        "searchPlaceholder": "Search...",
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "thisWeek": "This week",
+        "previous": "Previous",
+        "conversations": "conversation(s)"
+    },
+    "auth": {
+        "login": "Log in",
+        "signup": "Create account",
+        "email": "Email",
+        "password": "Password",
+        "loginWithGoogle": "Continue with Google",
+        "or": "or",
+        "noAccount": "Don't have an account?",
+        "hasAccount": "Already have an account?",
+        "register": "Sign up",
+        "logout": "Log out",
+        "yourAccount": "Your account"
+    },
+    "settings": {
+        "title": "Settings",
+        "theme": "Theme",
+        "dark": "Dark",
+        "light": "Light",
+        "language": "Language",
+        "model": "AI Model",
+        "notifications": "Notifications",
+        "enableNotifications": "Enable notifications",
+        "disableNotifications": "Disable notifications"
+    },
+    "share": {
+        "title": "Share conversation",
+        "link": "Link",
+        "qr": "QR Code",
+        "copyLink": "Copy link",
+        "linkCopied": "Link copied to clipboard",
+        "nativeShare": "Share"
+    },
+    "export": {
+        "title": "Export",
+        "markdown": "Export as .md",
+        "json": "Export as .json",
+        "clipboard": "Copy to clipboard"
+    },
+    "admin": {
+        "title": "Admin Panel",
+        "dashboard": "Dashboard",
+        "conversations": "Conversations",
+        "messages": "Messages",
+        "exportData": "Export",
+        "totalConversations": "Conversations",
+        "totalMessages": "Messages",
+        "devices": "Devices",
+        "today": "today",
+        "messageDistribution": "Message distribution",
+        "users": "Users",
+        "topConversations": "Top conversations",
+        "serverTime": "Server time",
+        "deleteSelected": "Delete selected",
+        "showAll": "Show all",
+        "page": "Page",
+        "of": "of",
+        "backToNexa": "Back to NEXA"
+    },
+    "notifications": {
+        "enableTitle": "Enable notifications",
+        "enableDescription": "Get alerts when NEXA finishes processing a long response or when there are important updates.",
+        "activate": "Enable",
+        "notNow": "Not now"
+    },
+    "splash": {
+        "subtitle": "ARTIFICIAL INTELLIGENCE"
+    },
+    "artifacts": {
+        "title": "Artifacts",
+        "code": "Code",
+        "preview": "Preview",
+        "console": "Console",
+        "download": "Download file",
+        "copyCode": "Copy code",
+        "openInEditor": "Open in editor",
+        "run": "Run",
+        "close": "Close panel"
+    }
+}

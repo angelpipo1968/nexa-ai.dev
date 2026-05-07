@@ -1,0 +1,19 @@
+name: NEXA Pre-Deploy Validation
+on:
+  push:
+    branches: [ main ]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run Pre-Deploy Checks
+        env:
+          ECHO_VAULT_PATH: /data/nexa_vault
+          GPG_KEY_ID: ${{ secrets.GPG_KEY_ID }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: python scripts/pre_deploy_validator.py

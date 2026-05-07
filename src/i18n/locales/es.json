@@ -1,0 +1,133 @@
+{
+    "common": {
+        "appName": "NEXA AI",
+        "loading": "Cargando...",
+        "error": "Error",
+        "save": "Guardar",
+        "cancel": "Cancelar",
+        "delete": "Eliminar",
+        "confirm": "Confirmar",
+        "close": "Cerrar",
+        "back": "Volver",
+        "search": "Buscar",
+        "noResults": "Sin resultados",
+        "copied": "Copiado",
+        "copy": "Copiar",
+        "download": "Descargar",
+        "share": "Compartir",
+        "export": "Exportar",
+        "import": "Importar"
+    },
+    "chat": {
+        "title": "Chat",
+        "newConversation": "Nueva conversación",
+        "inputPlaceholder": "Escribe un mensaje...",
+        "send": "Enviar",
+        "thinking": "Pensando...",
+        "searching": "Buscando...",
+        "generating": "Generando...",
+        "attachImage": "Adjuntar imagen",
+        "voiceMode": "Modo voz",
+        "regenerate": "Regenerar respuesta",
+        "stopGeneration": "Detener generación",
+        "deleteMessage": "Eliminar mensaje",
+        "copyMessage": "Copiar mensaje",
+        "welcomeTitle": "Hola, soy NEXA",
+        "welcomeSubtitle": "Tu asistente de IA. Pregúntame lo que quieras — código, análisis, ideas, diseño.",
+        "suggestion1": "Explícame cómo funciona la computación cuántica",
+        "suggestion2": "Diseña una landing page moderna",
+        "suggestion3": "Crea una API REST en Node.js",
+        "suggestion4": "Analiza estos datos y dame insights",
+        "disclaimer": "NEXA puede cometer errores. Verifica información importante."
+    },
+    "sidebar": {
+        "title": "Historial",
+        "openPanel": "Abrir historial",
+        "closePanel": "Cerrar panel",
+        "newChat": "Nueva conversación",
+        "searchPlaceholder": "Buscar...",
+        "today": "Hoy",
+        "yesterday": "Ayer",
+        "thisWeek": "Esta semana",
+        "previous": "Anteriores",
+        "conversations": "conversación(es)"
+    },
+    "auth": {
+        "login": "Iniciar sesión",
+        "signup": "Crear cuenta",
+        "email": "Email",
+        "password": "Contraseña",
+        "loginWithGoogle": "Continuar con Google",
+        "or": "o",
+        "noAccount": "¿No tienes cuenta?",
+        "hasAccount": "¿Ya tienes cuenta?",
+        "register": "Regístrate",
+        "logout": "Cerrar sesión",
+        "yourAccount": "Tu cuenta"
+    },
+    "settings": {
+        "title": "Configuración",
+        "theme": "Tema",
+        "dark": "Oscuro",
+        "light": "Claro",
+        "language": "Idioma",
+        "model": "Modelo de IA",
+        "notifications": "Notificaciones",
+        "enableNotifications": "Activar notificaciones",
+        "disableNotifications": "Desactivar notificaciones"
+    },
+    "share": {
+        "title": "Compartir conversación",
+        "link": "Enlace",
+        "qr": "Código QR",
+        "copyLink": "Copiar enlace",
+        "linkCopied": "Link copiado al portapapeles",
+        "nativeShare": "Compartir"
+    },
+    "export": {
+        "title": "Exportar",
+        "markdown": "Exportar como .md",
+        "json": "Exportar como .json",
+        "clipboard": "Copiar al portapapeles"
+    },
+    "admin": {
+        "title": "Panel de administración",
+        "dashboard": "Dashboard",
+        "conversations": "Conversaciones",
+        "messages": "Mensajes",
+        "exportData": "Exportar",
+        "totalConversations": "Conversaciones",
+        "totalMessages": "Mensajes",
+        "devices": "Dispositivos",
+        "today": "hoy",
+        "messageDistribution": "Distribución de mensajes",
+        "users": "Usuarios",
+        "topConversations": "Top conversaciones",
+        "serverTime": "Hora del servidor",
+        "deleteSelected": "Eliminar seleccionados",
+        "showAll": "Mostrar todos",
+        "page": "Página",
+        "of": "de",
+        "backToNexa": "Volver a NEXA"
+    },
+    "notifications": {
+        "enableTitle": "Activa las notificaciones",
+        "enableDescription": "Recibe alertas cuando NEXA termine de procesar una respuesta larga o cuando haya actualizaciones importantes.",
+        "activate": "Activar",
+        "notNow": "Ahora no"
+    },
+    "splash": {
+        "subtitle": "INTELIGENCIA ARTIFICIAL"
+    },
+    "artifacts": {
+        "title": "Artefactos",
+        "code": "Código",
+        "preview": "Previsualización",
+        "console": "Consola",
+        "download": "Descargar archivo",
+        "copyCode": "Copiar código",
+        "openInEditor": "Abrir en editor",
+        "run": "Ejecutar",
+        "close": "Cerrar panel"
+    }
+}

@@ -1,0 +1,80 @@
+# ═══════════════════════════════════════
+# NEXA OS — Docker Ignore
+# Excluir todo lo innecesario del contexto de build
+# ═══════════════════════════════════════
+
+# Dependencias (se reinstalan en el container)
+node_modules
+__pycache__
+*.pyc
+.venv
+
+# Control de versiones
+.git
+.gitignore
+.github
+
+# IDE
+.vscode
+.idea
+
+# Build artifacts (se reconstruyen)
+dist
+coverage
+*.log
+
+# Documentación (no necesaria en producción)
+*.md
+docs/
+ENHANCEMENT_PLAN.md
+IMPLEMENTATION_PLAN.md
+IMPLEMENTATION_SUMMARY.md
+
+# Archivos de desarrollo
+.vercel
+.nexa-debug
+.claude
+.agent
+
+# APKs y binarios
+*.apk
+*.vsix
+*.zip
+*.tar.gz
+*.exe
+*.bin
+
+# Android
+android/
+
+# Temporales
+*.txt
+!requirements.txt
+scratch/
+backup/
+backups/
+.tmp/
+
+# Logs
+lint_debug.txt
+logcat.txt
+error.txt
+help.txt
+temp.txt
+output.txt
+tsc.txt
+
+# Archivos de configuración local
+.env
+.env.*
+!.env.example
+*.sig
+nul
+
+# Tests (no necesarios en producción)
+tests/
+__mocks__/
+jest.config.mjs
+*.test.ts
+*.test.tsx
+*.spec.ts
