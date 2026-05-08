@@ -144,6 +144,14 @@ export function NexaApp() {
     const [dynamicGreeting, setDynamicGreeting] = useState('');
 
     const endRef = useRef<HTMLDivElement>(null);
+    const chatContainerRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        const container = chatContainerRef.current;
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    };
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const recRef = useRef<any>(null);
     const sb = getSupabase();
@@ -202,7 +210,15 @@ export function NexaApp() {
         localStorage.setItem('nexa_lang', lang);
     }, [accent, themeName, autoSpeak, autoSend, voiceGender, voiceIndex, lang]);
 
-    useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
+    useEffect(() => { scrollToBottom(); endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
+
+    // Auto-scroll durante streaming
+    useEffect(() => {
+        if (streaming) {
+            const interval = setInterval(scrollToBottom, 100);
+            return () => clearInterval(interval);
+        }
+    }, [streaming]);
     
     useEffect(() => {
         const el = inputRef.current;
@@ -634,7 +650,7 @@ export function NexaApp() {
                         )}
                     </AnimatePresence>
                     
-                    <div style={{ 
+                    <div ref={chatContainerRef} style={{ 
                         flex: 1, 
                         overflowY: 'auto', 
                         padding: '20px 16px', 
