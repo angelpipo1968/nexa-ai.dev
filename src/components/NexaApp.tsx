@@ -112,6 +112,7 @@ export function NexaApp() {
     const [activeConvMenu, setActiveConvMenu] = useState<string | null>(null);
     const [activeMsgMenu, setActiveMsgMenu] = useState<string | null>(null);
     const [showSettings, setShowSettings] = useState(false);
+    const [showHeaderMenu, setShowHeaderMenu] = useState(false);
     const [reasoning, setReasoning] = useState<string[]>([]);
     const [showReasoning, setShowReasoning] = useState(false);
     const [analyzingImage, setAnalyzingImage] = useState(false);
@@ -159,6 +160,12 @@ export function NexaApp() {
     }, [themeName]);
 
     const T = THEMES[resolvedTheme];
+
+    const toggleTheme = () => {
+        const next = resolvedTheme === 'dark' ? 'light' : 'dark';
+        setThemeName(next);
+        localStorage.setItem('nexa_theme', next);
+    };
 
     // Persistence & Initialization
     useEffect(() => {
@@ -372,10 +379,35 @@ export function NexaApp() {
         r.start(); recRef.current = r;
     };
 
+    const cleanForSpeech = (text: string) => {
+        return text
+            .replace(/#{1,6}\s*/g, '')
+            .replace(/\*{1,3}(.+?)\*{1,3}/g, '$1')
+            .replace(/_{1,3}(.+?)_{1,3}/g, '$1')
+            .replace(/~~(.+?)~~/g, '$1')
+            .replace(/```[\s\S]*?```/g, 'código')
+            .replace(/`([^`]+)`/g, '$1')
+            .replace(/$$([^$$]+)\]$$[^)]+$$/g, '$1')
+            .replace(/!$$([^$$]*)\]$$[^)]+$$/g, '$1')
+            .replace(/^>\s*/gm, '')
+            .replace(/^[-*_]{3,}\s*$/gm, '')
+            .replace(/^[\s]*[-*+]\s+/gm, '')
+            .replace(/^[\s]*\d+\.\s+/gm, '')
+            .replace(/<[^>]+>/g, '')
+            .replace(/[|→←↑↓►◄★☆●○◆◇■□▲△▼▽]/g, '')
+            .replace(/\n{2,}/g, '. ')
+            .replace(/\n/g, '. ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+    };
+
     const speak = (text: string) => {
         if (!('speechSynthesis' in window)) return;
         window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text); u.lang = lang === 'es' ? 'es-ES' : 'en-US';
+        const cleaned = cleanForSpeech(text);
+        if (!cleaned) return;
+        const u = new SpeechSynthesisUtterance(cleaned);
+        u.lang = lang === 'es' ? 'es-ES' : 'en-US';
         const filteredVoices = availableVoices.filter(v => v.lang.includes(lang.split('-')[0]) && (voiceGender === 'male' ? (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('guy') || v.name.toLowerCase().includes('man')) : (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') || v.name.toLowerCase().includes('girl'))));
         const v = filteredVoices[voiceIndex % filteredVoices.length] || filteredVoices[0];
         if (v) u.voice = v;
@@ -459,6 +491,7 @@ export function NexaApp() {
 
     const filtered = convs.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
     const ibtn: React.CSSProperties = { background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' };
+    const menuBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', padding: '10px 14px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, fontWeight: 500, width: '100%', transition: 'background 0.15s', fontFamily: 'inherit' };
 
     return (
         <div style={{ position: 'fixed', inset: 0, background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif", display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'background 0.3s' }}>
@@ -536,10 +569,70 @@ export function NexaApp() {
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
                             {speaking && <button onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); }} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Detener voz"><VolumeX size={18} /></button>}
+                            <button onClick={() => setShowHeaderMenu(!showHeaderMenu)} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Menú"><MoreVertical size={20} /></button>
                             <button onClick={() => setShowSettings(true)} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Ajustes"><Settings size={20} /></button>
                             <button onClick={() => createConv()} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Nuevo chat"><Plus size={20} /></button>
                         </div>
                     </header>
+                    
+                    {/* ═══ Header Dropdown Menu ═══ */}
+                    <AnimatePresence>
+                        {showHeaderMenu && (
+                            <>
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    onClick={() => setShowHeaderMenu(false)}
+                                    style={{ position: 'fixed', inset: 0, zIndex: 45, background: 'rgba(0,0,0,0.4)' }}
+                                />
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                    transition={{ duration: 0.15 }}
+                                    style={{
+                                        position: 'fixed',
+                                        top: 60,
+                                        right: 12,
+                                        zIndex: 50,
+                                        background: T.surf,
+                                        border: `1px solid ${T.border}`,
+                                        borderRadius: 16,
+                                        padding: 6,
+                                        minWidth: 220,
+                                        boxShadow: `0 16px 48px rgba(0,0,0,0.4)`,
+                                    }}
+                                >
+                                    <button onClick={() => { setDrawer(true); setShowHeaderMenu(false); }} style={{ ...menuBtn, color: T.text }}>
+                                        <Menu size={18} />
+                                        <span>Historial de chats</span>
+                                    </button>
+                                    <button onClick={() => { setShowHeaderMenu(false); }} style={{ ...menuBtn, color: T.text }}>
+                                        <Volume2 size={18} />
+                                        <span>Seleccionar voz</span>
+                                    </button>
+                                    <button onClick={() => { setShowHeaderMenu(false); toggleTheme(); }} style={{ ...menuBtn, color: T.text }}>
+                                        {resolvedTheme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                                        <span>{resolvedTheme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
+                                    </button>
+                                    <button onClick={() => { setShowSettings(true); setShowHeaderMenu(false); }} style={{ ...menuBtn, color: T.text }}>
+                                        <Settings size={18} />
+                                        <span>Configuración</span>
+                                    </button>
+                                    <div style={{ height: 1, background: T.border, margin: '4px 8px' }} />
+                                    <button onClick={async () => { setShowHeaderMenu(false); await sb?.auth.signOut(); }} style={{ ...menuBtn, color: '#ef4444' }}>
+                                        <LogOut size={18} />
+                                        <span>Cerrar sesión</span>
+                                    </button>
+                                    <div style={{ height: 1, background: T.border, margin: '4px 8px' }} />
+                                    <button onClick={() => setShowHeaderMenu(false)} style={{ ...menuBtn, color: T.muted, justifyContent: 'center' }}>
+                                        <span>Cancelar</span>
+                                    </button>
+                                </motion.div>
+                            </>
+                        )}
+                    </AnimatePresence>
                     
                     <div style={{ 
                         flex: 1, 
