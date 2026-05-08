@@ -3,7 +3,7 @@ const nextConfig = {
     reactStrictMode: true,
     eslint: { ignoreDuringBuilds: true },
     typescript: { ignoreBuildErrors: true },
-    output: 'standalone',
+    // output: 'standalone',
     images: {
         remotePatterns: [
             { protocol: 'https', hostname: 'ykzoeytmcxlsodwdavtv.supabase.co' },
