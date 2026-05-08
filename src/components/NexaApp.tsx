@@ -193,11 +193,15 @@ export function NexaApp() {
         if (savedLang) setLang(savedLang || 'es');
 
         const loadVoices = () => {
-            const voices = window.speechSynthesis.getVoices();
-            setAvailableVoices(voices);
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
+                const voices = window.speechSynthesis.getVoices();
+                setAvailableVoices(voices);
+            }
         };
         loadVoices();
-        window.speechSynthesis.onvoiceschanged = loadVoices;
+        if (typeof window !== 'undefined' && window.speechSynthesis) {
+            window.speechSynthesis.onvoiceschanged = loadVoices;
+        }
     }, []);
 
     useEffect(() => {
