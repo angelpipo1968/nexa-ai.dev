@@ -7,6 +7,7 @@ import { logger, generateRequestId } from '@/lib/nexa-core/logger';
 import { chatSchema } from '@/lib/validation';
 
 export const maxDuration = 60;
+export const runtime = 'nodejs';
 
 const PROVIDERS = {
     xiaomi: {
@@ -239,6 +240,10 @@ export async function POST(req: NextRequest) {
 
     } catch (e: any) {
         logger.error(`Chat crash: ${e.message}`, 'chat', { requestId });
-        return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
+        return NextResponse.json({ 
+            error: 'Internal Error',
+            details: e.message,
+            stack: e.stack
+        }, { status: 500 });
     }
 }

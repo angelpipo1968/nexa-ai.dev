@@ -20,13 +20,7 @@ interface RateLimitEntry {
 
 const store = new Map<string, RateLimitEntry>();
 
-// Cleanup expired entries every 5 minutes
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of store) {
-        if (now > entry.resetAt) store.delete(key);
-    }
-}, 5 * 60 * 1000);
+// Cleanup is handled during check calls for efficiency in serverless environments
 
 /**
  * Synchronous rate limit check (legacy).
