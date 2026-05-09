@@ -16,7 +16,7 @@ import {
 import { SettingsPanel } from './SettingsPanel';
 
 const COLORS = {
-    cyan: '#00e5a0',
+    cyan: '#00ff00', // Verde neón como en la imagen
     purple: '#a855f7',
     orange: '#f97316',
     pink: '#ec4899',
@@ -813,91 +813,97 @@ export function NexaApp() {
                         </button>
                     )}
 
-                    <FilePreview files={attachedFiles} onRemove={(id) => setAttachedFiles(p => p.filter(f => f.id !== id))} />
-                    
-                    <div role="region" aria-label="Área de entrada de mensajes" style={{ 
-                        borderTop: `1px solid ${T.border}`, 
-                        background: `${T.bg}CC`, 
-                        backdropFilter: 'blur(20px)', 
-                        padding: '16px 16px 24px', 
-                        flexShrink: 0,
-                        zIndex: 20
-                    }}>
-                        <div style={{ maxWidth: 700, margin: '0 auto', position: 'relative' }}>
-                            <FilePreview files={attachedFiles} onRemove={(id) => setAttachedFiles(p => p.filter(f => f.id !== id))} />
-                            
+                    {/* ═══ Floating Zap Button (Bottom Left) ═══ */}
+                    <div style={{ position: 'absolute', bottom: 20, left: 20, zIndex: 100 }}>
+                        <button 
+                            onClick={checkConn}
+                            style={{ 
+                                width: 44, 
+                                height: 44, 
+                                borderRadius: '50%', 
+                                background: '#ffffff', 
+                                border: 'none', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                boxShadow: '0 4px 15px rgba(0,0,0,0.6)',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <Zap size={22} color="#000000" fill="#000000" />
+                        </button>
+                    </div>
+
+                    {/* ═══ Input Bar Pill ═══ */}
+                    <div style={{ padding: '0 20px 24px', background: 'transparent', position: 'relative', zIndex: 90 }}>
+                        <div style={{ maxWidth: 700, margin: '0 auto' }}>
                             <div style={{ 
                                 display: 'flex', 
-                                alignItems: 'flex-end', 
-                                gap: 8, 
-                                background: '#080808', 
+                                alignItems: 'center', 
+                                background: '#0a0a0a', 
                                 border: '1px solid #1a1a1a', 
-                                borderRadius: 32, 
-                                padding: '4px 8px 4px 4px',
-                                boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-                                transition: 'border-color 0.3s, box-shadow 0.3s',
-                                position: 'relative'
+                                borderRadius: 40, 
+                                padding: '6px 12px',
+                                gap: 4,
+                                boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
                             }}>
-                                <FileUpload isOpen={showUpload} onClose={() => setShowUpload(false)} onFilesSelected={(files) => setAttachedFiles(p => [...p, ...files])} />
-                                
-                                <button aria-label="Adjuntar archivo" onClick={() => setShowUpload(!showUpload)} style={{ 
-                                    width: 40, height: 40, borderRadius: '50%', flexShrink: 0, 
-                                    border: 'none', background: '#111', 
-                                    color: '#888', 
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}>
+                                <button 
+                                    onClick={() => setShowUpload(!showUpload)}
+                                    style={{ 
+                                        width: 36, 
+                                        height: 36, 
+                                        borderRadius: '50%', 
+                                        background: '#151515', 
+                                        border: 'none', 
+                                        color: '#ffffff', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center',
+                                        cursor: 'pointer'
+                                    }}
+                                >
                                     <Plus size={20} />
                                 </button>
+                                
+                                <textarea
+                                    ref={inputRef}
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
+                                    placeholder="Escribe un mensaje..."
+                                    rows={1}
+                                    style={{ 
+                                        flex: 1, 
+                                        background: 'none', 
+                                        border: 'none', 
+                                        color: '#ffffff', 
+                                        fontSize: 15, 
+                                        padding: '10px 14px', 
+                                        outline: 'none', 
+                                        resize: 'none',
+                                        fontFamily: 'inherit',
+                                        lineHeight: 1.4
+                                    }}
+                                />
 
-                                <div style={{ flex: 1, position: 'relative', marginBottom: 4 }}>
-                                    {/* Ghost Text Suggestion */}
-                                    {!input && !recording && (
-                                        <div style={{ position: 'absolute', left: 12, top: 8, color: T.muted, opacity: 0.5, pointerEvents: 'none', fontSize: 15 }}>
-                                            Escribe un mensaje...
-                                        </div>
-                                    )}
-                                    {input && suggestion && (
-                                        <div style={{ position: 'absolute', left: 12, top: 8, color: T.muted, opacity: 0.4, pointerEvents: 'none', fontSize: 15, whiteSpace: 'pre-wrap' }}>
-                                            <span style={{ opacity: 0 }}>{input}</span>{suggestion}
-                                        </div>
-                                    )}
-                                    
-                                    <textarea ref={inputRef} id="nexa-chat-input" aria-label="Escribe un mensaje" value={input} onChange={e => setInput(e.target.value)}
-                                        onKeyDown={e => { 
-                                            if (e.key === 'Tab' && suggestion) { e.preventDefault(); setInput(input + suggestion); setSuggestion(''); }
-                                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } 
-                                        }}
-                                        placeholder="" rows={1}
-                                        style={{ 
-                                            width: '100%', resize: 'none', background: 'transparent', border: 'none', 
-                                            color: T.text, outline: 'none', padding: '8px 12px', fontSize: 15, 
-                                            maxHeight: 150, lineHeight: 1.5, boxSizing: 'border-box', 
-                                            fontFamily: 'inherit', display: 'block'
-                                        }} 
-                                    />
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 0 }}>
-                                    <button aria-label={recording ? 'Detener grabación' : 'Voz'} onClick={toggleRec} style={{ 
-                                        width: 38, height: 38, borderRadius: '50%', 
-                                        background: 'transparent', 
-                                        color: '#888', 
-                                        border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <Mic size={18} />
-                                    </button>
-                                    
-                                    <button aria-label="Enviar mensaje" onClick={() => send()} disabled={(!input.trim() && attachedFiles.length === 0) || thinking || streaming}
-                                        style={{ 
-                                            width: 38, height: 38, borderRadius: '50%', flexShrink: 0, 
-                                            background: '#111', 
-                                            color: '#888', 
-                                            border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s', cursor: 'pointer' 
-                                        }}>
-                                        <ArrowUp size={18} />
-                                    </button>
-                                </div>
+                                <button onClick={toggleRec} style={{ background: 'none', border: 'none', color: recording ? '#ff0000' : '#888888', cursor: 'pointer', padding: 8 }}>
+                                    <Mic size={20} />
+                                </button>
+                                
+                                <button 
+                                    onClick={() => send()} 
+                                    disabled={thinking || streaming || (!input.trim() && attachedFiles.length === 0)}
+                                    style={{ 
+                                        background: 'none', 
+                                        border: 'none', 
+                                        color: '#888888',
+                                        cursor: 'pointer',
+                                        padding: 8,
+                                        opacity: (thinking || streaming || (!input.trim() && attachedFiles.length === 0)) ? 0.3 : 1
+                                    }}
+                                >
+                                    <ArrowUp size={22} />
+                                </button>
                             </div>
                         </div>
                     </div>
