@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { NexaClient, ChatMessage, ToolResult, StreamOptions, SendOptions, NexaConfig } from '../core'
+import { logger } from '@/lib/nexa-core/logger'
 
 export function useNexa(apiKey: string, config?: Partial<NexaConfig>) {
     const [client, setClient] = useState<NexaClient | null>(null)
@@ -20,7 +21,7 @@ export function useNexa(apiKey: string, config?: Partial<NexaConfig>) {
         // Crear sesión automáticamente
         nexa.createSession().then(session => {
             setSessionId(session.id)
-        }).catch((err: Error) => console.error("Failed to init session", err))
+        }).catch((err: Error) => logger.error("Failed to init session", "useNexa", err))
 
         return () => {
             // Cleanup

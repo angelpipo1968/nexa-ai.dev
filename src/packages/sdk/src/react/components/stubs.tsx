@@ -1,3 +1,4 @@
+// Development stubs — placeholder components. Replace with real implementations.
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
 import React from 'react'
 

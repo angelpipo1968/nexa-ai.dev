@@ -31,8 +31,6 @@ export class PerformanceMonitor {
         // Keep last 100 points
         if (points.length > 100) points.shift();
         this.metrics.set(model, points);
-
-        console.log(`[Monitor] Recorded metric for ${model}: ${metric.latency}ms, ${points[points.length - 1].tokensPerSecond.toFixed(2)} TPS`);
     }
 
     getTPS(modelId?: string): number {

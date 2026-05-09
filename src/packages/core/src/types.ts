@@ -1,6 +1,2 @@
-export interface NexaConfig {
-    security: any;
-    tools: any;
-    models: any;
-    memory: any;
-}
+// Re-export shared types
+export type { NexaConfig } from '../../../lib/shared-types';

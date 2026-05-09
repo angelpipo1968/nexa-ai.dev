@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { NexaConfig } from '../../core'
 import { useNexa } from '../useNexa'
 import { MessageList, InputArea, ToolPanel } from './stubs'
+import { logger } from '@/lib/nexa-core/logger'
 
 interface ChatProps {
     apiKey: string
@@ -60,7 +61,7 @@ export function Chat({
                     setCurrentStream(prev => prev + chunk)
                 }
             } catch (err) {
-                console.error('Stream error:', err)
+                logger.error('Stream error', 'Chat', err)
             } finally {
                 setStreaming(false)
                 setCurrentStream('')
@@ -84,7 +85,7 @@ export function Chat({
 
             return result
         } catch (err) {
-            console.error('Tool execution error:', err)
+            logger.error('Tool execution error', 'Chat', err)
             throw err
         }
     }

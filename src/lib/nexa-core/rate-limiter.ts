@@ -1,7 +1,16 @@
 // ═══════════════════════════════════════════
-//  NEXA CORE — Rate Limiter
-//  Sin dependencias externas, en memoria
+//  NEXA CORE — Rate Limiter (Legacy)
+//  Prefer `@/lib/rate-limiter` for new code.
 // ═══════════════════════════════════════════
+
+export { RateLimitResult, getIdentifier, RATE_LIMITS } from '../rate-limiter';
+export { RateLimiter, createRateLimiter } from '../rate-limiter';
+import type { RateLimitResult, RateLimitConfig } from '../rate-limiter';
+import { RATE_LIMITS } from '../rate-limiter';
+
+// ── Legacy sync in-memory store ────────────
+// Kept for backward compatibility with existing API routes.
+// New code should use createRateLimiter() from '@/lib/rate-limiter'.
 
 interface RateLimitEntry {
     count: number;
@@ -10,7 +19,7 @@ interface RateLimitEntry {
 
 const store = new Map<string, RateLimitEntry>();
 
-// Limpiar entradas expiradas cada 5 minutos
+// Cleanup expired entries every 5 minutes
 setInterval(() => {
     const now = Date.now();
     for (const [key, entry] of store) {
@@ -18,33 +27,19 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
-export interface RateLimitConfig {
-    /** Máximo de requests por ventana */
-    maxRequests: number;
-    /** Ventana de tiempo en milisegundos */
-    windowMs: number;
-}
-
-export interface RateLimitResult {
-    allowed: boolean;
-    remaining: number;
-    resetAt: number;
-    retryAfterMs?: number;
-}
-
 /**
- * Verifica rate limit para un identificador (IP, user ID, etc.)
+ * Synchronous rate limit check (legacy).
+ * @deprecated Use `createRateLimiter().check()` for new code.
  */
 export function checkRateLimit(
     identifier: string,
-    config: RateLimitConfig = { maxRequests: 30, windowMs: 60_000 }
+    config: RateLimitConfig = RATE_LIMITS.general
 ): RateLimitResult {
     const now = Date.now();
     const key = `ratelimit:${identifier}`;
     const entry = store.get(key);
 
     if (!entry || now > entry.resetAt) {
-        // Nueva ventana
         store.set(key, { count: 1, resetAt: now + config.windowMs });
         return {
             allowed: true,
@@ -54,7 +49,6 @@ export function checkRateLimit(
     }
 
     if (entry.count >= config.maxRequests) {
-        // Límite excedido
         return {
             allowed: false,
             remaining: 0,
@@ -63,7 +57,6 @@ export function checkRateLimit(
         };
     }
 
-    // Incrementar contador
     entry.count++;
     return {
         allowed: true,
@@ -71,29 +64,3 @@ export function checkRateLimit(
         resetAt: entry.resetAt,
     };
 }
-
-/**
- * Extrae el identificador del request (IP o user ID)
- */
-export function getIdentifier(request: Request): string {
-    // Intentar obtener IP real detrás de proxy
-    const forwarded = request.headers.get('x-forwarded-for');
-    const ip = forwarded?.split(',')[0]?.trim() || 
-               request.headers.get('x-real-ip') || 
-               'unknown';
-    return ip;
-}
-
-/**
- * Configuraciones predefinidas
- */
-export const RATE_LIMITS = {
-    /** Chat: 30 mensajes por minuto */
-    chat: { maxRequests: 30, windowMs: 60_000 },
-    /** Visión: 10 análisis por minuto (más costoso) */
-    vision: { maxRequests: 10, windowMs: 60_000 },
-    /** Generación: 5 por minuto (muy costoso) */
-    generate: { maxRequests: 5, windowMs: 60_000 },
-    /** General: 60 requests por minuto */
-    general: { maxRequests: 60, windowMs: 60_000 },
-} as const;

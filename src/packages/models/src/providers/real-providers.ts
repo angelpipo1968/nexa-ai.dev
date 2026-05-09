@@ -1,11 +1,6 @@
-import { Model, ModelResponse, ModelRequest, StreamChunk } from '../types';
-
-export interface ModelProvider {
-    id: string;
-    getModels(): Model[];
-    execute(request: ModelRequest): Promise<ModelResponse>;
-    streamExecute(request: ModelRequest): AsyncIterable<StreamChunk>;
-}
+import { Model, ModelResponse, ModelRequest, StreamChunk, ModelProvider } from '../types';
+import { logger } from '@/lib/nexa-core/logger';
+export type { ModelProvider } from '../types';
 
 export class OpenAICompatibleProvider implements ModelProvider {
     constructor(
@@ -58,7 +53,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
                 cost: 0
             };
         } catch (error: any) {
-            console.error(`[${this.id}] Error:`, error);
+            logger.error(`Provider error`, this.id, error);
             throw new Error(`Error from ${this.id}: ${error.message}`);
         }
     }
@@ -279,11 +274,11 @@ export class GeminiProvider implements ModelProvider {
                 // Try v1 with requested model
                 data = await tryFetch('v1', modelId);
             } catch (e1: any) {
-                console.warn(`[Gemini] v1 failed for ${modelId}, trying v1beta...`);
+                logger.warn(`v1 failed for ${modelId}, trying v1beta...`, 'Gemini');
                 try {
                     data = await tryFetch('v1beta', modelId);
                 } catch (e2: any) {
-                    console.warn(`[Gemini] v1beta failed for ${modelId}, trying flash fallback...`);
+                    logger.warn(`v1beta failed for ${modelId}, trying flash fallback...`, 'Gemini');
                     data = await tryFetch('v1', 'gemini-1.5-flash');
                 }
             }

@@ -5,6 +5,16 @@ import { detectIntent } from '@/lib/nexa-core/tools';
 import { checkRateLimit, getIdentifier, RATE_LIMITS } from '@/lib/nexa-core/rate-limiter';
 import { logger, generateRequestId } from '@/lib/nexa-core/logger';
 
+interface ChatRequestMessage {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+}
+
+interface ChatRequestBody {
+    messages: ChatRequestMessage[];
+    mode?: string;
+}
+
 export async function POST(req: NextRequest) {
     const requestId = generateRequestId();
     const start = Date.now();
@@ -33,7 +43,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const body = await req.json();
+        const body: ChatRequestBody = await req.json();
         const { messages, mode } = body;
 
         if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -66,7 +76,7 @@ export async function POST(req: NextRequest) {
 
         const apiMessages = [
             { role: 'system', content: systemPrompt },
-            ...messages.map((m: any) => ({ role: m.role, content: m.content }))
+            ...messages.map((m: ChatRequestMessage) => ({ role: m.role, content: m.content }))
         ];
 
         // ─── Try Groq (Fastest) ───
@@ -102,7 +112,7 @@ export async function POST(req: NextRequest) {
                     const errBody = await response.text();
                     logger.warn(`Groq failed (${response.status}): ${errBody}`, 'chat', { requestId });
                 }
-            } catch (e: any) {
+            } catch (e: unknown) {
                 logger.error(`Groq error: ${e.message}`, 'chat', { requestId });
             }
         }
@@ -111,8 +121,8 @@ export async function POST(req: NextRequest) {
         if (googleKey) {
             try {
                 const geminiMessages = messages
-                    .filter((m: any) => m.role !== 'system')
-                    .map((m: any) => ({
+                    .filter((m: ChatRequestMessage) => m.role !== 'system')
+                    .map((m: ChatRequestMessage) => ({
                         role: m.role === 'assistant' ? 'model' : 'user',
                         parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }]
                     }));
@@ -145,7 +155,7 @@ export async function POST(req: NextRequest) {
                     const errBody = await res.text();
                     logger.warn(`Gemini failed (${res.status}): ${errBody}`, 'chat', { requestId });
                 }
-            } catch (e: any) {
+            } catch (e: unknown) {
                 logger.error(`Gemini error: ${e.message}`, 'chat', { requestId });
             }
         }
@@ -154,8 +164,8 @@ export async function POST(req: NextRequest) {
         if (anthropicKey) {
             try {
                 const anthropicMessages = messages
-                    .filter((m: any) => m.role !== 'system')
-                    .map((m: any) => ({
+                    .filter((m: ChatRequestMessage) => m.role !== 'system')
+                    .map((m: ChatRequestMessage) => ({
                         role: m.role,
                         content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
                     }));
@@ -188,7 +198,7 @@ export async function POST(req: NextRequest) {
                         },
                     });
                 }
-            } catch (e: any) {
+            } catch (e: unknown) {
                 logger.error(`Anthropic error: ${e.message}`, 'chat', { requestId });
             }
         }
@@ -199,8 +209,8 @@ export async function POST(req: NextRequest) {
             code: 'NO_AI_PROVIDER'
         }, { status: 503 });
 
-    } catch (e: any) {
-        logger.error(`Chat error: ${e.message}`, 'chat', { requestId, stack: e.stack });
+    } catch (e: unknown) {
+        logger.error(`Chat error: ${e.message}`, 'chat', { requestId, stack: e instanceof Error ? e.stack : undefined });
         return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
     }
 }

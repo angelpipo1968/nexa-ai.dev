@@ -9,7 +9,7 @@ interface LogEntry {
     level: LogLevel;
     message: string;
     context?: string;
-    data?: any;
+    data?: unknown;
     timestamp: string;
     requestId?: string;
 }
@@ -30,7 +30,7 @@ function formatLog(entry: LogEntry): string {
     return `${color}${entry.timestamp} ${entry.level.toUpperCase()}${RESET} ${prefix}${reqId} ${entry.message}`;
 }
 
-function log(level: LogLevel, message: string, context?: string, data?: any): void {
+function log(level: LogLevel, message: string, context?: string, data?: unknown): void {
     const entry: LogEntry = {
         level,
         message,
@@ -57,10 +57,10 @@ function log(level: LogLevel, message: string, context?: string, data?: any): vo
 }
 
 export const logger = {
-    debug: (msg: string, ctx?: string, data?: any) => log('debug', msg, ctx, data),
-    info: (msg: string, ctx?: string, data?: any) => log('info', msg, ctx, data),
-    warn: (msg: string, ctx?: string, data?: any) => log('warn', msg, ctx, data),
-    error: (msg: string, ctx?: string, data?: any) => log('error', msg, ctx, data),
+    debug: (msg: string, ctx?: string, data?: unknown) => log('debug', msg, ctx, data),
+    info: (msg: string, ctx?: string, data?: unknown) => log('info', msg, ctx, data),
+    warn: (msg: string, ctx?: string, data?: unknown) => log('warn', msg, ctx, data),
+    error: (msg: string, ctx?: string, data?: unknown) => log('error', msg, ctx, data),
 };
 
 /**

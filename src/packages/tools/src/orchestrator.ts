@@ -19,6 +19,7 @@ import { GenericMCPTool } from './tools/mcp-tool'
 import { MCPClient } from './mcp-client'
 import * as fs from 'fs'
 import * as path from 'path'
+import { logger } from '@/lib/nexa-core/logger'
 
 export class ToolOrchestrator {
     private tools: Map<string, Tool>
@@ -76,7 +77,7 @@ export class ToolOrchestrator {
                     if (typedConfig.disabled) continue;
 
                     try {
-                        console.log(`[ToolOrchestrator] 🌐 Discovering tools on MCP Server: ${serverName}...`);
+                        logger.info(`🌐 Discovering tools on MCP Server: ${serverName}...`, 'ToolOrchestrator');
                         // In a real scenario, we would use JSON-RPC over the transport.
                         // Here we use the client to list tools.
                         const response = await this.mcpClient.callTool(serverName, serverConfig as Record<string, unknown>, 'tools/list', {}) as { result?: { tools?: { name: string, description: string, inputSchema: Record<string, unknown> }[] } };
@@ -92,16 +93,16 @@ export class ToolOrchestrator {
                                     this.mcpClient
                                 );
                                 this.registerTool(mcpTool);
-                                console.log(`[ToolOrchestrator] ✅ Registered MCP Tool: ${mcpTool.name}`);
+                                logger.info(`✅ Registered MCP Tool: ${mcpTool.name}`, 'ToolOrchestrator');
                             }
                         }
                     } catch (err) {
-                        console.warn(`[ToolOrchestrator] ⚠️ Could not load tools from ${serverName}:`, err);
+                        logger.warn(`⚠️ Could not load tools from ${serverName}`, 'ToolOrchestrator', err);
                     }
                 }
             }
         } catch (e) {
-            console.error('[ToolOrchestrator] Error loading MCP configuration:', e);
+            logger.error('Error loading MCP configuration', 'ToolOrchestrator', e);
         }
     }
 
@@ -199,7 +200,7 @@ export class ToolOrchestrator {
 
     // Helper methods to satisfy the code structure
     private async logExecution(_log: Record<string, unknown>) {
-        console.log('Tool Execution Log:', _log);
+        logger.info('Tool Execution Log', 'ToolOrchestrator', _log);
     }
 
     private async analyzeIntent(_query: string) {

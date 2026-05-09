@@ -1,3 +1,4 @@
+// Development stubs — not exported in production. Use real implementations.
 import { Tool } from '../base-tool';
 import { SearchResult, ToolResult, ExecutionContext } from '../types';
 

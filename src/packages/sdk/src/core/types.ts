@@ -1,10 +1,5 @@
-export interface NexaConfig {
-    apiKey?: string;
-    baseURL?: string;
-    timeout?: number;
-    maxRetries?: number;
-    stream?: boolean;
-}
+// Re-export shared types
+export type { NexaConfig, ChatMessage, ToolResult } from '../../../../lib/shared-types';
 
 export interface EmbeddingOptions {
     modelId?: string;
@@ -15,10 +10,10 @@ export interface EmbeddingOptions {
 
 export interface EmbeddingResult {
     embeddings: number[][];
-    model: any;
+    model: unknown;
     dimensions: number;
-    quality: any;
-    metadata: any;
+    quality: unknown;
+    metadata: unknown;
 }
 
 export interface EmbeddingBatchOptions {
@@ -37,29 +32,31 @@ export type SimilarityMetric = 'cosine' | 'euclidean' | 'dot';
 export interface SearchOptions {
     limit?: number;
     threshold?: number;
-    filter?: any;
+    filter?: Record<string, unknown>;
     modelId?: string;
 }
+
+// Embedding/vector search result (distinct from web SearchResult in shared-types)
 export interface SearchResult {
     id: string;
     score: number;
-    document: any;
+    document: unknown;
 }
 
 export interface CollectionOptions {
     modelId?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
 }
 export interface Collection {
     id: string;
     name: string;
-    metadata: any;
+    metadata: Record<string, unknown>;
 }
 
 export interface Document {
     id?: string;
     content: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
 }
 export interface AddOptions {
     batchSize?: number;
@@ -67,27 +64,14 @@ export interface AddOptions {
 }
 export interface AddResult {
     added: number;
-    model: any;
+    model: unknown;
     dimensions: number;
-}
-
-export interface ChatMessage {
-    role: 'user' | 'assistant' | 'system';
-    content: string;
-    timestamp?: Date;
-    metadata?: any;
 }
 
 export interface ChatChunk {
     type: 'content' | 'complete';
     content: string;
-    metadata?: any;
-}
-
-export interface ToolResult {
-    success: boolean;
-    data: any;
-    error?: string;
+    metadata?: Record<string, unknown>;
 }
 
 export interface HealthResponse {
@@ -97,12 +81,12 @@ export interface HealthResponse {
 
 export interface SessionOptions {
     userId?: string;
-    metadata?: any;
+    metadata?: Record<string, unknown>;
 }
 export interface Session {
     id: string;
     userId: string;
-    metadata: any;
+    metadata: Record<string, unknown>;
 }
 export interface StreamOptions {
     sessionId?: string;

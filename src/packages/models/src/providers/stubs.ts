@@ -1,11 +1,6 @@
-import { Model, ModelResponse, ModelRequest, StreamChunk } from '../types';
-
-export interface ModelProvider {
-    id: string;
-    getModels(): Model[];
-    execute(request: ModelRequest): Promise<ModelResponse>;
-    streamExecute(request: ModelRequest): AsyncIterable<StreamChunk>;
-}
+// Development stubs — not exported in production. Use real implementations.
+import { Model, ModelResponse, ModelRequest, StreamChunk, ModelProvider } from '../types';
+import { logger } from '@/lib/nexa-core/logger';
 
 export class OllamaProvider implements ModelProvider {
     id = 'ollama';
@@ -32,9 +27,8 @@ export class OllamaProvider implements ModelProvider {
                 })
             });
             this.isModelLoaded = true;
-            console.log(`✅ Model ${model} pre-loaded in memory`);
         } catch (error) {
-            console.warn('Failed to pre-load model:', error);
+            logger.warn('Failed to pre-load model', 'OllamaProvider', error);
         }
     }
 
@@ -94,7 +88,7 @@ export class OllamaProvider implements ModelProvider {
             };
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error('Ollama execution failed:', error);
+            logger.error('Ollama execution failed', 'OllamaProvider', error);
             return {
                 text: `Error connecting to Ollama: ${errorMessage}. Is Ollama running?`,
                 latency: Date.now() - start,
@@ -168,7 +162,7 @@ export class OllamaProvider implements ModelProvider {
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error('Ollama streaming failed:', error);
+            logger.error('Ollama streaming failed', 'OllamaProvider', error);
             yield { text: `Error: ${errorMessage}`, done: true };
         }
     }

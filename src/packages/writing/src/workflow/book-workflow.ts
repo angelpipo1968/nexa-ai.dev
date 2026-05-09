@@ -1,30 +1,22 @@
-import { DeepThoughtEngine } from '../brain/deep-thinking';
-import { BookArchitect } from '../scaffold/book-architect';
-import { ProfessionalWritingEngine } from '../prose/writing-engine';
-import { ProfessionalExporter } from '../export/professional-exporter';
+import { WorkflowOrchestrator } from './orchestrator';
 
-export class BookWritingWorkflow {
-    private brain = new DeepThoughtEngine();
-    private architect = new BookArchitect();
-    private prose = new ProfessionalWritingEngine();
-    private exporter = new ProfessionalExporter();
-
+/**
+ * Book-specific writing workflow.
+ * Extends WorkflowOrchestrator with a simplified interface
+ * focused on book creation (no research or quality analysis steps).
+ */
+export class BookWritingWorkflow extends WorkflowOrchestrator {
+    /**
+     * Execute a simplified book writing workflow.
+     * Skips research and quality analysis for faster iteration.
+     */
     async executeWorkflow(seedIdea: string) {
-        // 1. Conception
-        const concept = await this.brain.developBookConcept(seedIdea);
-
-        // 2. Blueprint
-        const blueprint = await this.architect.createBlueprint(concept);
-
-        // 3. Writing (Simplified for demo)
-        const chapter1 = await this.prose.writeChapter(blueprint.structure.chapters[0], "narrative");
-
-        // 4. Export
-        const finalPackage = await this.exporter.exportForAmazon({ ...concept, chapters: [chapter1] }, 'pdf');
+        // Reuse the parent's full flow but extract only what we need
+        const result = await this.executeCompleteFlow(seedIdea);
 
         return {
-            book: { ...concept, content: [chapter1] },
-            package: finalPackage
+            book: { ...result.concept, content: result.manuscript },
+            package: result.exportPackage,
         };
     }
 }

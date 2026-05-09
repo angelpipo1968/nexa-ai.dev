@@ -1,7 +1,8 @@
 import IORedis from 'ioredis';
 type RedisInst = { on: (event: string, cb: (...args: never[]) => void) => void; [key: string]: unknown };
 const Redis = IORedis as unknown as { new(url: string, options: Record<string, unknown>): RedisInst };
-import { TokenBucket, SlidingWindow, FixedWindow, RateLimitAlgorithm, RateLimitResult } from './algorithms'
+import { TokenBucket, SlidingWindow, FixedWindow, RateLimitAlgorithm } from './algorithms'
+import type { RateLimitResult } from '../../../../lib/shared-types';
 
 export type RateLimitOptions = Record<string, unknown>;
 
@@ -61,6 +62,7 @@ export class AdaptiveRateLimiter {
         return {
             allowed: result.allowed,
             remaining: result.remaining,
+            resetAt: result.resetAt ?? result.reset ?? Date.now(),
             reset: result.reset,
             limit: result.limit,
             retryAfter: result.retryAfter,

@@ -61,8 +61,9 @@ export async function POST(req: NextRequest) {
                 } else {
                     logger.warn(`Gemini vision failed (${res.status})`, 'vision', { requestId });
                 }
-            } catch (e: any) {
-                logger.error(`Gemini vision error: ${e.message}`, 'vision', { requestId });
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                logger.error(`Gemini vision error: ${msg}`, 'vision', { requestId });
             }
         }
 
@@ -93,8 +94,9 @@ export async function POST(req: NextRequest) {
                     logger.info('Vision analysis completed via OpenAI', 'vision', { requestId });
                     return NextResponse.json({ response: data.choices[0]?.message?.content || '', provider: 'openai', model: 'gpt-4o' });
                 }
-            } catch (e: any) {
-                logger.error(`OpenAI vision error: ${e.message}`, 'vision', { requestId });
+            } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : String(e);
+                logger.error(`OpenAI vision error: ${msg}`, 'vision', { requestId });
             }
         }
 
@@ -103,8 +105,9 @@ export async function POST(req: NextRequest) {
             code: 'NO_VISION_PROVIDER'
         }, { status: 503 });
 
-    } catch (e: any) {
-        logger.error(`Vision error: ${e.message}`, 'vision', { requestId });
+    } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        logger.error(`Vision error: ${msg}`, 'vision', { requestId });
         return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
     }
 }

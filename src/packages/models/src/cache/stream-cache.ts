@@ -23,14 +23,12 @@ export class StreamingCache {
         const cached = this.cache.get(key);
 
         if (cached && (Date.now() - cached.timestamp < this.ttl)) {
-            console.log(`🚀 [Cache Hit] Serving tokens for: "${prompt.substring(0, 20)}..."`);
             for (const chunk of cached.chunks) {
                 yield chunk;
             }
             return;
         }
 
-        console.log(`⚡ [Cache Miss] Streaming and caching: "${prompt.substring(0, 20)}..."`);
         const chunks: StreamChunk[] = [];
         for await (const chunk of generator) {
             chunks.push(chunk);

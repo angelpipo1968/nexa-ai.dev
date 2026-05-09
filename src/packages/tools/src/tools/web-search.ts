@@ -33,7 +33,7 @@ export class WebSearchTool extends Tool {
                 source: r.engine || 'meta-search'
             })).slice(0, maxResults * 2);
         } catch (_error) {
-            console.log('[WebSearchTool] SearXNG no detectado o falló, usando el motor fallback NexaSearchEngine...');
+            // SearXNG not available, using fallback NexaSearchEngine
             // Fallback
             const engine = new NexaSearchEngine()
             const searchResponse = await engine.search(query, maxResults, false, sources.includes('academic'))

@@ -1,12 +1,9 @@
+// Re-export shared types
+export type { SearchResult } from '../../../lib/shared-types';
+import type { SearchResult } from '../../../lib/shared-types';
+
 export type SearchSource = 'brave' | 'duckduckgo' | 'google_cse' | 'bing' | 'serpapi' | 'searxng' | 'you';
 export type SearchEngineType = 'official' | 'public';
-
-export interface SearchResult {
-    title: string;
-    url: string;
-    source: SearchSource;
-    snippet: string;
-}
 
 export interface SearchQuota {
     daily?: number;

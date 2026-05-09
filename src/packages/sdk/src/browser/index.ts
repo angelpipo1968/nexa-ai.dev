@@ -1,6 +1,7 @@
 import { NexaClient } from '../core/index'
 import { NexaConfig, EmbeddingOptions, EmbeddingResult, SearchOptions, SearchResult } from '../core/types'
 import { BrowserCache } from './cache'
+import { logger } from '@/lib/nexa-core/logger'
 
 export interface WidgetOptions {
     theme?: 'light' | 'dark'
@@ -45,14 +46,14 @@ export class NexaBrowser extends NexaClient {
                 this.worker = new Worker(new URL('./worker.js', import.meta.url))
                 this.setupWorker()
             } catch (e) {
-                console.warn('Web Workers not supported or script not found', e)
+                logger.warn('Web Workers not supported or script not found', 'NexaBrowser', e)
             }
         }
     }
 
     private setupWorker() {
         if (!this.worker) return
-        this.worker.onerror = (e) => console.error('Worker error:', e)
+        this.worker.onerror = (e) => logger.error('Worker error', 'NexaBrowser', e)
     }
 
     async embedWithWorker(text: string, options: EmbeddingOptions = {}): Promise<EmbeddingResult> {

@@ -14,7 +14,6 @@ export class WorkflowOrchestrator {
     private analyst = new QualityAnalyst();
 
     async executeCompleteFlow(seedIdea: string) {
-        console.log('🚀 Starting Complete Writing Flow...');
 
         // 1. Brain/Conception
         const concept = await this.brain.developBookConcept(seedIdea);

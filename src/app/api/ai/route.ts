@@ -2,18 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'edge';
 
+interface IncomingMessage {
+    role: string;
+    content: string;
+}
+
+interface RequestBody {
+    provider?: string;
+    model?: string;
+    messages: IncomingMessage[];
+    temperature?: number;
+    max_tokens?: number;
+}
+
 const SYSTEM_PROMPT = `Eres Nexa, una inteligencia artificial de vanguardia.
 Tu objetivo es ser el asistente definitivo para ingeniería de software, razonamiento complejo y tareas de largo horizonte.
 Responde siempre en español. Usa markdown cuando sea apropiado.`;
 
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
+        const body: RequestBody = await req.json();
         const provider = body.provider || 'auto';
-        const messages = body.messages || [];
+        const messages: IncomingMessage[] = body.messages || [];
         
         // Ensure system prompt
-        if (!messages.find((m: any) => m.role === 'system')) {
+        if (!messages.find((m) => m.role === 'system')) {
             messages.unshift({ role: 'system', content: SYSTEM_PROMPT });
         }
 
@@ -26,13 +39,13 @@ export async function POST(req: NextRequest) {
             if (key) {
                 const model = body.model || 'gemini-1.5-flash';
                 const geminiMessages = messages
-                    .filter((m: any) => m.role !== 'system')
-                    .map((m: any) => ({
+                    .filter((m) => m.role !== 'system')
+                    .map((m) => ({
                         role: m.role === 'assistant' ? 'model' : 'user',
                         parts: [{ text: m.content }]
                     }));
 
-                const systemMsg = messages.find((m: any) => m.role === 'system');
+                const systemMsg = messages.find((m) => m.role === 'system');
 
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
                     method: 'POST',
@@ -57,13 +70,13 @@ export async function POST(req: NextRequest) {
             const key = process.env.ANTHROPIC_API_KEY;
             if (key) {
                 const anthropicMessages = messages
-                    .filter((m: any) => m.role !== 'system')
-                    .map((m: any) => ({
+                    .filter((m) => m.role !== 'system')
+                    .map((m) => ({
                         role: m.role === 'user' ? 'user' : 'assistant',
                         content: m.content
                     }));
                     
-                const systemMsg = messages.find((m: any) => m.role === 'system');
+                const systemMsg = messages.find((m) => m.role === 'system');
 
                 const res = await fetch('https://api.anthropic.com/v1/messages', {
                     method: 'POST',
@@ -113,8 +126,9 @@ export async function POST(req: NextRequest) {
             },
         });
 
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 });
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 

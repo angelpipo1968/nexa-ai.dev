@@ -4,6 +4,7 @@ import { PerformanceMonitor } from './monitor'
 import { ModelCache } from './cache'
 import { StreamingCache } from './cache/stream-cache'
 import { ModelLoadBalancer } from './load-balancer'
+import { logger } from '@/lib/nexa-core/logger'
 
 interface Session { // Stub session
     id: string;
@@ -222,7 +223,7 @@ export class ModelRouter {
                 }
                 return; // Success!
             } catch (e) {
-                console.warn(`[Router] Stream fallback: ${providerKey} failed, trying next...`, e);
+                logger.warn(`Stream fallback: ${providerKey} failed, trying next...`, 'Router');
                 lastError = e;
             }
         }
@@ -321,7 +322,7 @@ export class ModelRouter {
             try {
                 return await provider.execute(request);
             } catch (e) {
-                console.warn(`[Router] Execution fallback: ${providerKey} failed, trying next...`);
+                logger.warn(`Execution fallback: ${providerKey} failed, trying next...`, 'Router');
                 lastError = e;
             }
         }

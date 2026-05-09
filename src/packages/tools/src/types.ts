@@ -1,13 +1,9 @@
+// Re-export shared types
+export type { SearchResult, ToolResult } from '../../../lib/shared-types';
+
 export interface ExecutionContext {
     userId: string;
     sessionId?: string;
-    metadata?: Record<string, unknown>;
-}
-
-export interface ToolResult {
-    success: boolean;
-    error?: string;
-    data: unknown;
     metadata?: Record<string, unknown>;
 }
 
@@ -16,21 +12,20 @@ export interface ToolValidationResult {
     errors: string[];
 }
 
-export interface SearchResult {
+export interface VerifiedResult {
     title: string;
     url: string;
-    content: string;
-    source: string;
+    snippet: string;
+    content?: string;
+    score?: number;
+    source?: string;
     publishedDate?: string;
-}
-
-export interface VerifiedResult extends SearchResult {
     verification: {
         factual: boolean;
         recent: boolean;
         credible: boolean;
         confidence: number;
-    }
+    };
 }
 
 export interface ToolRoutingResult {

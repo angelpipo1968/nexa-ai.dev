@@ -29,7 +29,7 @@ export class GenericMCPTool extends Tool {
 
     async execute(params: Record<string, unknown>, _context: ExecutionContext): Promise<ToolResult> {
         try {
-            console.log(`[MCP] Calling tool ${this.toolNameInServer} on ${this.name}`);
+            // MCP tool call
             const response = await this.mcpClient.callTool(
                 this.name.split('_')[0],
                 this.config,
