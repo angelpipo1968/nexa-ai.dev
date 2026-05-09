@@ -607,15 +607,15 @@ export function NexaApp() {
                     const lang = match[1] || 'code';
                     const code = match[2].trim();
                     return (
-                        <div key={i} style={{ margin: '12px 0', borderRadius: 12, overflow: 'hidden', border: '1px solid #27272a' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: '#1a1a1a', borderBottom: '1px solid #27272a' }}>
-                                <span style={{ fontSize: 12, color: '#00e5a0', fontWeight: 600, textTransform: 'uppercase' }}>{lang}</span>
-                                <button onClick={() => navigator.clipboard.writeText(code)} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <div key={i} style={{ margin: '12px 0', borderRadius: 12, overflow: 'hidden', border: `1px solid ${T.border}` }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 14px', background: T.surf, borderBottom: `1px solid ${T.border}` }}>
+                                <span style={{ fontSize: 12, color: accent, fontWeight: 600, textTransform: 'uppercase' }}>{lang}</span>
+                                <button onClick={() => navigator.clipboard.writeText(code)} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                                     📋 Copiar
                                 </button>
                             </div>
-                            <pre style={{ padding: '14px', background: '#0a0a0a', overflow: 'auto', maxHeight: 400, margin: 0, WebkitOverflowScrolling: 'touch' as any }}>
-                                <code style={{ fontSize: 13, lineHeight: 1.6, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", color: '#e0e0e0' }}>{code}</code>
+                            <pre style={{ padding: '14px', background: T.bg, overflow: 'auto', maxHeight: 400, margin: 0, WebkitOverflowScrolling: 'touch' as any }}>
+                                <code style={{ fontSize: 13, lineHeight: 1.6, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", color: T.text }}>{code}</code>
                             </pre>
                         </div>
                     );
