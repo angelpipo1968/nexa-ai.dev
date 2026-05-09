@@ -1,7 +1,6 @@
 'use client';
 
 import React, { Component, ErrorInfo } from 'react';
-import { selfHealing } from '@/lib/selfHealing';
 import { Activity, ShieldAlert, Cpu } from 'lucide-react';
 
 interface Props {
@@ -26,15 +25,6 @@ export class SystemImmunityBoundary extends Component<Props, State> {
 
     componentDidCatch(error: Error, errorInfo: ErrorInfo) {
         console.error("SystemImmunityBoundary caught an error:", error, errorInfo);
-        
-        // Ensure the selfHealing instance exists before calling it
-        if (selfHealing) {
-            selfHealing.handleError({
-                message: error.message,
-                error: error,
-                stack: errorInfo.componentStack
-            });
-        }
     }
 
     componentDidMount() {

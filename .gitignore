@@ -69,3 +69,12 @@ Procfile
 Makefile
 Dockerfile
 docker-compose.yml
+
+# Supabase temp
+supabase/.temp/
+
+# Build artifacts in packages
+src/packages/**/*.d.ts
+src/packages/**/*.d.ts.map
+src/packages/**/*.js
+src/packages/**/*.js.map

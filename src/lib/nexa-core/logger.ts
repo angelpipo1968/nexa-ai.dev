@@ -54,23 +54,6 @@ function log(level: LogLevel, message: string, context?: string, data?: any): vo
         default:
             console.log(formatted, data ? '\n' + JSON.stringify(data, null, 2) : '');
     }
-
-    // En producción, enviar errores críticos a servicio externo
-    if (level === 'error' && process.env.NODE_ENV === 'production') {
-        sendToMonitoring(entry).catch(() => {});
-    }
-}
-
-async function sendToMonitoring(entry: LogEntry): Promise<void> {
-    // Placeholder para integración con Sentry, LogRocket, etc.
-    // Cuando configures Sentry, descomenta:
-    // if (typeof Sentry !== 'undefined') {
-    //     Sentry.captureMessage(entry.message, {
-    //         level: 'error',
-    //         extra: entry.data,
-    //         tags: { context: entry.context },
-    //     });
-    // }
 }
 
 export const logger = {
@@ -85,31 +68,4 @@ export const logger = {
  */
 export function generateRequestId(): string {
     return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-/**
- * Middleware de logging para API routes
- */
-export function withLogging<T extends (...args: any[]) => Promise<Response>>(
-    handler: T,
-    routeName: string
-): T {
-    return (async (...args: any[]) => {
-        const req = args[0] as Request;
-        const requestId = generateRequestId();
-        const start = Date.now();
-
-        logger.info(`${req.method} ${routeName} started`, routeName, { requestId });
-
-        try {
-            const response = await handler(...args);
-            const duration = Date.now() - start;
-            logger.info(`${req.method} ${routeName} completed (${response.status}) in ${duration}ms`, routeName, { requestId, status: response.status, duration });
-            return response;
-        } catch (error: any) {
-            const duration = Date.now() - start;
-            logger.error(`${req.method} ${routeName} failed in ${duration}ms: ${error.message}`, routeName, { requestId, error: error.message, stack: error.stack });
-            throw error;
-        }
-    }) as T;
 }

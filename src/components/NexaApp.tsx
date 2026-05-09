@@ -4,12 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase';
 import { 
     FileText, Image as ImageIcon, Film, Music, Camera, 
-    Plus, Send, Mic, MicOff, Menu, X, Settings, 
-    User, LogOut, ChevronLeft, Volume2, VolumeX,
-    Zap, Search, RefreshCw, Loader2, StopCircle, ArrowUp,
-    MoreVertical, Download, Trash2, Moon, Sun, Monitor,
-    Copy, ThumbsUp, ThumbsDown, Share, RotateCcw, Edit,
-    Pin, Archive, FolderInput, CopyPlus, Upload, File, AlertCircle,
+    Plus, Send, Mic, Menu, X, Settings, 
+    User, LogOut, Volume2, VolumeX,
+    Zap, Search, Loader2, StopCircle, ArrowUp,
+    MoreVertical, Moon, Sun,
+    Copy, ThumbsUp, ThumbsDown, RotateCcw, Edit,
+    FolderInput, Upload, File,
     Sparkles
 } from 'lucide-react';
 

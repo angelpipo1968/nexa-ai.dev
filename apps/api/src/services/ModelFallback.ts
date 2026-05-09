@@ -1,6 +1,3 @@
-import { analyticsService } from '@/lib/analytics/AnalyticsService';
-import { logger } from '@/lib/logging/StructuredLogger';
-
 export interface ModelProvider {
   name: string;
   id: string;
@@ -45,42 +42,17 @@ export class ModelOrchestrator {
     for (const provider of sortedProviders) {
       const startTime = Date.now();
       try {
-        logger.info(`[Orchestrator] Attempting chat with provider: ${provider.name}`);
+        console.log(`[Orchestrator] Attempting chat with provider: ${provider.name}`);
         
         const response = await this.callProvider(provider, payload, userId, conversationId);
         const latency = Date.now() - startTime;
-
-        // Registrar éxito en analytics
-        await analyticsService.recordInference({
-          model: provider.id,
-          action: 'chat',
-          tokens_used: 0, // Placeholder
-          latency_ms: latency,
-          cost_usd: 0, // Placeholder
-          success: true,
-          user_id: userId,
-          conversation_id: conversationId,
-        });
 
         return { response, provider: provider.id, latency };
       } catch (error: any) {
         const latency = Date.now() - startTime;
         lastError = error;
         
-        logger.warn(`[Orchestrator] Provider ${provider.name} failed: ${error.message}`);
-        
-        // Registrar fallo en analytics
-        await analyticsService.recordInference({
-          model: provider.id,
-          action: 'chat',
-          tokens_used: 0,
-          latency_ms: latency,
-          cost_usd: 0,
-          success: false,
-          error_message: error.message,
-          user_id: userId,
-          conversation_id: conversationId,
-        });
+        console.warn(`[Orchestrator] Provider ${provider.name} failed: ${error.message}`);
 
         // Continuar al siguiente proveedor
         continue;

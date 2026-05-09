@@ -28,16 +28,7 @@ export async function searchNews(_query: string, _options: Record<string, unknow
     return { title: 'Mock News Result', url: 'http://news.example.com', content: 'Mock news content', source: 'news' };
 }
 
-// Other Tools Stubs (CodeExecutionTool omitted - use from code-execution.ts)
-export class RAGTool extends Tool {
-    name = 'rag';
-    description = 'Retrieval Augmented Generation';
-    parameters = {};
-    async execute(_params: Record<string, unknown>, _context: ExecutionContext): Promise<ToolResult> {
-        return { success: true, data: 'RAG result' };
-    }
-}
-
+// Other Tools Stubs
 export class BrowserTool extends Tool {
     name = 'browser';
     description = 'Browser automation';
