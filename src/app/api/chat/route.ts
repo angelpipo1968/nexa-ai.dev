@@ -217,7 +217,8 @@ export async function POST(req: NextRequest) {
         });
         return NextResponse.json({ 
             error: 'Error interno del servidor', 
-            details: process.env.NODE_ENV === 'development' ? e.message : undefined 
+            details: e.message,
+            stack: e.stack
         }, { status: 500 });
     }
 }
