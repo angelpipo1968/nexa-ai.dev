@@ -152,6 +152,38 @@ export function NexaApp() {
             container.scrollTop = container.scrollHeight;
         }
     };
+
+    // Detectar si el usuario está cerca del fondo (dentro de 150px)
+    const isNearBottom = () => {
+        const container = chatContainerRef.current;
+        if (!container) return true;
+        return container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+    };
+
+    // Auto-scroll solo si el usuario ya estaba abajo
+    const userScrolledRef = useRef(false);
+    const [showScrollBtn, setShowScrollBtn] = useState(false);
+
+    useEffect(() => {
+        const container = chatContainerRef.current;
+        if (!container) return;
+        const handleScroll = () => {
+            const nearBottom = isNearBottom();
+            if (!streaming) {
+                userScrolledRef.current = !nearBottom;
+                setShowScrollBtn(!nearBottom);
+            }
+        };
+        container.addEventListener('scroll', handleScroll, { passive: true });
+        return () => container.removeEventListener('scroll', handleScroll);
+    }, [streaming]);
+
+    useEffect(() => {
+        // Solo auto-scroll si el usuario NO ha subido a leer
+        if (!userScrolledRef.current) {
+            scrollToBottom();
+        }
+    }, [msgs]);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const recRef = useRef<any>(null);
     const sb = getSupabase();
@@ -214,13 +246,18 @@ export function NexaApp() {
         localStorage.setItem('nexa_lang', lang);
     }, [accent, themeName, autoSpeak, autoSend, voiceGender, voiceIndex, lang]);
 
-    useEffect(() => { scrollToBottom(); endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
+    useEffect(() => { if (!userScrolledRef.current) scrollToBottom(); endRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs]);
 
-    // Auto-scroll durante streaming
+    // Auto-scroll durante streaming — solo si el usuario está abajo
     useEffect(() => {
         if (streaming) {
-            const interval = setInterval(scrollToBottom, 100);
+            const interval = setInterval(() => {
+                if (!userScrolledRef.current) scrollToBottom();
+            }, 100);
             return () => clearInterval(interval);
+        } else {
+            // Al terminar el streaming, resetear el flag
+            userScrolledRef.current = false;
         }
     }, [streaming]);
     
@@ -495,7 +532,7 @@ export function NexaApp() {
                                     📋 Copiar
                                 </button>
                             </div>
-                            <pre style={{ padding: '14px', background: '#0a0a0a', overflow: 'auto', maxHeight: 400, margin: 0 }}>
+                            <pre style={{ padding: '14px', background: '#0a0a0a', overflow: 'auto', maxHeight: 400, margin: 0, WebkitOverflowScrolling: 'touch' as any }}>
                                 <code style={{ fontSize: 13, lineHeight: 1.6, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", color: '#e0e0e0' }}>{code}</code>
                             </pre>
                         </div>
@@ -743,6 +780,24 @@ export function NexaApp() {
                             </div>
                         )}
                     </div>
+
+                    {/* Botón "Ir al final" — aparece cuando el usuario subió a leer */}
+                    {showScrollBtn && msgs.length > 0 && (
+                        <button
+                            aria-label="Ir al último mensaje"
+                            onClick={() => { userScrolledRef.current = false; setShowScrollBtn(false); scrollToBottom(); }}
+                            style={{
+                                position: 'absolute', bottom: 180, right: 20, zIndex: 50,
+                                width: 40, height: 40, borderRadius: '50%',
+                                background: accent, color: '#000', border: 'none',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: `0 4px 20px ${accent}50`,
+                                transition: 'opacity 0.3s',
+                            }}
+                        >
+                            <ArrowUp size={18} style={{ transform: 'rotate(180deg)' }} />
+                        </button>
+                    )}
 
                     <FilePreview files={attachedFiles} onRemove={(id) => setAttachedFiles(p => p.filter(f => f.id !== id))} />
                     

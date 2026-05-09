@@ -6,6 +6,9 @@ body {
     color: #e8e8f0;
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
 }
 ::selection { background: #00e5a0; color: #04040a; }
 ::-webkit-scrollbar { width: 3px; }
