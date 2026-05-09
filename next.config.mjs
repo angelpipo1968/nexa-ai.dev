@@ -1,11 +1,13 @@
 import { withSentryConfig } from '@sentry/nextjs';
 
+const hasSentryToken = !!process.env.SENTRY_AUTH_TOKEN;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
     eslint: { ignoreDuringBuilds: true },
     typescript: { ignoreBuildErrors: true },
-    // output: 'standalone',
+    output: 'standalone',
     images: {
         remotePatterns: [
             { protocol: 'https', hostname: 'ykzoeytmcxlsodwdavtv.supabase.co' },
@@ -28,14 +30,18 @@ const nextConfig = {
     },
 };
 
-export default withSentryConfig(nextConfig, {
-    org: 'nexa-na',
-    project: 'javascript-nextjs',
-    authToken: process.env.SENTRY_AUTH_TOKEN,
-    tunnelRoute: '/sentry-tunnel',
-    silent: !process.env.CI,
-    widenClientFileUpload: true,
-    hideSourceMaps: true,
-    disableLogger: true,
-    automaticVercelMonitors: true,
-});
+// Only wrap with withSentryConfig if SENTRY_AUTH_TOKEN is available
+// This prevents build failures on Railway/other platforms without the token
+export default hasSentryToken
+    ? withSentryConfig(nextConfig, {
+        org: 'nexa-na',
+        project: 'javascript-nextjs',
+        authToken: process.env.SENTRY_AUTH_TOKEN,
+        tunnelRoute: '/sentry-tunnel',
+        silent: !process.env.CI,
+        widenClientFileUpload: true,
+        hideSourceMaps: true,
+        disableLogger: true,
+        automaticVercelMonitors: true,
+    })
+    : nextConfig;
