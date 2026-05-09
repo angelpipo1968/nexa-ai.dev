@@ -5,10 +5,17 @@ let _client: SupabaseClient | null = null;
 export function getSupabase(): SupabaseClient {
     if (_client) return _client;
     
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ykzoeytmcxlsodwdavtv.supabase.co';
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlrem9leXRtY3hsc29kd2RhdnR2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyNTc5MTcsImV4cCI6MjA4MTgzMzkxN30.wKXw4M5I85HdgjdcIU33t0JGub_xNyv3FTv3jrc0WAE';
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
-    _client = createClient(url, key);
+    if (!url || !key) {
+        console.warn('[NEXA] Supabase credentials not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env');
+    }
+    
+    _client = createClient(
+        url || 'https://placeholder.supabase.co',
+        key || 'placeholder'
+    );
     return _client;
 }
 

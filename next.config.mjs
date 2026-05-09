@@ -7,6 +7,13 @@ const nextConfig = {
     reactStrictMode: true,
     eslint: { ignoreDuringBuilds: true },
     typescript: { ignoreBuildErrors: true },
+    webpack: (config: any) => {
+        config.ignoreWarnings = [
+            { module: /node_modules\/@opentelemetry/ },
+            { module: /node_modules\/@prisma\/instrumentation/ },
+        ];
+        return config;
+    },
     images: {
         remotePatterns: [
             { protocol: 'https', hostname: 'ykzoeytmcxlsodwdavtv.supabase.co' },

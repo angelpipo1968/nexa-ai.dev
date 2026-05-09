@@ -200,7 +200,7 @@ export function NexaApp() {
         } else { setResolvedTheme(themeName as keyof typeof THEMES); }
     }, [themeName]);
 
-    const T = { bg: '#000000', surf: '#050505', border: '#111111', text: '#ffffff', sec: '#888888', muted: '#444444' };
+    const T = THEMES[resolvedTheme] || THEMES.dark;
 
 
     const toggleTheme = () => {
@@ -535,7 +535,13 @@ export function NexaApp() {
             if (!cleaned) return;
             const u = new SpeechSynthesisUtterance(cleaned);
             u.lang = lang === 'es' ? 'es-ES' : 'en-US';
-            const filteredVoices = availableVoices.filter(v => v.lang.includes(lang.split('-')[0]) && (voiceGender === 'male' ? (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('guy') || v.name.toLowerCase().includes('man')) : (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') || v.name.toLowerCase().includes('girl'))));
+            const langVoices = availableVoices.filter(v => v.lang.includes(lang.split('-')[0]));
+            const genderedVoices = langVoices.filter(v => {
+                const n = v.name.toLowerCase();
+                if (voiceGender === 'male') return n.includes('male') || n.includes('guy') || n.includes(' man') || n.includes('diego') || n.includes('carlos') || n.includes('paulo') || n.includes('daniel') || n.includes('jorge') || n.includes('google') && !n.includes('female');
+                return n.includes('female') || n.includes('woman') || n.includes('girl') || n.includes('katerina') || n.includes('sofia') || n.includes('helena') || n.includes('monica') || n.includes('paloma') || n.includes('elena');
+            });
+            const filteredVoices = genderedVoices.length > 0 ? genderedVoices : langVoices;
             const v = filteredVoices[voiceIndex % filteredVoices.length] || filteredVoices[0] || availableVoices[0];
             if (v) u.voice = v;
             u.onerror = () => setSpeaking(false);
