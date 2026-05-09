@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         logger.info(`Chat request: intent=${intent.type}, messages=${messages.length}`, 'chat', { requestId, intent: intent.type });
 
         const groqKey = process.env.GROQ_API_KEY;
-        const googleKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+        const googleKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
         const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
         const apiMessages = [
@@ -209,9 +209,16 @@ export async function POST(req: NextRequest) {
             code: 'NO_AI_PROVIDER'
         }, { status: 503 });
 
-    } catch (e: unknown) {
-        logger.error(`Chat error: ${e.message}`, 'chat', { requestId, stack: e instanceof Error ? e.stack : undefined });
-        return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+    } catch (e: any) {
+        logger.error(`Chat crash: ${e.message}`, 'chat', { 
+            requestId, 
+            stack: e.stack,
+            error: e
+        });
+        return NextResponse.json({ 
+            error: 'Error interno del servidor', 
+            details: process.env.NODE_ENV === 'development' ? e.message : undefined 
+        }, { status: 500 });
     }
 }
 
