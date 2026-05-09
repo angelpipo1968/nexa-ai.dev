@@ -30,18 +30,24 @@ const nextConfig = {
     },
 };
 
-// Only wrap with withSentryConfig if SENTRY_AUTH_TOKEN is available
-// This prevents build failures on Railway/other platforms without the token
-export default hasSentryToken
-    ? withSentryConfig(nextConfig, {
-        org: 'nexa-na',
-        project: 'javascript-nextjs',
-        authToken: process.env.SENTRY_AUTH_TOKEN,
-        tunnelRoute: '/sentry-tunnel',
-        silent: !process.env.CI,
-        widenClientFileUpload: true,
-        hideSourceMaps: true,
-        disableLogger: true,
-        automaticVercelMonitors: true,
-    })
-    : nextConfig;
+let finalConfig = nextConfig;
+
+if (hasSentryToken) {
+    try {
+        finalConfig = withSentryConfig(nextConfig, {
+            org: 'nexa-na',
+            project: 'javascript-nextjs',
+            authToken: process.env.SENTRY_AUTH_TOKEN,
+            tunnelRoute: '/sentry-tunnel',
+            silent: !process.env.CI,
+            widenClientFileUpload: true,
+            hideSourceMaps: true,
+            disableLogger: true,
+            automaticVercelMonitors: true,
+        });
+    } catch (e) {
+        console.warn('Sentry: withSentryConfig failed to apply. Falling back to default config.');
+    }
+}
+
+export default finalConfig;
