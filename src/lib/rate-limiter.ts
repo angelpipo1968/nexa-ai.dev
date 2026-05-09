@@ -19,13 +19,17 @@ export interface RateLimitStore {
 
 export class MemoryStore implements RateLimitStore {
     private store = new Map<string, { count: number; resetAt: number }>();
+    private lastCleanup = Date.now();
 
-    constructor() {
-        // Cleanup expired entries every 5 minutes
-        setInterval(() => this.cleanup(), 5 * 60 * 1000);
-    }
+    // Lazy cleanup: runs during get() calls, no setInterval needed (serverless-safe)
 
     async get(key: string): Promise<{ count: number; resetAt: number } | null> {
+        // Lazy cleanup every 5 minutes
+        if (Date.now() - this.lastCleanup > 5 * 60 * 1000) {
+            this.lastCleanup = Date.now();
+            this.cleanupSync();
+        }
+
         const entry = this.store.get(key);
         if (!entry || Date.now() > entry.resetAt) {
             if (entry) this.store.delete(key);
@@ -46,6 +50,10 @@ export class MemoryStore implements RateLimitStore {
     }
 
     async cleanup(): Promise<void> {
+        this.cleanupSync();
+    }
+
+    private cleanupSync(): void {
         const now = Date.now();
         for (const [key, entry] of this.store) {
             if (now > entry.resetAt) this.store.delete(key);
