@@ -1,5 +1,12 @@
-// Sentry instrumentation — disabled wrapper to avoid runtime conflicts
-// Sentry still works via sentry.client.config.ts and sentry.server.config.ts
+import * as Sentry from '@sentry/nextjs';
+
 export async function register() {
-    // Intentionally empty — Sentry initializes via config files
+    if (process.env.NEXT_RUNTIME === 'nodejs') {
+        await import('./sentry.server.config');
+    }
+    if (process.env.NEXT_RUNTIME === 'edge') {
+        await import('./sentry.edge.config');
+    }
 }
+
+export const onRequestError = Sentry.captureRequestError;

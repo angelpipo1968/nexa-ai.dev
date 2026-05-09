@@ -79,3 +79,6 @@ src/packages/**/*.d.ts.map
 src/packages/**/*.js
 src/packages/**/*.js.map
 .vercel
+
+# Sentry auth token
+.env.sentry-build-plugin
