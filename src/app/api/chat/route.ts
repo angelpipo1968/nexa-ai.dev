@@ -135,7 +135,7 @@ function createStream(
 
                         if (response.ok) {
                             const data = await response.json();
-                            const content = data.content[0].text;
+                            const content = data.content?.[0]?.text || '';
                             fullResponse = content;
                             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'anthropic' })}\n\n`));
                             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'anthropic' })}\n\n`));
@@ -202,7 +202,7 @@ function createStream(
                                     if (line.startsWith('data: ')) {
                                         try {
                                             const data = JSON.parse(line.slice(6));
-                                            const content = data.choices[0]?.delta?.content || '';
+                                            const content = data.choices?.[0]?.delta?.content || '';
                                             fullResponse += content;
                                             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: providerKey })}\n\n`));
                                         } catch (e) { }

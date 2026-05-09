@@ -10,7 +10,7 @@ import {
     MoreVertical, Moon, Sun,
     Copy, ThumbsUp, ThumbsDown, RotateCcw, Edit,
     FolderInput, Upload, File,
-    Sparkles
+    Sparkles, Pin
 } from 'lucide-react';
 
 import { SettingsPanel } from './SettingsPanel';
@@ -290,7 +290,9 @@ export function NexaApp() {
     }, [input, streaming, thinking, recording]);
 
     useEffect(() => {
-        sb.auth.getUser().then(({ data }: any) => setUser(data.user));
+        sb.auth.getUser().then(({ data }: any) => {
+            if (data?.user) setUser(data.user);
+        }).catch(() => {});
         const { data: { subscription } } = sb.auth.onAuthStateChange((_: any, s: any) => setUser(s?.user ?? null));
         return () => subscription.unsubscribe();
     }, []);
@@ -326,18 +328,26 @@ export function NexaApp() {
 
     const loadConvs = async () => {
         try {
-            const { data } = await sb.from('conversations').select('*').order('updated_at', { ascending: false });
-            if (data) setConvs(data);
-        } catch { }
+            const { data, error } = await sb.from('conversations').select('*').order('updated_at', { ascending: false });
+            if (error) {
+                console.warn('[NEXA] Error cargando conversaciones:', error.message);
+                return;
+            }
+            if (Array.isArray(data)) setConvs(data);
+        } catch (e: any) {
+            console.warn('[NEXA] Error en carga inicial:', e.message);
+        }
     };
 
     const createConv = async (title = 'Nueva conversación') => {
         const local: Conv = { id: `c-${Date.now()}`, title };
         try {
-            const { data } = await sb.from('conversations').insert({ title }).select().single();
-            if (data) { local.id = data.id; local.title = data.title; }
-        } catch { }
-        setConvs(p => [local, ...p]);
+            const { data, error } = await sb.from('conversations').insert({ title }).select().single();
+            if (!error && data) { local.id = data.id; local.title = data.title; }
+        } catch (e: any) {
+            console.warn('[NEXA] Error creando conversación:', e.message);
+        }
+        setConvs(p => [local, ...(Array.isArray(p) ? p : [])]);
         setConvId(local.id);
         setMsgs([]);
         return local.id;
@@ -345,21 +355,29 @@ export function NexaApp() {
 
     const delConv = async (id: string) => {
         try { await sb.from('messages').delete().eq('conversation_id', id); await sb.from('conversations').delete().eq('id', id); } catch { }
-        setConvs(p => p.filter(c => c.id !== id));
+        setConvs(p => Array.isArray(p) ? p.filter(c => c.id !== id) : []);
         if (convId === id) { setConvId(null); setMsgs([]); }
     };
 
     const selConv = async (id: string) => {
         setConvId(id); setDrawer(false); setView('chat');
         try {
-            const { data } = await sb.from('messages').select('*').eq('conversation_id', id).order('created_at');
-            if (data) setMsgs(data.map((m: any) => ({ id: m.id, role: m.role, content: m.content, ts: +new Date(m.created_at) })));
-        } catch { }
+            const { data, error } = await sb.from('messages').select('*').eq('conversation_id', id).order('created_at');
+            if (error) {
+                console.warn('[NEXA] Error cargando mensajes:', error.message);
+                return;
+            }
+            if (Array.isArray(data)) {
+                setMsgs(data.map((m: any) => ({ id: m.id, role: m.role, content: m.content || '', ts: +new Date(m.created_at) })));
+            }
+        } catch (e: any) {
+            console.warn('[NEXA] Error cargando mensajes:', e.message);
+        }
     };
 
     const exportConv = (id: string, format: 'json' | 'txt') => {
-        const c = convs.find(cv => cv.id === id);
-        const content = format === 'json' ? JSON.stringify({ title: c?.title, messages: msgs }, null, 2) : msgs.map(m => `${m.role.toUpperCase()}: ${renderMessageContent(m.content)}`).join('\n\n');
+        const c = (Array.isArray(convs) ? convs : []).find(cv => cv.id === id);
+        const content = format === 'json' ? JSON.stringify({ title: c?.title, messages: msgs }, null, 2) : (Array.isArray(msgs) ? msgs : []).map(m => `${m.role.toUpperCase()}: ${renderMessageContent(m.content)}`).join('\n\n');
         const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -519,6 +537,7 @@ export function NexaApp() {
 
     // ─── Renderizado de código en mensajes ───
     const renderMessageContent = (content: string) => {
+        if (!content) return <span style={{ whiteSpace: 'pre-wrap' }}>(vacío)</span>;
         // Split by code blocks
         const parts = content.split(/(```[\s\S]*?```)/g);
         return parts.map((part, i) => {
@@ -549,7 +568,7 @@ export function NexaApp() {
 
     const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); };
 
-    const filtered = convs.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
+    const filtered = (Array.isArray(convs) ? convs : []).filter(c => (c.title || '').toLowerCase().includes(search.toLowerCase()));
     const ibtn: React.CSSProperties = { background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' };
     const menuBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', padding: '10px 14px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, fontWeight: 500, width: '100%', transition: 'background 0.15s', fontFamily: 'inherit' };
 
