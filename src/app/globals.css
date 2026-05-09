@@ -1,16 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* DESPUÉS todo lo demás */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: #04040a;
+    background: #02020a;
     color: #e8e8f0;
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
-    overscroll-behavior: none;
-    -webkit-overflow-scrolling: touch;
-    touch-action: pan-y;
 }
-::selection { background: #00e5a0; color: #04040a; }
+::selection { background: #00e5a0; color: #02020a; }
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #1a1a35; border-radius: 2px; }
@@ -18,4 +18,4 @@ body {
 @keyframes nexa-pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
 @keyframes nexa-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 @keyframes nexa-glow { 0%,100%{box-shadow:0 0 5px rgba(0,229,160,0.3)} 50%{box-shadow:0 0 20px rgba(0,229,160,0.15)} }
-textarea::placeholder, input::placeholder { color: #4a4a68; }
+textarea::placeholder, input::placeholder { color: #3a3a60; }
