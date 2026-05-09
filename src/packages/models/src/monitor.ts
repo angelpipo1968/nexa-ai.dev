@@ -12,13 +12,13 @@ export interface OptimizationAction {
     to?: string;
     expectedImprovement: string;
     confidence: number;
-    parameters?: any;
+    parameters?: Record<string, unknown>;
 }
 
 export class PerformanceMonitor {
     private metrics = new Map<string, MetricPoint[]>();
 
-    async record(metric: any): Promise<void> {
+    async record(metric: { model?: string; userId?: string; latency: number; tokens?: number; cost?: number; quality?: number }): Promise<void> {
         const model = metric.model || 'unknown';
         const points = this.metrics.get(model) || [];
         points.push({

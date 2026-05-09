@@ -99,7 +99,7 @@ export class NexaClient extends EventEmitter {
         return this.createStream(response.data)
     }
 
-    private createStream(stream: any): AsyncIterable<ChatChunk> {
+    private createStream(stream: AsyncIterable<Buffer>): AsyncIterable<ChatChunk> {
         return {
             [Symbol.asyncIterator]: async function* () {
                 for await (const chunk of stream) {

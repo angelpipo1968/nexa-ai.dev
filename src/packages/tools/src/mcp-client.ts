@@ -31,8 +31,7 @@ export class MCPClient {
             method: method,
             params: params
         }, {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            headers: config.headers as any
+            headers: config.headers as Record<string, string>
         });
         return response.data;
     }

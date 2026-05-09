@@ -22,8 +22,8 @@ self.addEventListener('message', async (event) => {
             }
 
             self.postMessage({ id, result })
-        } catch (error: any) {
-            self.postMessage({ id, error: error.message })
+        } catch (error) {
+            self.postMessage({ id, error: error instanceof Error ? error.message : String(error) })
         }
     }
 })

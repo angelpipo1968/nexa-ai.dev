@@ -1,13 +1,16 @@
+import { AxiosInstance } from 'axios'
+import { NexaConfig } from './types'
+
 export class ChatClient {
-    constructor(private axios: any, private config: any) { }
-    async send(params: any): Promise<any> { return { message: { role: 'assistant', content: 'Stub response' } }; }
+    constructor(private axios: AxiosInstance, private config: NexaConfig) { }
+    async send(params: { messages: Array<{ role: string; content: string }>; modelId?: string }): Promise<{ message: { role: string; content: string } }> { return { message: { role: 'assistant', content: 'Stub response' } }; }
 }
 
 export class ToolsClient {
-    constructor(private axios: any, private config: any) { }
-    async execute(name: string, params: any, options: any): Promise<any> { return { success: true, data: {} }; }
+    constructor(private axios: AxiosInstance, private config: NexaConfig) { }
+    async execute(name: string, params: Record<string, unknown>, options?: Record<string, unknown>): Promise<{ success: boolean; data: Record<string, unknown> }> { return { success: true, data: {} }; }
 }
 
 export class MemoryClient {
-    constructor(private axios: any, private config: any) { }
+    constructor(private axios: AxiosInstance, private config: NexaConfig) { }
 }

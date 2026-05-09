@@ -13,7 +13,7 @@ interface ProcessResult {
     processed: number;
     failed: number;
     totalTime: number;
-    results: any[];
+    results: unknown[];
 }
 interface RAGOptions {
     collectionName?: string;
@@ -22,7 +22,7 @@ interface RAGOptions {
 interface RAGIndex {
     collectionId: string;
     documentCount: number;
-    embeddingModel: any;
+    embeddingModel: unknown;
     dimensions: number;
 }
 
@@ -82,7 +82,7 @@ export class NexaNode extends NexaClient {
     }
 
     async createRAGIndex(
-        documents: any[],
+        documents: Array<{ content: string; metadata?: Record<string, unknown> }>,
         options: RAGOptions = {}
     ): Promise<RAGIndex> {
         const collection = await this.embeddings.createCollection(

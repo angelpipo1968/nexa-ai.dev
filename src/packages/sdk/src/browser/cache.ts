@@ -22,7 +22,7 @@ export class BrowserCache {
     }
 
     async set<T>(key: string, value: T, ttlSeconds?: number): Promise<void> {
-        const item: any = { value }
+        const item: { value: T; expiry?: number } = { value }
         if (ttlSeconds) {
             item.expiry = Date.now() + ttlSeconds * 1000
         }

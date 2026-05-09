@@ -10,7 +10,6 @@ export function useNexa(apiKey: string, config?: Partial<NexaConfig>) {
     const [sessionId, setSessionId] = useState<string | null>(null)
 
     useEffect(() => {
-        // Cast config to any to match expected type if properties mismatch slightly due to Partial
         const nexa = new NexaClient({
             apiKey,
             ...config

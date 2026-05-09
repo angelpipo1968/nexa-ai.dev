@@ -10,13 +10,13 @@ interface Session { // Stub session
     id: string;
     userId: string;
     model: Model;
-    context: any[];
+    context: Record<string, unknown>[];
 }
 
 interface SelectionCriteria {
     message: string;
-    context?: any[];
-    requirements?: any;
+    context?: Record<string, unknown>[];
+    requirements?: Record<string, unknown>;
     budget?: number;
     priority: string;
     userId: string;
@@ -193,7 +193,7 @@ export class ModelRouter {
 
         // 1. Get fallback sequence
         const fallbackSequence = this.getFallbackProviders(priority);
-        let lastError: any = null;
+        let lastError: unknown = null;
 
         for (const providerKey of fallbackSequence) {
             const provider = this.providers.get(providerKey);
@@ -289,7 +289,7 @@ export class ModelRouter {
 
     async getAvailableModels(
         userId: string,
-        filter?: any
+        filter?: Record<string, unknown>
     ): Promise<Model[]> {
         const allModels = Array.from(this.providers.values())
             .flatMap(p => p.getModels())
@@ -310,10 +310,10 @@ export class ModelRouter {
 
     // Helpers to satisfy interface
     private async checkAvailability(model: Model) { return true; }
-    private async routeWithFallback(req: any, model: any) { return { text: "Fallback", latency: 0, cost: 0 }; }
-    private async executeWithModel(model: Model, request: any) {
+    private async routeWithFallback(req: ModelRequest, model: Model) { return { text: "Fallback", latency: 0, cost: 0 }; }
+    private async executeWithModel(model: Model, request: ModelRequest) {
         const fallbackSequence = [model.provider, ...this.getFallbackProviders().filter(p => p !== model.provider)];
-        let lastError: any = null;
+        let lastError: unknown = null;
 
         for (const providerKey of fallbackSequence) {
             const provider = this.providers.get(providerKey);
@@ -328,8 +328,8 @@ export class ModelRouter {
         }
         throw lastError || new Error("All providers failed");
     }
-    private async evaluateQuality(response: any) { return 0.9; }
-    private async updateUserPreferences(userId: string, model: any, response: any) { }
+    private async evaluateQuality(response: ModelResponse) { return 0.9; }
+    private async updateUserPreferences(userId: string, model: Model, response: ModelResponse) { }
     private getModel(id: string) {
         return (this.getAvailableModels('stub') as unknown as Model[]).find(m => m.id === id);
     }

@@ -1,15 +1,6 @@
 import { Command } from 'commander'
-// Mock chalk and ora to avoid potential ESM import issues in this environment or if packages missing
-// In a real scenario we'd use imports provided in package.json
-// But since I'm generating code, I'll use simple console.log fallbacks if imports fail or just assume they are there.
-// For safety in this agent environment, I'll stub them or use simple logging if complex setup is needed.
-// However, the user request explicitly asks for them. I will assume they are installed.
-// Note: chalk v5 is ESM only. commander 11 is likely fine.
-
-// Since I cannot guarantee node_modules are installed right now, I will write the code as requested.
-// If run_command fails, I might need to mock them.
-
 import { NexaNode } from './index'
+import { logger } from '@/lib/nexa-core/logger'
 
 export class CLI {
     constructor(private client: NexaNode) { }
@@ -25,7 +16,7 @@ export class CLI {
             .command('chat')
             .description('Interactive chat with Nexa AI')
             .option('-m, --model <model>', 'Model to use', 'llama3')
-            .action(async (options: any) => {
+            .action(async (options: { model: string }) => {
                 await this.chatMode(options.model)
             })
 
@@ -34,7 +25,7 @@ export class CLI {
             .command('embed <file>')
             .description('Generate embeddings for a file')
             .option('-o, --output <file>', 'Output file')
-            .action(async (file: string, options: any) => {
+            .action(async (file: string, options: { output?: string }) => {
                 await this.embedFile(file, options.output)
             })
 
@@ -43,7 +34,7 @@ export class CLI {
             .command('process <directory>')
             .description('Process directory for RAG indexing')
             .option('-c, --collection <name>', 'Collection name')
-            .action(async (directory: string, options: any) => {
+            .action(async (directory: string, options: { collection?: string }) => {
                 await this.processDirectory(directory, options.collection)
             })
 
@@ -51,9 +42,9 @@ export class CLI {
     }
 
     private async chatMode(model: string) {
-        console.log('🚀 Nexa AI Interactive Chat')
-        console.log(`Model: ${model}`)
-        console.log('Type "quit" to exit\n')
+        logger.info('🚀 Nexa AI Interactive Chat', 'CLI')
+        logger.info(`Model: ${model}`, 'CLI')
+        logger.info('Type "quit" to exit', 'CLI')
 
         // Simple readline
         const readline = require('readline').createInterface({
@@ -72,7 +63,7 @@ export class CLI {
                     break
                 }
 
-                console.log('Thinking...')
+                logger.info('Thinking...', 'CLI')
 
                 try {
                     const response = await this.client.chat.send({
@@ -80,10 +71,9 @@ export class CLI {
                         modelId: model
                     })
 
-                    console.log('Nexa:', response.message.content)
-                    console.log()
-                } catch (error: any) {
-                    console.error('Error', error.message)
+                    logger.info(`Nexa: ${response.message.content}`, 'CLI')
+                } catch (error) {
+                    logger.error('Chat error', 'CLI', error instanceof Error ? error.message : String(error))
                 }
             }
         } finally {
@@ -92,7 +82,7 @@ export class CLI {
     }
 
     private async embedFile(inputFile: string, outputFile?: string) {
-        console.log(`Processing ${inputFile}...`)
+        logger.info(`Processing ${inputFile}...`, 'CLI')
 
         try {
             const content = await this.client.files.read(inputFile)
@@ -100,39 +90,39 @@ export class CLI {
 
             if (outputFile) {
                 await this.client.files.write(outputFile, JSON.stringify(embeddings, null, 2))
-                console.log(`Embeddings saved to ${outputFile}`)
+                logger.info(`Embeddings saved to ${outputFile}`, 'CLI')
             } else {
-                console.log('Embeddings generated')
-                console.log(JSON.stringify(embeddings, null, 2))
+                logger.info('Embeddings generated', 'CLI')
+                logger.info(JSON.stringify(embeddings, null, 2), 'CLI')
             }
-        } catch (error: any) {
-            console.error('Error', error.message)
+        } catch (error) {
+            logger.error('Embedding error', 'CLI', error instanceof Error ? error.message : String(error))
         }
     }
 
     private async processDirectory(directory: string, collectionName?: string) {
-        console.log(`Processing directory ${directory}...`)
+        logger.info(`Processing directory ${directory}...`, 'CLI')
 
         try {
             const result = await this.client.processDirectory(directory)
 
-            console.log(`Processed ${result.processed} files`)
+            logger.info(`Processed ${result.processed} files`, 'CLI')
 
             if (collectionName) {
-                console.log('Creating RAG index...')
+                logger.info('Creating RAG index...', 'CLI')
 
                 const index = await this.client.createRAGIndex(
-                    result.results.map((r: any) => ({
+                    result.results.map((r: { embeddings: { text: string }; metadata: Record<string, unknown> }) => ({
                         content: r.embeddings.text, // Simplified
                         metadata: r.metadata
                     })),
                     { collectionName }
                 )
 
-                console.log(`Index created: ${index.collectionId}`)
+                logger.info(`Index created: ${index.collectionId}`, 'CLI')
             }
-        } catch (error: any) {
-            console.error('Error', error.message)
+        } catch (error) {
+            logger.error('Processing error', 'CLI', error instanceof Error ? error.message : String(error))
         }
     }
 }

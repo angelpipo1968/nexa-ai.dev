@@ -52,9 +52,9 @@ export class OpenAICompatibleProvider implements ModelProvider {
                 },
                 cost: 0
             };
-        } catch (error: any) {
-            logger.error(`Provider error`, this.id, error);
-            throw new Error(`Error from ${this.id}: ${error.message}`);
+        } catch (error) {
+            logger.error(`Provider error`, this.id, error instanceof Error ? error.message : String(error));
+            throw new Error(`Error from ${this.id}: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -112,7 +112,7 @@ export class OpenAICompatibleProvider implements ModelProvider {
                     }
                 }
             }
-        } catch (error: any) {
+        } catch (error) {
             throw error;
         }
     }
@@ -138,7 +138,7 @@ export class OllamaProvider implements ModelProvider {
             const res = await fetch(`${this.baseUrl}/tags`, { signal: controller.signal });
             clearTimeout(timeoutId);
             const data = await res.json();
-            return data.models.map((m: any) => ({
+            return data.models.map((m: { name: string }) => ({
                 id: m.name,
                 name: m.name.charAt(0).toUpperCase() + m.name.slice(1),
                 provider: 'ollama',
@@ -160,7 +160,7 @@ export class OllamaProvider implements ModelProvider {
                     model: modelId,
                     messages: (request.context || []).map(m => {
                         const content = Array.isArray(m.parts) 
-                            ? m.parts.map((p: any) => p.text || '').join(' ')
+                            ? m.parts.map((p: { text: string }) => p.text || '').join(' ')
                             : (typeof m.parts === 'string' ? m.parts : '');
                         return {
                             role: m.role === 'model' ? 'assistant' : (m.role || 'user'),
@@ -182,8 +182,8 @@ export class OllamaProvider implements ModelProvider {
                 },
                 cost: 0
             };
-        } catch (error: any) {
-            throw new Error(`Ollama Error: ${error.message}`);
+        } catch (error) {
+            throw new Error(`Ollama Error: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -197,7 +197,7 @@ export class OllamaProvider implements ModelProvider {
                     model: modelId,
                     messages: (request.context || []).map(m => {
                         const content = Array.isArray(m.parts) 
-                            ? m.parts.map((p: any) => p.text || '').join(' ')
+                            ? m.parts.map((p: { text: string }) => p.text || '').join(' ')
                             : (typeof m.parts === 'string' ? m.parts : '');
                         return {
                             role: m.role === 'model' ? 'assistant' : (m.role || 'user'),
@@ -225,7 +225,7 @@ export class OllamaProvider implements ModelProvider {
                     } catch (e) {}
                 }
             }
-        } catch (e: any) {
+        } catch (e) {
             throw e;
         }
     }
@@ -250,9 +250,10 @@ export class GeminiProvider implements ModelProvider {
         
         // Try v1 first, fallback to v1beta if needed
         const tryFetch = async (version: string, model: string) => {
-            const parts: any[] = [{ text: request.message }];
-            if ((request as any).audio) {
-                parts.push({ inline_data: { mime_type: 'audio/wav', data: (request as any).audio } });
+            const parts: Array<{ text: string } | { inline_data: { mime_type: string; data: string } }> = [{ text: request.message }];
+            const audioData = (request as Record<string, unknown>).audio;
+            if (audioData) {
+                parts.push({ inline_data: { mime_type: 'audio/wav', data: audioData as string } });
             }
 
             const response = await fetch(`https://generativelanguage.googleapis.com/${version}/models/${model}:generateContent?key=${this.apiKey}`, {
@@ -273,11 +274,11 @@ export class GeminiProvider implements ModelProvider {
             try {
                 // Try v1 with requested model
                 data = await tryFetch('v1', modelId);
-            } catch (e1: any) {
+            } catch (e1) {
                 logger.warn(`v1 failed for ${modelId}, trying v1beta...`, 'Gemini');
                 try {
                     data = await tryFetch('v1beta', modelId);
-                } catch (e2: any) {
+                } catch (e2) {
                     logger.warn(`v1beta failed for ${modelId}, trying flash fallback...`, 'Gemini');
                     data = await tryFetch('v1', 'gemini-1.5-flash');
                 }
@@ -288,8 +289,8 @@ export class GeminiProvider implements ModelProvider {
                 latency: Date.now() - start,
                 cost: 0
             };
-        } catch (e: any) {
-            throw new Error(`Gemini Error Total: ${e.message}`);
+        } catch (e) {
+            throw new Error(`Gemini Error Total: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
 
@@ -325,9 +326,9 @@ export class AnthropicProvider implements ModelProvider {
                     model: modelId,
                     max_tokens: 1024,
                     messages: [
-                        ...(request.context || []).map((m: any) => {
+                        ...(request.context || []).map((m) => {
                             const content = Array.isArray(m.parts) 
-                                ? m.parts.map((p: any) => p.text || '').join(' ')
+                                ? m.parts.map((p: { text: string }) => p.text || '').join(' ')
                                 : (typeof m.parts === 'string' ? m.parts : '');
                             return {
                                 role: m.role === 'model' ? 'assistant' : (m.role || 'user'),
@@ -352,8 +353,8 @@ export class AnthropicProvider implements ModelProvider {
                 },
                 cost: 0
             };
-        } catch (error: any) {
-            throw new Error(`Anthropic Error: ${error.message}`);
+        } catch (error) {
+            throw new Error(`Anthropic Error: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
