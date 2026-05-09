@@ -7,7 +7,7 @@ const nextConfig = {
     reactStrictMode: true,
     eslint: { ignoreDuringBuilds: true },
     typescript: { ignoreBuildErrors: true },
-    webpack: (config: any) => {
+    webpack: (config) => {
         config.ignoreWarnings = [
             { module: /node_modules\/@opentelemetry/ },
             { module: /node_modules\/@prisma\/instrumentation/ },
