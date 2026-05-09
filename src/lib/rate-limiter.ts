@@ -3,8 +3,8 @@
 //  Pluggable storage backend (Memory / Redis)
 // ═══════════════════════════════════════════
 
-export type { RateLimitResult } from './shared-types';
 import type { RateLimitResult } from './shared-types';
+export type { RateLimitResult };
 
 // ── Storage Backend Interface ──────────────
 

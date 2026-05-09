@@ -3,7 +3,8 @@
 //  Prefer `@/lib/rate-limiter` for new code.
 // ═══════════════════════════════════════════
 
-export { RateLimitResult, getIdentifier, RATE_LIMITS } from '../rate-limiter';
+export type { RateLimitResult } from '../rate-limiter';
+export { getIdentifier, RATE_LIMITS } from '../rate-limiter';
 export { RateLimiter, createRateLimiter } from '../rate-limiter';
 import type { RateLimitResult, RateLimitConfig } from '../rate-limiter';
 import { RATE_LIMITS } from '../rate-limiter';
