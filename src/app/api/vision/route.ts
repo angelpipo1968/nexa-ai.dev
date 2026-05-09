@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSystemPrompt } from '@/lib/nexa-core/prompts';
 import { checkRateLimit, getIdentifier, RATE_LIMITS } from '@/lib/nexa-core/rate-limiter';
 import { logger, generateRequestId } from '@/lib/nexa-core/logger';
+import { visionSchema } from '@/lib/validation';
 
 export async function POST(req: NextRequest) {
     const requestId = generateRequestId();
@@ -20,11 +21,14 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json();
-        const { image, mimeType, question } = body;
-
-        if (!image) {
-            return NextResponse.json({ error: 'Se requiere una imagen' }, { status: 400 });
+        const parsed = visionSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Invalid input', code: 'VALIDATION_ERROR', details: parsed.error.issues },
+                { status: 400 }
+            );
         }
+        const { image, mimeType, question } = parsed.data;
 
         logger.info('Vision analysis request', 'vision', { requestId, mimeType });
 

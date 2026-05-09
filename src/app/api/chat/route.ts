@@ -4,6 +4,7 @@ import { getSystemPrompt } from '@/lib/nexa-core/prompts';
 import { detectIntent } from '@/lib/nexa-core/tools';
 import { checkRateLimit, getIdentifier, RATE_LIMITS } from '@/lib/nexa-core/rate-limiter';
 import { logger, generateRequestId } from '@/lib/nexa-core/logger';
+import { chatSchema } from '@/lib/validation';
 
 interface ChatRequestMessage {
     role: 'user' | 'assistant' | 'system';
@@ -44,15 +45,14 @@ export async function POST(req: NextRequest) {
         }
 
         const body: ChatRequestBody = await req.json();
-        const { messages, mode } = body;
-
-        if (!messages || !Array.isArray(messages) || messages.length === 0) {
-            return NextResponse.json({ error: 'Se requiere al menos un mensaje', code: 'EMPTY_MESSAGES' }, { status: 400 });
+        const parsed = chatSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Invalid input', code: 'VALIDATION_ERROR', details: parsed.error.issues },
+                { status: 400 }
+            );
         }
-
-        if (messages.length > 50) {
-            return NextResponse.json({ error: 'Conversación demasiado larga. Inicia un nuevo chat.', code: 'CONVERSATION_TOO_LONG' }, { status: 400 });
-        }
+        const { messages, mode } = parsed.data;
 
         // Security check
         const validator = new InputValidator();

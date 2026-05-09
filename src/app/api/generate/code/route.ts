@@ -1,14 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSystemPrompt } from '@/lib/nexa-core/prompts';
+import { createRateLimiter, getIdentifier } from '@/lib/rate-limiter';
+import { codeGenSchema } from '@/lib/validation';
+
+const limiter = createRateLimiter();
 
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json();
-        const { prompt, language, framework } = body;
-
-        if (!prompt) {
-            return NextResponse.json({ error: 'Se requiere un prompt' }, { status: 400 });
+        // Rate limiting
+        const identifier = getIdentifier(req);
+        const rateLimit = await limiter.checkPreset(identifier, 'generate');
+        if (!rateLimit.allowed) {
+            return NextResponse.json(
+                { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+                {
+                    status: 429,
+                    headers: { 'Retry-After': String(Math.ceil((rateLimit.retryAfterMs || 60000) / 1000)) }
+                }
+            );
         }
+
+        const body = await req.json();
+        const parsed = codeGenSchema.safeParse(body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Invalid input', code: 'VALIDATION_ERROR', details: parsed.error.issues },
+                { status: 400 }
+            );
+        }
+        const { prompt, language, framework } = parsed.data;
 
         const systemPrompt = getSystemPrompt('code') + `\n\nGenera código${language ? ` en ${language}` : ''}${framework ? ` usando ${framework}` : ''}. Responde SOLO con el código, sin explicaciones adicionales a menos que se pidan. El código debe ser completo, funcional y listo para usar.`;
 

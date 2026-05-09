@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createRateLimiter, getIdentifier } from '@/lib/rate-limiter';
+import { aiSchema } from '@/lib/validation';
 
 export const runtime = 'edge';
+
+const limiter = createRateLimiter();
 
 interface IncomingMessage {
     role: string;
@@ -21,7 +25,32 @@ Responde siempre en español. Usa markdown cuando sea apropiado.`;
 
 export async function POST(req: NextRequest) {
     try {
-        const body: RequestBody = await req.json();
+        // Rate limiting
+        const identifier = getIdentifier(req);
+        const rateLimit = await limiter.checkPreset(identifier, 'chat');
+        if (!rateLimit.allowed) {
+            return NextResponse.json(
+                { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
+                {
+                    status: 429,
+                    headers: { 'Retry-After': String(Math.ceil((rateLimit.retryAfterMs || 60000) / 1000)) }
+                }
+            );
+        }
+
+        const rawBody = await req.json();
+        const parsed = aiSchema.safeParse(rawBody);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Invalid input', code: 'VALIDATION_ERROR', details: parsed.error.issues },
+                { status: 400 }
+            );
+        }
+
+        const body: RequestBody = {
+            ...rawBody,
+            messages: parsed.data.messages,
+        };
         const provider = body.provider || 'auto';
         const messages: IncomingMessage[] = body.messages || [];
         
