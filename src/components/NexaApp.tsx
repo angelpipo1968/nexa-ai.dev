@@ -16,7 +16,7 @@ import {
 import { SettingsPanel } from './SettingsPanel';
 
 const COLORS = {
-    cyan: '#00ff00', // Verde neón como en la imagen
+    cyan: '#00e5a0',
     purple: '#a855f7',
     orange: '#f97316',
     pink: '#ec4899',
@@ -436,25 +436,73 @@ export function NexaApp() {
         } catch (e: any) { setMsgs(p => p.map(m => m.id === aid ? { ...m, content: `❌ Error: ${e.message}`, streaming: false } : m)); } finally { setStreaming(false); setThinking(false); }
     };
 
-    const toggleRec = () => {
-        if (recording) { recRef.current?.stop(); setRecording(false); return; }
+    const toggleRec = async () => {
+        if (recording) { 
+            try { recRef.current?.stop(); } catch {}
+            setRecording(false); 
+            return; 
+        }
+        
         const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (!SR) { alert('Tu navegador no soporta reconocimiento de voz'); return; }
-        const r = new SR(); r.lang = lang === 'es' ? 'es-ES' : 'en-US'; r.continuous = true; r.interimResults = true;
-        r.onstart = () => setRecording(true);
-        r.onresult = (e: any) => {
-            let txt = '';
-            for (let i = e.resultIndex; i < e.results.length; i++) {
-                txt += e.results[i][0].transcript;
-                if (e.results[i].isFinal && autoSend) {
-                    const finalTxt = txt.trim();
-                    setTimeout(() => { if (finalTxt) { send(finalTxt); r.stop(); setRecording(false); } }, 500);
-                }
+        if (!SR) { 
+            alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.'); 
+            return; 
+        }
+
+        // Request microphone permission first
+        try {
+            if (navigator.mediaDevices?.getUserMedia) {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
             }
-            setInput(txt);
-        };
-        r.onerror = () => setRecording(false); r.onend = () => setRecording(false);
-        r.start(); recRef.current = r;
+        } catch (permErr: any) {
+            console.warn('[NEXA] Permiso de micrófono denegado:', permErr.message);
+            alert('Permiso de micrófono denegado. Permite el acceso al micrófono en la configuración del navegador.');
+            return;
+        }
+
+        try {
+            const r = new SR(); 
+            r.lang = lang === 'es' ? 'es-ES' : 'en-US'; 
+            r.continuous = true; 
+            r.interimResults = true;
+            r.maxAlternatives = 1;
+            
+            r.onstart = () => setRecording(true);
+            
+            r.onresult = (e: any) => {
+                let txt = '';
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    txt += e.results[i][0].transcript;
+                    if (e.results[i].isFinal && autoSend) {
+                        const finalTxt = txt.trim();
+                        setTimeout(() => { 
+                            if (finalTxt) { 
+                                send(finalTxt); 
+                                try { r.stop(); } catch {} 
+                                setRecording(false); 
+                            } 
+                        }, 500);
+                    }
+                }
+                setInput(txt);
+            };
+            
+            r.onerror = (e: any) => { 
+                console.warn('[NEXA] Error de reconocimiento de voz:', e.error);
+                if (e.error === 'not-allowed') {
+                    alert('Permiso de micrófono denegado. Permite el acceso en la configuración del navegador.');
+                }
+                setRecording(false); 
+            };
+            
+            r.onend = () => setRecording(false);
+            
+            r.start(); 
+            recRef.current = r;
+        } catch (err: any) {
+            console.warn('[NEXA] Error iniciando micrófono:', err.message);
+            setRecording(false);
+        }
     };
 
     const cleanForSpeech = (text: string) => {
@@ -481,17 +529,23 @@ export function NexaApp() {
 
     const speak = (text: string) => {
         if (!('speechSynthesis' in window)) return;
-        window.speechSynthesis.cancel();
-        const cleaned = cleanForSpeech(text);
-        if (!cleaned) return;
-        const u = new SpeechSynthesisUtterance(cleaned);
-        u.lang = lang === 'es' ? 'es-ES' : 'en-US';
-        const filteredVoices = availableVoices.filter(v => v.lang.includes(lang.split('-')[0]) && (voiceGender === 'male' ? (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('guy') || v.name.toLowerCase().includes('man')) : (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') || v.name.toLowerCase().includes('girl'))));
-        const v = filteredVoices[voiceIndex % filteredVoices.length] || filteredVoices[0];
-        if (v) u.voice = v;
-        u.onstart = () => setSpeaking(true);
-        u.onend = () => { setSpeaking(false); if (autoSend) setTimeout(toggleRec, 500); };
-        window.speechSynthesis.speak(u);
+        try {
+            window.speechSynthesis.cancel();
+            const cleaned = cleanForSpeech(text);
+            if (!cleaned) return;
+            const u = new SpeechSynthesisUtterance(cleaned);
+            u.lang = lang === 'es' ? 'es-ES' : 'en-US';
+            const filteredVoices = availableVoices.filter(v => v.lang.includes(lang.split('-')[0]) && (voiceGender === 'male' ? (v.name.toLowerCase().includes('male') || v.name.toLowerCase().includes('guy') || v.name.toLowerCase().includes('man')) : (v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') || v.name.toLowerCase().includes('girl'))));
+            const v = filteredVoices[voiceIndex % filteredVoices.length] || filteredVoices[0] || availableVoices[0];
+            if (v) u.voice = v;
+            u.onerror = () => setSpeaking(false);
+            u.onstart = () => setSpeaking(true);
+            u.onend = () => { setSpeaking(false); if (autoSend) setTimeout(toggleRec, 500); };
+            window.speechSynthesis.speak(u);
+        } catch (e: any) {
+            console.warn('[NEXA] Error en síntesis de voz:', e.message);
+            setSpeaking(false);
+        }
     };
 
     // ─── Visión: Analizar imagen ───
@@ -832,97 +886,93 @@ export function NexaApp() {
                         </button>
                     )}
 
-                    {/* ═══ Floating Zap Button (Bottom Left) ═══ */}
-                    <div style={{ position: 'absolute', bottom: 20, left: 20, zIndex: 100 }}>
-                        <button 
-                            onClick={checkConn}
-                            style={{ 
-                                width: 44, 
-                                height: 44, 
-                                borderRadius: '50%', 
-                                background: '#ffffff', 
-                                border: 'none', 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center', 
-                                boxShadow: '0 4px 15px rgba(0,0,0,0.6)',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            <Zap size={22} color="#000000" fill="#000000" />
-                        </button>
-                    </div>
-
-                    {/* ═══ Input Bar Pill ═══ */}
-                    <div style={{ padding: '0 20px 24px', background: 'transparent', position: 'relative', zIndex: 90 }}>
-                        <div style={{ maxWidth: 700, margin: '0 auto' }}>
+                    <FilePreview files={attachedFiles} onRemove={(id) => setAttachedFiles(p => p.filter(f => f.id !== id))} />
+                    
+                    <div role="region" aria-label="Área de entrada de mensajes" style={{ 
+                        borderTop: `1px solid ${T.border}`, 
+                        background: `${T.bg}CC`, 
+                        backdropFilter: 'blur(20px)', 
+                        padding: '16px 16px 24px', 
+                        flexShrink: 0,
+                        zIndex: 20
+                    }}>
+                        <div style={{ maxWidth: 700, margin: '0 auto', position: 'relative' }}>
+                            
                             <div style={{ 
                                 display: 'flex', 
-                                alignItems: 'center', 
-                                background: '#0a0a0a', 
+                                alignItems: 'flex-end', 
+                                gap: 8, 
+                                background: '#080808', 
                                 border: '1px solid #1a1a1a', 
-                                borderRadius: 40, 
-                                padding: '6px 12px',
-                                gap: 4,
-                                boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+                                borderRadius: 32, 
+                                padding: '4px 8px 4px 4px',
+                                boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+                                transition: 'border-color 0.3s, box-shadow 0.3s',
+                                position: 'relative'
                             }}>
-                                <button 
-                                    onClick={() => setShowUpload(!showUpload)}
-                                    style={{ 
-                                        width: 36, 
-                                        height: 36, 
-                                        borderRadius: '50%', 
-                                        background: '#151515', 
-                                        border: 'none', 
-                                        color: '#ffffff', 
-                                        display: 'flex', 
-                                        alignItems: 'center', 
-                                        justifyContent: 'center',
-                                        cursor: 'pointer'
-                                    }}
-                                >
+                                <FileUpload isOpen={showUpload} onClose={() => setShowUpload(false)} onFilesSelected={(files) => setAttachedFiles(p => [...p, ...files])} onAnalyzeImage={analyzeImage} />
+                                
+                                <button aria-label="Adjuntar archivo" onClick={() => setShowUpload(!showUpload)} style={{ 
+                                    width: 40, height: 40, borderRadius: '50%', flexShrink: 0, 
+                                    border: 'none', background: '#111', 
+                                    color: '#888', 
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}>
                                     <Plus size={20} />
                                 </button>
-                                
-                                <textarea
-                                    ref={inputRef}
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-                                    placeholder="Escribe un mensaje..."
-                                    rows={1}
-                                    style={{ 
-                                        flex: 1, 
-                                        background: 'none', 
-                                        border: 'none', 
-                                        color: '#ffffff', 
-                                        fontSize: 15, 
-                                        padding: '10px 14px', 
-                                        outline: 'none', 
-                                        resize: 'none',
-                                        fontFamily: 'inherit',
-                                        lineHeight: 1.4
-                                    }}
-                                />
 
-                                <button onClick={toggleRec} style={{ background: 'none', border: 'none', color: recording ? '#ff0000' : '#888888', cursor: 'pointer', padding: 8 }}>
-                                    <Mic size={20} />
-                                </button>
-                                
-                                <button 
-                                    onClick={() => send()} 
-                                    disabled={thinking || streaming || (!input.trim() && attachedFiles.length === 0)}
-                                    style={{ 
-                                        background: 'none', 
-                                        border: 'none', 
-                                        color: '#888888',
-                                        cursor: 'pointer',
-                                        padding: 8,
-                                        opacity: (thinking || streaming || (!input.trim() && attachedFiles.length === 0)) ? 0.3 : 1
-                                    }}
-                                >
-                                    <ArrowUp size={22} />
-                                </button>
+                                <div style={{ flex: 1, position: 'relative', marginBottom: 4 }}>
+                                    {/* Ghost Text Suggestion */}
+                                    {!input && !recording && (
+                                        <div style={{ position: 'absolute', left: 12, top: 8, color: T.muted, opacity: 0.5, pointerEvents: 'none', fontSize: 15 }}>
+                                            Escribe un mensaje...
+                                        </div>
+                                    )}
+                                    {input && suggestion && (
+                                        <div style={{ position: 'absolute', left: 12, top: 8, color: T.muted, opacity: 0.4, pointerEvents: 'none', fontSize: 15, whiteSpace: 'pre-wrap' }}>
+                                            <span style={{ opacity: 0 }}>{input}</span>{suggestion}
+                                        </div>
+                                    )}
+                                    
+                                    <textarea ref={inputRef} id="nexa-chat-input" aria-label="Escribe un mensaje" value={input} onChange={e => setInput(e.target.value)}
+                                        onKeyDown={e => { 
+                                            if (e.key === 'Tab' && suggestion) { e.preventDefault(); setInput(input + suggestion); setSuggestion(''); }
+                                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } 
+                                        }}
+                                        placeholder="" rows={1}
+                                        style={{ 
+                                            width: '100%', resize: 'none', background: 'transparent', border: 'none', 
+                                            color: T.text, outline: 'none', padding: '8px 12px', fontSize: 15, 
+                                            maxHeight: 150, lineHeight: 1.5, boxSizing: 'border-box', 
+                                            fontFamily: 'inherit', display: 'block'
+                                        }} 
+                                    />
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 0 }}>
+                                    <button aria-label={recording ? 'Detener grabación' : 'Voz'} onClick={toggleRec} style={{ 
+                                        width: 38, height: 38, borderRadius: '50%', 
+                                        background: recording ? '#ef444420' : 'transparent', 
+                                        color: recording ? '#ef4444' : '#888', 
+                                        border: recording ? '1px solid #ef444440' : 'none',
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        transition: 'all 0.2s',
+                                        animation: recording ? 'pulse 1.5s ease-in-out infinite' : 'none'
+                                    }}>
+                                        <Mic size={18} />
+                                    </button>
+                                    
+                                    <button aria-label="Enviar mensaje" onClick={() => send()} disabled={(!input.trim() && attachedFiles.length === 0) || thinking || streaming}
+                                        style={{ 
+                                            width: 38, height: 38, borderRadius: '50%', flexShrink: 0, 
+                                            background: '#111', 
+                                            color: '#888', 
+                                            border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s', cursor: 'pointer' 
+                                        }}>
+                                        <ArrowUp size={18} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -948,7 +998,7 @@ export function NexaApp() {
 //  SUB-COMPONENTES DE ARCHIVOS
 // ═══════════════════════════════════════════
 
-function FileUpload({ isOpen, onClose, onFilesSelected }: { isOpen: boolean; onClose: () => void; onFilesSelected: (files: UploadedFile[]) => void }) {
+function FileUpload({ isOpen, onClose, onFilesSelected, onAnalyzeImage }: { isOpen: boolean; onClose: () => void; onFilesSelected: (files: UploadedFile[]) => void; onAnalyzeImage?: (file: File) => Promise<void> }) {
     const fileRef = useRef<HTMLInputElement>(null);
     const camRef = useRef<HTMLInputElement>(null);
     const vidRef = useRef<HTMLInputElement>(null);
@@ -976,7 +1026,7 @@ function FileUpload({ isOpen, onClose, onFilesSelected }: { isOpen: boolean; onC
         }
         if (processed.length > 0) { 
             // Auto-analyze images with vision
-            if ((type === 'image' || type === 'camera') && processed.length > 0) {
+            if ((type === 'image' || type === 'camera') && processed.length > 0 && onAnalyzeImage) {
                 onClose();
                 for (const f of processed) {
                     const byteString = atob(f.data);
@@ -985,7 +1035,7 @@ function FileUpload({ isOpen, onClose, onFilesSelected }: { isOpen: boolean; onC
                     for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
                     const blob = new Blob([ab], { type: f.mimeType });
                     const file = new File([blob], f.name, { type: f.mimeType });
-                    await analyzeImage(file);
+                    await onAnalyzeImage(file);
                 }
                 return;
             }
