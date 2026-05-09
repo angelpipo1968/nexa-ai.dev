@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
     title: 'NEXA AI — Intelligence Reborn',
-    description: 'Asistente de IA avanzado',
+    description: 'NEXA AI: Asistente de inteligencia artificial con interfaz de chat en tiempo real, soporte de voz y análisis de imágenes.',
     manifest: '/manifest.json',
     openGraph: {
         title: 'NEXA AI — Intelligence Reborn',
@@ -33,8 +33,6 @@ export const viewport: Viewport = {
     themeColor: '#04040a',
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -45,7 +43,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
                     rel="stylesheet"
                 />
-                <link rel="icon" href="/favicon.ico" />
+                <link rel="icon" href="/favicon.ico" sizes="any" />
+                <link rel="icon" href="/icons/icon-192.png" type="image/png" />
+                <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@type": "WebApplication",
+                            "name": "NEXA AI",
+                            "url": "https://www.nexa-ai.dev",
+                            "description": "Asistente de inteligencia artificial con interfaz de chat en tiempo real.",
+                            "applicationCategory": "ProductivityApplication",
+                            "operatingSystem": "Web",
+                            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+                        }),
+                    }}
+                />
             </head>
             <body>{children}</body>
         </html>

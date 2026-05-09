@@ -514,12 +514,15 @@ export function NexaApp() {
     const menuBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', padding: '10px 14px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, fontWeight: 500, width: '100%', transition: 'background 0.15s', fontFamily: 'inherit' };
 
     return (
-        <div style={{ position: 'fixed', inset: 0, background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif", display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'background 0.3s' }}>
+        <div role="application" aria-label="NEXA AI Chat Interface" style={{ position: 'fixed', inset: 0, background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif", display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'background 0.3s' }}>
+            <a href="#nexa-chat-input" style={{ position: 'absolute', left: -9999, top: 'auto', width: 1, height: 1, overflow: 'hidden' }} onFocus={(e) => { e.currentTarget.style.left = '8px'; e.currentTarget.style.top = '8px'; e.currentTarget.style.width = 'auto'; e.currentTarget.style.height = 'auto'; e.currentTarget.style.zIndex = '9999'; e.currentTarget.style.background = accent; e.currentTarget.style.color = '#000'; e.currentTarget.style.padding = '8px 16px'; e.currentTarget.style.borderRadius = '8px'; e.currentTarget.style.fontSize = '14px'; e.currentTarget.style.fontWeight = '700'; }}>
+                Saltar al chat
+            </a>
             <AnimatePresence>{drawer && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDrawer(false)} style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} />}</AnimatePresence>
 
             <AnimatePresence>
                 {drawer && (
-                    <motion.aside initial={{ x: -290 }} animate={{ x: 0 }} exit={{ x: -290 }} transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+                    <motion.aside role="navigation" aria-label="Historial de conversaciones" initial={{ x: -290 }} animate={{ x: 0 }} exit={{ x: -290 }} transition={{ type: 'spring', damping: 26, stiffness: 260 }}
                         style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 50, width: 280, background: T.surf, borderRight: `1px solid ${T.border}`, display: 'flex', flexDirection: 'column' }}>
                         <div style={{ padding: '18px 14px 14px', borderBottom: `1px solid ${T.border}` }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -530,7 +533,7 @@ export function NexaApp() {
                                         <div style={{ fontSize: 8, color: accent, letterSpacing: 2, textTransform: 'uppercase' }}>V3 CLEAN CORE</div>
                                     </div>
                                 </div>
-                                <button onClick={() => setDrawer(false)} style={{ ...ibtn, fontSize: 20 }}>✕</button>
+                                <button aria-label="Cerrar panel lateral" onClick={() => setDrawer(false)} style={{ ...ibtn, fontSize: 20 }}>✕</button>
                             </div>
                             <button onClick={async () => { await createConv(); setDrawer(false); setView('chat'); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: `${accent}15`, border: `1px solid ${accent}30`, color: accent, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ NUEVO CHAT</button>
                         </div>
@@ -557,8 +560,8 @@ export function NexaApp() {
 
             {/* CHAT VIEW */}
             {view === 'chat' && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10 }}>
-                    <header style={{ 
+                <main role="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10 }}>
+                    <header role="banner" style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'space-between', 
@@ -570,7 +573,7 @@ export function NexaApp() {
                         zIndex: 30
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <button onClick={() => setDrawer(true)} style={{ ...ibtn, color: accent, background: `${accent}10`, padding: 10 }}>
+                            <button aria-label="Abrir historial de chats" onClick={() => setDrawer(true)} style={{ ...ibtn, color: accent, background: `${accent}10`, padding: 10 }}>
                                 <Menu size={22} />
                             </button>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -588,10 +591,10 @@ export function NexaApp() {
                             </div>
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
-                            {speaking && <button onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); }} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Detener voz"><VolumeX size={18} /></button>}
-                            <button onClick={() => setShowHeaderMenu(!showHeaderMenu)} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Menú"><MoreVertical size={20} /></button>
-                            <button onClick={() => setShowSettings(true)} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Ajustes"><Settings size={20} /></button>
-                            <button onClick={() => createConv()} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Nuevo chat"><Plus size={20} /></button>
+                            {speaking && <button aria-label="Detener voz" onClick={() => { window.speechSynthesis.cancel(); setSpeaking(false); }} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Detener voz"><VolumeX size={18} /></button>}
+                            <button aria-label="Menú de opciones" onClick={() => setShowHeaderMenu(!showHeaderMenu)} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Menú"><MoreVertical size={20} /></button>
+                            <button aria-label="Abrir configuración" onClick={() => setShowSettings(true)} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Ajustes"><Settings size={20} /></button>
+                            <button aria-label="Crear nuevo chat" onClick={() => createConv()} style={{ ...ibtn, color: accent, background: `${accent}10` }} title="Nuevo chat"><Plus size={20} /></button>
                         </div>
                     </header>
                     
@@ -654,7 +657,7 @@ export function NexaApp() {
                         )}
                     </AnimatePresence>
                     
-                    <div ref={chatContainerRef} style={{ 
+                    <div ref={chatContainerRef} role="log" aria-label="Mensajes del chat" aria-live="polite" style={{ 
                         flex: 1, 
                         overflowY: 'auto', 
                         padding: '20px 16px', 
@@ -667,9 +670,9 @@ export function NexaApp() {
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 32, textAlign: 'center', padding: 20 }}>
                                 <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5 }}>
                                     <div style={{ fontSize: 80, marginBottom: 20, filter: `drop-shadow(0 0 20px ${accent}40)` }}>🧬</div>
-                                    <h2 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 16px', letterSpacing: -0.5, color: T.text, lineHeight: 1.2 }}>
+                                    <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 16px', letterSpacing: -0.5, color: T.text, lineHeight: 1.2 }}>
                                         {dynamicGreeting || 'SISTEMA NEXA V3'}
-                                    </h2>
+                                    </h1>
                                     <p style={{ fontSize: 16, color: T.muted, margin: 0, maxWidth: 300, lineHeight: 1.6 }}>
                                         Operativo y listo para procesar cualquier solicitud.
                                     </p>
@@ -697,10 +700,10 @@ export function NexaApp() {
                                         </div>
                                         {m.role === 'assistant' && !m.streaming && (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 10, paddingLeft: 6, position: 'relative' }}>
-                                                <button style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} onClick={() => copyToClipboard(m.content)} title="Copiar"><Copy size={16} /></button>
-                                                <button style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} title="Me gusta"><ThumbsUp size={16} /></button>
-                                                <button style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} title="No me gusta"><ThumbsDown size={16} /></button>
-                                                <button style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} onClick={() => send(m.content)} title="Regenerar"><RotateCcw size={16} /></button>
+                                                <button aria-label="Copiar respuesta" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} onClick={() => copyToClipboard(m.content)} title="Copiar"><Copy size={16} /></button>
+                                                <button aria-label="Me gusta" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} title="Me gusta"><ThumbsUp size={16} /></button>
+                                                <button aria-label="No me gusta" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} title="No me gusta"><ThumbsDown size={16} /></button>
+                                                <button aria-label="Regenerar respuesta" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} onClick={() => send(m.content)} title="Regenerar"><RotateCcw size={16} /></button>
                                                 <div style={{ position: 'relative' }}>
                                                     <button style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} onClick={() => setActiveMsgMenu(activeMsgMenu === m.id ? null : m.id)}><MoreVertical size={16} /></button>
                                                     <AnimatePresence>
@@ -743,11 +746,11 @@ export function NexaApp() {
 
                     <FilePreview files={attachedFiles} onRemove={(id) => setAttachedFiles(p => p.filter(f => f.id !== id))} />
                     
-                    <div style={{ borderTop: `1px solid ${T.border}`, background: `${T.bg}F2`, backdropFilter: 'blur(20px)', padding: '14px 14px 24px', flexShrink: 0 }}>
+                    <div role="region" aria-label="Área de entrada de mensajes" style={{ borderTop: `1px solid ${T.border}`, background: `${T.bg}F2`, backdropFilter: 'blur(20px)', padding: '14px 14px 24px', flexShrink: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, maxWidth: 600, margin: '0 auto', position: 'relative' }}>
                             <FileUpload isOpen={showUpload} onClose={() => setShowUpload(false)} onFilesSelected={(files) => setAttachedFiles(p => [...p, ...files])} />
                             
-                            <button onClick={() => setShowUpload(!showUpload)} style={{ width: 46, height: 46, borderRadius: 14, flexShrink: 0, border: `1px solid ${attachedFiles.length > 0 ? `${accent}40` : T.border}`, background: attachedFiles.length > 0 ? `${accent}10` : T.surf, color: attachedFiles.length > 0 ? accent : T.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative' }}>
+                            <button aria-label="Adjuntar archivo" onClick={() => setShowUpload(!showUpload)} style={{ width: 46, height: 46, borderRadius: 14, flexShrink: 0, border: `1px solid ${attachedFiles.length > 0 ? `${accent}40` : T.border}`, background: attachedFiles.length > 0 ? `${accent}10` : T.surf, color: attachedFiles.length > 0 ? accent : T.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', position: 'relative' }}>
                                 <Plus size={24} style={{ transform: showUpload ? 'rotate(45deg)' : 'none', transition: '0.3s' }} />
                                 {attachedFiles.length > 0 && <span style={{ position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: '50%', background: accent, color: '#000', fontSize: 10, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{attachedFiles.length}</span>}
                             </button>
@@ -755,26 +758,26 @@ export function NexaApp() {
                                 <div style={{ position: 'absolute', left: 18, top: 12, color: T.muted, opacity: 0.5, pointerEvents: 'none', fontSize: 15, whiteSpace: 'pre-wrap', lineHeight: 1.5, fontFamily: 'inherit' }}>
                                     {input}<span style={{ visibility: 'hidden' }}>{input}</span>{suggestion}
                                 </div>
-                                <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+                                <textarea ref={inputRef} id="nexa-chat-input" aria-label="Escribe un mensaje" value={input} onChange={e => setInput(e.target.value)}
                                     onKeyDown={e => { 
                                         if (e.key === 'Tab' && suggestion) { e.preventDefault(); setInput(input + suggestion); setSuggestion(''); }
                                         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } 
                                     }}
                                     placeholder={recording ? 'Escuchando voz...' : 'Escribe un mensaje...'} rows={1}
                                     style={{ width: '100%', resize: 'none', borderRadius: 24, padding: '12px 18px', fontSize: 15, background: 'transparent', border: `1px solid ${recording ? accent : T.border}`, color: T.text, outline: 'none', maxHeight: 150, lineHeight: 1.5, boxSizing: 'border-box', fontFamily: 'inherit', position: 'relative', zIndex: 2 }} />
-                                <button onClick={toggleRec} style={{ position: 'absolute', right: 8, bottom: 8, width: 32, height: 32, borderRadius: '50%', background: recording ? `${accent}20` : 'none', color: recording ? accent : T.muted, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
+                                <button aria-label={recording ? 'Detener grabación de voz' : 'Activar grabación de voz'} onClick={toggleRec} style={{ position: 'absolute', right: 8, bottom: 8, width: 32, height: 32, borderRadius: '50%', background: recording ? `${accent}20` : 'none', color: recording ? accent : T.muted, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
                                     {recording ? <StopCircle size={20} /> : <Mic size={20} />}
                                 </button>
                             </div>
-                            <button onClick={() => send()} disabled={(!input.trim() && attachedFiles.length === 0) || thinking || streaming}
+                            <button aria-label="Enviar mensaje" onClick={() => send()} disabled={(!input.trim() && attachedFiles.length === 0) || thinking || streaming}
                                 style={{ width: 48, height: 48, borderRadius: '50%', flexShrink: 0, border: (input.trim() || attachedFiles.length > 0) && !thinking && !streaming ? `1px solid ${T.border}` : 'none', background: (input.trim() || attachedFiles.length > 0) && !thinking && !streaming ? (autoSend && recording ? accent : '#1a1a2e') : T.surf, color: (input.trim() || attachedFiles.length > 0) && !thinking && !streaming ? '#f0f0f0' : T.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s', cursor: 'pointer' }}>
                                 {thinking ? <Loader2 size={20} style={{ animation: 'nexa-spin 1s linear infinite' }} /> : (autoSend && recording ? <Zap size={20} style={{ animation: 'pulse 1s infinite' }} /> : <ArrowUp size={20} />)}
                             </button>
                         </div>
                     </div>
-                </div>
+                </main>
             )}
-            
+
             <SettingsPanel 
                 isOpen={showSettings} 
                 onClose={() => setShowSettings(false)} 
