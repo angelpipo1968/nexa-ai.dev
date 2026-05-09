@@ -142,6 +142,7 @@ export function NexaApp() {
     const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
     const [welcomeDone, setWelcomeDone] = useState(false);
     const [dynamicGreeting, setDynamicGreeting] = useState('');
+    const [mounted, setMounted] = useState(false);
 
     const endRef = useRef<HTMLDivElement>(null);
     const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -199,7 +200,8 @@ export function NexaApp() {
         } else { setResolvedTheme(themeName as keyof typeof THEMES); }
     }, [themeName]);
 
-    const T = THEMES[resolvedTheme];
+    const T = { bg: '#000000', surf: '#050505', border: '#111111', text: '#ffffff', sec: '#888888', muted: '#444444' };
+
 
     const toggleTheme = () => {
         const next = resolvedTheme === 'dark' ? 'light' : 'dark';
@@ -234,6 +236,7 @@ export function NexaApp() {
         if (typeof window !== 'undefined' && window.speechSynthesis) {
             window.speechSynthesis.onvoiceschanged = loadVoices;
         }
+        setMounted(true);
     }, []);
 
     useEffect(() => {
@@ -550,8 +553,17 @@ export function NexaApp() {
     const ibtn: React.CSSProperties = { background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' };
     const menuBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', padding: '10px 14px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, fontWeight: 500, width: '100%', transition: 'background 0.15s', fontFamily: 'inherit' };
 
+    if (!mounted) {
+        return (
+            <div style={{ position: 'fixed', inset: 0, background: '#02020a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', border: '2px solid #00e5a0', borderTopColor: 'transparent', animation: 'nexa-spin 1s linear infinite' }} />
+            </div>
+        );
+    }
+
     return (
-        <div role="application" aria-label="NEXA AI Chat Interface" style={{ position: 'fixed', inset: 0, background: T.bg, color: T.text, fontFamily: "'Inter',sans-serif", display: 'flex', flexDirection: 'column', overflow: 'hidden', transition: 'background 0.3s' }}>
+        <div role="application" aria-label="NEXA AI Chat Interface" suppressHydrationWarning style={{ position: 'fixed', inset: 0, background: '#000000', color: '#ffffff', fontFamily: "'Inter',sans-serif", display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
             <a href="#nexa-chat-input" style={{ position: 'absolute', left: -9999, top: 'auto', width: 1, height: 1, overflow: 'hidden' }} onFocus={(e) => { e.currentTarget.style.left = '8px'; e.currentTarget.style.top = '8px'; e.currentTarget.style.width = 'auto'; e.currentTarget.style.height = 'auto'; e.currentTarget.style.zIndex = '9999'; e.currentTarget.style.background = accent; e.currentTarget.style.color = '#000'; e.currentTarget.style.padding = '8px 16px'; e.currentTarget.style.borderRadius = '8px'; e.currentTarget.style.fontSize = '14px'; e.currentTarget.style.fontWeight = '700'; }}>
                 Saltar al chat
             </a>
@@ -602,51 +614,36 @@ export function NexaApp() {
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'space-between', 
-                        padding: '10px 16px', 
-                        background: `${T.bg}95`, 
-                        backdropFilter: 'blur(25px)', 
-                        borderBottom: `1px solid ${T.border}`, 
+                        padding: '12px 20px', 
+                        background: '#000000', 
+                        borderBottom: '1px solid #111', 
                         flexShrink: 0,
-                        zIndex: 30,
-                        boxShadow: '0 4px 30px rgba(0,0,0,0.3)'
+                        zIndex: 30
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                            <button aria-label="Menú principal" onClick={() => setDrawer(true)} style={{ ...ibtn, color: accent, background: `${accent}08`, width: 40, height: 40, borderRadius: 12 }}>
-                                <Menu size={20} />
+                            <button aria-label="Menú principal" onClick={() => setDrawer(true)} style={{ ...ibtn, color: '#fff', background: 'transparent', border: 'none', width: 32, height: 32 }}>
+                                <Menu size={24} />
                             </button>
                             
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={checkConn}>
                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${accent}20, ${COLORS.blue}20)`, border: `1px solid ${accent}30`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Zap size={16} color={accent} />
+                                    <div style={{ width: 34, height: 34, borderRadius: 8, background: '#111', border: '1px solid #222', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                                        <Zap size={16} color="#00ff00" fill="#00ff00" />
+                                        <div style={{ position: 'absolute', bottom: 4, right: 4, width: 6, height: 6, borderRadius: '50%', background: '#00ff00', boxShadow: '0 0 8px #00ff00' }} />
                                     </div>
-                                    <motion.div 
-                                        animate={{ opacity: [0.4, 1, 0.4] }}
-                                        transition={{ duration: 2, repeat: Infinity }}
-                                        style={{ position: 'absolute', bottom: -2, right: -2, width: 10, height: 10, borderRadius: '50%', background: conn === 'ok' ? accent : '#ef4444', border: `2px solid ${T.bg}`, boxShadow: `0 0 10px ${conn === 'ok' ? accent : '#ef4444'}` }} 
-                                    />
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.5, color: T.text, lineHeight: 1 }}>NEXA CORE</span>
-                                    <span style={{ fontSize: 9, color: thinking || streaming ? accent : T.muted, letterSpacing: 0.5, fontWeight: 600, textTransform: 'uppercase', marginTop: 3 }}>
-                                        {thinking ? 'Sincronizando...' : streaming ? 'Generando...' : conn === 'ok' ? 'Sistema Activo' : 'Offline'}
+                                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                    <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: 1, color: '#ffffff', lineHeight: 1.1 }}>NEXA CORE</span>
+                                    <span style={{ fontSize: 8, color: '#00ff00', letterSpacing: 0.8, fontWeight: 600, textTransform: 'uppercase', opacity: 0.8 }}>
+                                        ONLINE
                                     </span>
                                 </div>
                             </div>
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{ display: 'flex', background: `${T.border}40`, borderRadius: 12, padding: 2, marginRight: 8 }}>
-                                <button aria-label="Nuevo Chat" onClick={() => createConv()} style={{ ...ibtn, width: 36, height: 36, borderRadius: 10, color: T.text }}>
-                                    <Plus size={18} />
-                                </button>
-                                <button aria-label="Configuración" onClick={() => setShowSettings(true)} style={{ ...ibtn, width: 36, height: 36, borderRadius: 10, color: T.text }}>
-                                    <Settings size={18} />
-                                </button>
-                            </div>
-                            
-                            <button aria-label="Opciones adicionales" onClick={() => setShowHeaderMenu(!showHeaderMenu)} style={{ ...ibtn, color: T.text, background: T.surf, border: `1px solid ${T.border}`, width: 36, height: 36, borderRadius: 10 }}>
-                                <MoreVertical size={18} />
+                            <button aria-label="Nuevo Chat" onClick={() => createConv()} style={{ ...ibtn, width: 32, height: 32, color: '#00ff00', background: 'transparent', border: 'none' }}>
+                                <Plus size={24} />
                             </button>
                         </div>
                     </header>
@@ -723,12 +720,12 @@ export function NexaApp() {
                         {msgs.length === 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 32, textAlign: 'center', padding: 20 }}>
                                 <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ duration: 0.5 }}>
-                                    <div style={{ fontSize: 80, marginBottom: 20, filter: `drop-shadow(0 0 20px ${accent}40)` }}>🧬</div>
-                                    <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 16px', letterSpacing: -0.5, color: T.text, lineHeight: 1.2 }}>
-                                        {dynamicGreeting || 'SISTEMA NEXA V3'}
+                                    <div style={{ fontSize: 60, marginBottom: 20, filter: 'drop-shadow(0 0 15px rgba(0,255,255,0.3))' }}>🧬</div>
+                                    <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 12px', letterSpacing: -0.5, color: '#ffffff', lineHeight: 1.2 }}>
+                                        SISTEMA NEXA V3
                                     </h1>
-                                    <p style={{ fontSize: 16, color: T.muted, margin: 0, maxWidth: 300, lineHeight: 1.6 }}>
-                                        Operativo y listo para procesar cualquier solicitud.
+                                    <p style={{ fontSize: 14, color: '#888888', margin: 0, maxWidth: 400, lineHeight: 1.6 }}>
+                                        Voz inteligente con auto-envío y temas OLED.
                                     </p>
                                 </motion.div>
                             </div>
@@ -833,36 +830,31 @@ export function NexaApp() {
                                 display: 'flex', 
                                 alignItems: 'flex-end', 
                                 gap: 8, 
-                                background: T.surf, 
-                                border: `1px solid ${recording ? accent : T.border}`, 
-                                borderRadius: 28, 
-                                padding: '6px 12px 6px 6px',
-                                boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+                                background: '#080808', 
+                                border: '1px solid #1a1a1a', 
+                                borderRadius: 32, 
+                                padding: '4px 8px 4px 4px',
+                                boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
                                 transition: 'border-color 0.3s, box-shadow 0.3s',
                                 position: 'relative'
                             }}>
                                 <FileUpload isOpen={showUpload} onClose={() => setShowUpload(false)} onFilesSelected={(files) => setAttachedFiles(p => [...p, ...files])} />
                                 
                                 <button aria-label="Adjuntar archivo" onClick={() => setShowUpload(!showUpload)} style={{ 
-                                    width: 42, height: 42, borderRadius: '50%', flexShrink: 0, 
-                                    border: 'none', background: attachedFiles.length > 0 ? `${accent}20` : 'transparent', 
-                                    color: attachedFiles.length > 0 ? accent : T.muted, 
+                                    width: 40, height: 40, borderRadius: '50%', flexShrink: 0, 
+                                    border: 'none', background: '#111', 
+                                    color: '#888', 
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                                     transition: 'all 0.2s'
                                 }}>
-                                    <Plus size={22} style={{ transform: showUpload ? 'rotate(45deg)' : 'none', transition: '0.3s' }} />
-                                    {attachedFiles.length > 0 && (
-                                        <span style={{ position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: '50%', background: accent, color: '#000', fontSize: 9, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            {attachedFiles.length}
-                                        </span>
-                                    )}
+                                    <Plus size={20} />
                                 </button>
 
                                 <div style={{ flex: 1, position: 'relative', marginBottom: 4 }}>
                                     {/* Ghost Text Suggestion */}
                                     {!input && !recording && (
                                         <div style={{ position: 'absolute', left: 12, top: 8, color: T.muted, opacity: 0.5, pointerEvents: 'none', fontSize: 15 }}>
-                                            Pregunta a NEXA...
+                                            Escribe un mensaje...
                                         </div>
                                     )}
                                     {input && suggestion && (
@@ -886,24 +878,24 @@ export function NexaApp() {
                                     />
                                 </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 0 }}>
                                     <button aria-label={recording ? 'Detener grabación' : 'Voz'} onClick={toggleRec} style={{ 
                                         width: 38, height: 38, borderRadius: '50%', 
-                                        background: recording ? `${accent}20` : 'transparent', 
-                                        color: recording ? accent : T.muted, 
+                                        background: 'transparent', 
+                                        color: '#888', 
                                         border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
                                     }}>
-                                        {recording ? <StopCircle size={20} /> : <Mic size={20} />}
+                                        <Mic size={18} />
                                     </button>
                                     
                                     <button aria-label="Enviar mensaje" onClick={() => send()} disabled={(!input.trim() && attachedFiles.length === 0) || thinking || streaming}
                                         style={{ 
                                             width: 38, height: 38, borderRadius: '50%', flexShrink: 0, 
-                                            background: (input.trim() || attachedFiles.length > 0) && !thinking && !streaming ? accent : `${T.border}40`, 
-                                            color: (input.trim() || attachedFiles.length > 0) && !thinking && !streaming ? '#000' : T.muted, 
+                                            background: '#111', 
+                                            color: '#888', 
                                             border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s', cursor: 'pointer' 
                                         }}>
-                                        {thinking ? <Loader2 size={18} style={{ animation: 'nexa-spin 1s linear infinite' }} /> : <ArrowUp size={20} />}
+                                        <ArrowUp size={18} />
                                     </button>
                                 </div>
                             </div>

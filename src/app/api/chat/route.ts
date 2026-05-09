@@ -39,10 +39,14 @@ const PROVIDERS = {
         url: 'https://api.anthropic.com/v1/messages',
         model: 'claude-3-5-sonnet-20240620',
         keyEnv: 'ANTHROPIC_API_KEY'
+    },
+    ollama: {
+        url: 'http://localhost:11434/api/chat',
+        model: 'nexa-os:latest'
     }
 };
 
-const FALLBACK_ORDER = ['groq', 'gemini', 'deepseek', 'openai', 'anthropic'];
+const FALLBACK_ORDER = ['xiaomi', 'groq', 'gemini', 'deepseek', 'openai', 'anthropic', 'ollama'];
 
 function createStream(
     requestId: string, 
@@ -60,7 +64,11 @@ function createStream(
                 const config = (PROVIDERS as any)[providerKey];
                 const key = keys[config.keyEnv];
                 
-                if (!key) continue;
+                // Ollama doesn't need a key
+                if (providerKey !== 'ollama' && !key) {
+                    logger.debug(`Skipping provider ${providerKey} - No API Key`, 'chat', { requestId });
+                    continue;
+                }
 
                 try {
                     logger.info(`Trying provider: ${providerKey}`, 'chat', { requestId });
@@ -134,6 +142,37 @@ function createStream(
                             controller.close();
                             return;
                         }
+                    } else if (providerKey === 'ollama') {
+                        const response = await fetch(config.url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                model: config.model,
+                                messages,
+                                stream: true
+                            }),
+                        });
+
+                        if (response.ok && response.body) {
+                            const reader = response.body.getReader();
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                const chunk = new TextDecoder().decode(value);
+                                try {
+                                    const data = JSON.parse(chunk);
+                                    const content = data.message?.content || '';
+                                    fullResponse += content;
+                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'ollama' })}\n\n`));
+                                } catch (e) { }
+                            }
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'ollama' })}\n\n`));
+                            controller.close();
+                            return;
+                        } else {
+                            const errorText = await response.text().catch(() => 'No error text');
+                            console.error(`Chat API: Ollama returned ${response.status}: ${errorText}`);
+                        }
                     } else {
                         // OpenAI Compatible (Groq, DeepSeek, OpenAI)
                         const response = await fetch(config.url, {
@@ -173,14 +212,21 @@ function createStream(
                             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: providerKey })}\n\n`));
                             controller.close();
                             return;
+                        } else {
+                            const errorText = await response.text().catch(() => 'No error text');
                         }
                     }
-                } catch (e) {
-                    logger.warn(`Provider ${providerKey} failed`, 'chat', { requestId, error: e });
+                } catch (e: any) {
+                    logger.warn(`Provider ${providerKey} failed`, 'chat', { requestId, error: e.message });
                 }
             }
 
-            controller.error('All providers failed');
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
+                error: 'NEXA CORE Error: Todos los proveedores de IA han fallado o no están configurados.',
+                details: 'Por favor, verifica las variables de entorno (API Keys) en Vercel/Producción.',
+                requestId
+            })}\n\n`));
+            controller.close();
         }
     });
 }

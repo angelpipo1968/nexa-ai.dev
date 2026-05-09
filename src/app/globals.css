@@ -1,4 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+
+:root {
+    /* --- NEXA OS - CYBERPUNK ULTIMATE PALETTE --- */
+    --nexa-bg: #030305;
+    --nexa-bg-alt: #0d1117;
+    --nexa-bg-radial: radial-gradient(circle at 50% 0%, #120a2e 0%, #030305 70%, #000000 100%);
+
+    --nexa-purple: #a855f7;
+    --nexa-purple-glow: rgba(168, 85, 247, 0.4);
+    --nexa-cyan: #06b6d4;
+    --nexa-cyan-glow: rgba(6, 182, 212, 0.4);
+    --nexa-pink: #ec4899;
+    
+    --nexa-glass: rgba(13, 17, 23, 0.7);
+    --nexa-glass-border: rgba(168, 85, 247, 0.15);
+    --nexa-glass-highlight: rgba(168, 85, 247, 0.05);
+
+    --nexa-text: #f8fafc;
+    --nexa-text-dim: #94a3b8;
+}
+
 
 /* DESPUÉS todo lo demás */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -19,3 +40,39 @@ body {
 @keyframes nexa-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 @keyframes nexa-glow { 0%,100%{box-shadow:0 0 5px rgba(0,229,160,0.3)} 50%{box-shadow:0 0 20px rgba(0,229,160,0.15)} }
 textarea::placeholder, input::placeholder { color: #3a3a60; }
+
+/* NEXA ULTRA UTILITIES */
+.nexa-card {
+    border-radius: 1rem;
+    padding: 1.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.nexa-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--nexa-purple);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(168, 85, 247, 0.1);
+}
+
+.nexa-pulse {
+    animation: nexa-pulse-anim 2s infinite ease-in-out;
+}
+
+@keyframes nexa-pulse-anim {
+    0% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 30px var(--nexa-purple-glow); }
+    100% { transform: scale(1); opacity: 0.8; }
+}
+
+.text-nexa-purple { color: var(--nexa-purple); }
+.text-nexa-cyan { color: var(--nexa-cyan); }
+.bg-nexa-purple { background-color: var(--nexa-purple); }
+.bg-nexa-cyan { background-color: var(--nexa-cyan); }
+.border-nexa-purple { border-color: var(--nexa-purple); }
+.from-nexa-purple { --tw-gradient-from: var(--nexa-purple); --tw-gradient-to: rgb(168 85 247 / 0); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.to-nexa-cyan { --tw-gradient-to: var(--nexa-cyan); }
+.text-nexa-text-dim { color: var(--nexa-text-dim); }
+

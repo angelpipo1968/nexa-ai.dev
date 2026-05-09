@@ -1,3 +1,5 @@
-'use client';
-import { NexaApp } from '@/components/NexaApp';
-export default function Home() { return <NexaApp />; }
+import NexaUltraHome from '@/components/NexaUltraHome';
+
+export default function Home() {
+    return <NexaUltraHome />;
+}

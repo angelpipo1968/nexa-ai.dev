@@ -18,11 +18,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="es">
+        <html lang="es" suppressHydrationWarning>
             <head>
                 <link rel="icon" href="/favicon.ico" />
             </head>
-            <body>
+            <body suppressHydrationWarning>
                 <SentryInit />
                 {children}
             </body>

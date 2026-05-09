@@ -156,16 +156,26 @@ export function SettingsPanel({ isOpen, onClose, theme, onThemeChange, locale, o
     }) {
         const [hovered, setHovered] = useState(false);
         return (
-            <button
+            <div
                 onClick={onClick}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
+                onKeyDown={(e) => {
+                    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        onClick();
+                    }
+                }}
+                role={onClick ? "button" : undefined}
+                tabIndex={onClick ? 0 : undefined}
                 style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 14px', borderRadius: 12,
                     background: hovered ? C.surfaceH : 'transparent',
                     border: 'none', cursor: onClick || right ? 'pointer' : 'default',
                     textAlign: 'left', transition: 'all 0.15s',
+                    userSelect: 'none',
+                    outline: 'none',
                 }}
             >
                 <div style={{
@@ -193,7 +203,7 @@ export function SettingsPanel({ isOpen, onClose, theme, onThemeChange, locale, o
                 </div>
                 {right || (value && <span style={{ fontSize: 12, color: C.sec }}>{value}</span>)}
                 {onClick && !right && <ChevronRight size={14} color={C.muted} />}
-            </button>
+            </div>
         );
     }
 
