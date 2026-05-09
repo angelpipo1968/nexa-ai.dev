@@ -6,19 +6,47 @@ import { checkRateLimit, getIdentifier, RATE_LIMITS } from '@/lib/nexa-core/rate
 import { logger, generateRequestId } from '@/lib/nexa-core/logger';
 import { chatSchema } from '@/lib/validation';
 
-export const maxDuration = 60; // Max duration for Vercel functions
+export const maxDuration = 60;
 
-interface ChatRequestBody {
-    messages: any[];
-    mode?: 'default' | 'vision' | 'code';
-}
+const PROVIDERS = {
+    xiaomi: {
+        url: 'https://platform.xiaomimimo.com/v1/chat/completions',
+        model: 'MiMo-V2.5-Pro',
+        keyEnv: 'VITE_XIAOMI_API_KEY'
+    },
+    groq: {
+        url: 'https://api.groq.com/openai/v1/chat/completions',
+        model: 'llama-3.3-70b-versatile',
+        keyEnv: 'GROQ_API_KEY'
+    },
+    deepseek: {
+        url: 'https://api.deepseek.com/chat/completions',
+        model: 'deepseek-chat',
+        keyEnv: 'DEEPSEEK_API_KEY'
+    },
+    openai: {
+        url: 'https://api.openai.com/v1/chat/completions',
+        model: 'gpt-4o-mini',
+        keyEnv: 'OPENAI_API_KEY'
+    },
+    gemini: {
+        url: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
+        model: 'gemini-1.5-flash',
+        keyEnv: 'GOOGLE_AI_API_KEY'
+    },
+    anthropic: {
+        url: 'https://api.anthropic.com/v1/messages',
+        model: 'claude-3-5-sonnet-20240620',
+        keyEnv: 'ANTHROPIC_API_KEY'
+    }
+};
+
+const FALLBACK_ORDER = ['groq', 'gemini', 'deepseek', 'openai', 'anthropic'];
 
 function createStream(
     requestId: string, 
     messages: any[], 
-    googleKey: string | undefined, 
-    groqKey: string | undefined, 
-    anthropicKey: string | undefined,
+    keys: Record<string, string | undefined>,
     intent: any
 ) {
     const encoder = new TextEncoder();
@@ -26,21 +54,95 @@ function createStream(
     return new ReadableStream({
         async start(controller) {
             let fullResponse = '';
-            let provider = 'unknown';
+            
+            for (const providerKey of FALLBACK_ORDER) {
+                const config = (PROVIDERS as any)[providerKey];
+                const key = keys[config.keyEnv];
+                
+                if (!key) continue;
 
-            try {
-                // --- 1. INTENTO CON GROQ (Principal por velocidad) ---
-                if (groqKey) {
-                    try {
-                        provider = 'groq';
-                        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                try {
+                    logger.info(`Trying provider: ${providerKey}`, 'chat', { requestId });
+                    
+                    if (providerKey === 'gemini') {
+                        const geminiMessages = messages
+                            .filter(m => m.role !== 'system')
+                            .map(m => ({
+                                role: m.role === 'assistant' ? 'model' : 'user',
+                                parts: [{ text: m.content }]
+                            }));
+                        const systemMsg = messages.find(m => m.role === 'system');
+
+                        const response = await fetch(config.url(config.model, key), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                system_instruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
+                                contents: geminiMessages,
+                                generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
+                            }),
+                        });
+
+                        if (response.ok && response.body) {
+                            const reader = response.body.getReader();
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                const chunk = new TextDecoder().decode(value);
+                                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                                for (const line of lines) {
+                                    if (line.startsWith('data: ')) {
+                                        try {
+                                            const data = JSON.parse(line.slice(6));
+                                            const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                                            fullResponse += content;
+                                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'gemini' })}\n\n`));
+                                        } catch (e) { }
+                                    }
+                                }
+                            }
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'gemini' })}\n\n`));
+                            controller.close();
+                            return;
+                        }
+                    } else if (providerKey === 'anthropic') {
+                        // Anthropic doesn't support easy SSE streaming without their SDK or more complex parsing
+                        // For now, let's do a non-streaming fallback for Anthropic if others fail
+                        const response = await fetch(config.url, {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${groqKey}`,
+                                'x-api-key': key,
+                                'anthropic-version': '2023-06-01'
                             },
                             body: JSON.stringify({
-                                model: 'llama-3.3-70b-versatile',
+                                model: config.model,
+                                messages: messages.filter(m => m.role !== 'system'),
+                                system: messages.find(m => m.role === 'system')?.content,
+                                max_tokens: 4096,
+                                temperature: 0.7
+                            }),
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            const content = data.content[0].text;
+                            fullResponse = content;
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'anthropic' })}\n\n`));
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'anthropic' })}\n\n`));
+                            controller.close();
+                            return;
+                        }
+                    } else {
+                        // OpenAI Compatible (Groq, DeepSeek, OpenAI)
+                        const response = await fetch(config.url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${key}`,
+                            },
+                            body: JSON.stringify({
+                                model: config.model,
                                 messages,
                                 stream: true,
                                 temperature: 0.7,
@@ -62,80 +164,22 @@ function createStream(
                                             const data = JSON.parse(line.slice(6));
                                             const content = data.choices[0]?.delta?.content || '';
                                             fullResponse += content;
-                                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'groq' })}\n\n`));
+                                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: providerKey })}\n\n`));
                                         } catch (e) { }
                                     }
                                 }
                             }
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider })}\n\n`));
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: providerKey })}\n\n`));
                             controller.close();
                             return;
-                        } else {
-                            const errBody = await response.text();
-                            logger.warn(`Groq failed (${response.status}): ${errBody}`, 'chat', { requestId });
                         }
-                    } catch (e) {
-                        logger.error('Groq connection error', 'chat', { requestId, error: e });
                     }
+                } catch (e) {
+                    logger.warn(`Provider ${providerKey} failed`, 'chat', { requestId, error: e });
                 }
-
-                // --- 2. INTENTO CON GEMINI (Respaldo inteligente) ---
-                if (googleKey) {
-                    try {
-                        provider = 'gemini';
-                        const geminiMessages = messages
-                            .filter(m => m.role !== 'system')
-                            .map(m => ({
-                                role: m.role === 'assistant' ? 'model' : 'user',
-                                parts: [{ text: m.content }]
-                            }));
-
-                        const systemMsg = messages.find(m => m.role === 'system');
-
-                        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${googleKey}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                system_instruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
-                                contents: geminiMessages,
-                                generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
-                            }),
-                        });
-
-                        if (response.ok && response.body) {
-                            const reader = response.body.getReader();
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                const chunk = new TextDecoder().decode(value);
-                                const lines = chunk.split('\n').filter(line => line.trim() !== '');
-                                for (const line of lines) {
-                                    if (line.startsWith('data: ')) {
-                                        try {
-                                            const data = JSON.parse(line.slice(6));
-                                            const content = data.candidates[0]?.content?.parts[0]?.text || '';
-                                            fullResponse += content;
-                                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'gemini' })}\n\n`));
-                                        } catch (e) { }
-                                    }
-                                }
-                            }
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider })}\n\n`));
-                            controller.close();
-                            return;
-                        } else {
-                            const errBody = await response.text();
-                            logger.warn(`Gemini failed (${response.status}): ${errBody}`, 'chat', { requestId });
-                        }
-                    } catch (e) {
-                        logger.error('Gemini connection error', 'chat', { requestId, error: e });
-                    }
-                }
-
-                controller.error('All AI providers failed');
-            } catch (e) {
-                controller.error(e);
             }
+
+            controller.error('All providers failed');
         }
     });
 }
@@ -144,56 +188,46 @@ export async function POST(req: NextRequest) {
     const requestId = generateRequestId();
     
     try {
-        const body: ChatRequestBody = await req.json();
+        const body = await req.json();
         const parsed = chatSchema.safeParse(body);
         
         if (!parsed.success) {
-            return NextResponse.json({ error: 'Payload inválido', details: parsed.error }, { status: 400 });
+            return NextResponse.json({ error: 'Payload inválido' }, { status: 400 });
         }
 
         const { messages, mode = 'default' } = parsed.data;
         
-        // 1. Rate Limiting
         const identifier = getIdentifier(req);
         const rateLimit = checkRateLimit(identifier, RATE_LIMITS.chat);
         if (!rateLimit.allowed) {
-            return NextResponse.json({ error: 'Límite de peticiones alcanzado', retryAfter: rateLimit.retryAfterMs }, { status: 429 });
+            return NextResponse.json({ error: 'Límite alcanzado' }, { status: 429 });
         }
 
-        // 2. Validación de entrada
         const validator = new InputValidator();
         const lastMessage = messages[messages.length - 1]?.content || '';
-        const validation = validator.validate(typeof lastMessage === 'string' ? lastMessage : JSON.stringify(lastMessage));
+        const validation = validator.validate(lastMessage);
         
         if (!validation.safe) {
-            logger.warn(`Blocked request: ${validation.reason}`, 'chat', { requestId, ip: identifier });
             return NextResponse.json({ error: validation.reason }, { status: 403 });
         }
 
-        // 3. Detección de intención y prompt
-        const intent = detectIntent(typeof lastMessage === 'string' ? lastMessage : '');
+        const intent = detectIntent(lastMessage);
         const systemPrompt = getSystemPrompt(mode);
         
-        // Inyectar system prompt si no existe
         if (!messages.find(m => m.role === 'system')) {
             messages.unshift({ role: 'system', content: systemPrompt });
         }
 
-        logger.info(`Chat request: intent=${intent.type}, messages=${messages.length}`, 'chat', { requestId, intent: intent.type });
+        const keys = {
+            GROQ_API_KEY: process.env.GROQ_API_KEY,
+            GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY,
+            DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+            OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+            ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+            VITE_XIAOMI_API_KEY: process.env.VITE_XIAOMI_API_KEY
+        };
 
-        const groqKey = process.env.GROQ_API_KEY;
-        const googleKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
-        const anthropicKey = process.env.ANTHROPIC_API_KEY;
-
-        if (!groqKey && !googleKey && !anthropicKey) {
-            logger.error('No AI provider available', 'chat', { requestId });
-            return NextResponse.json({ 
-                error: 'No hay proveedor de IA configurado. Configura GROQ_API_KEY, GOOGLE_API_KEY o ANTHROPIC_API_KEY.',
-                code: 'NO_AI_PROVIDER'
-            }, { status: 503 });
-        }
-
-        const stream = createStream(requestId, messages, googleKey, groqKey, anthropicKey, intent);
+        const stream = createStream(requestId, messages, keys, intent);
         
         return new Response(stream, {
             headers: {
@@ -204,15 +238,7 @@ export async function POST(req: NextRequest) {
         });
 
     } catch (e: any) {
-        logger.error(`Chat crash: ${e.message}`, 'chat', { 
-            requestId, 
-            stack: e.stack,
-            error: e
-        });
-        return NextResponse.json({ 
-            error: 'Error interno del servidor', 
-            details: e.message,
-            stack: e.stack
-        }, { status: 500 });
+        logger.error(`Chat crash: ${e.message}`, 'chat', { requestId });
+        return NextResponse.json({ error: 'Internal Error' }, { status: 500 });
     }
 }
