@@ -34,8 +34,8 @@ const nextConfig = {
 // This prevents build failures on Railway/other platforms without the token
 export default hasSentryToken
     ? withSentryConfig(nextConfig, {
-        org: 'nexa-ai',
-        project: 'nexa-ai',
+        org: 'nexa-na',
+        project: 'javascript-nextjs',
         authToken: process.env.SENTRY_AUTH_TOKEN,
         tunnelRoute: '/sentry-tunnel',
         silent: !process.env.CI,
