@@ -82,3 +82,4 @@ src/packages/**/*.js.map
 
 # Sentry auth token
 .env.sentry-build-plugin
+tsbuildinfo
