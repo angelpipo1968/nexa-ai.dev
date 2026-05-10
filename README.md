@@ -1,21 +1,47 @@
----
-title: Nexa Brain V3
-emoji: 🧠
-colorFrom: blue
-colorTo: purple
-sdk: docker
-app_port: 8080
-pinned: false
----
+# NEXA AI — Intelligence Reborn
 
-# NEXA OS v5.0 - Cloud Edition
-Intelligent Operating System deployed 24/7 on Hugging Face Spaces.
+Asistente de IA avanzado con chat en tiempo real, voz, y análisis de imágenes.
 
-## Features
-- **Híbrido AI**: Conexión local (Ollama) y Cloud (Gemini, Groq, DeepSeek).
-- **Protección Activa**: Módulo de seguridad y validación de prompts.
-- **Autonomía**: Monitoreo constante de servicios y latido del sistema.
-- **Acceso Global**: Disponible 24/7 sin dependencia del PC local.
+## Stack
 
-## Deployment
-This space is synchronized with the latest production build of NEXA OS.
+- **Framework**: Next.js 15 + React 19
+- **Styling**: Tailwind CSS
+- **Animation**: Framer Motion
+- **Database**: Supabase
+- **Monitoring**: Sentry
+- **Mobile**: Capacitor (Android)
+- **Deployment**: Vercel
+
+## Desarrollo
+
+```bash
+npm install
+npm run dev
+```
+
+Abre [http://localhost:3000](http://localhost:3000)
+
+## Estructura
+
+```
+src/
+├── app/              # Next.js App Router
+│   ├── api/          # API routes (chat, vision, health)
+│   ├── chat/         # Chat page
+│   └── page.tsx      # Home (redirects to chat)
+├── components/       # React components
+│   ├── NexaApp.tsx   # Main chat interface
+│   └── SettingsPanel.tsx
+└── lib/              # Utilities & services
+    ├── supabase.ts
+    ├── validation.ts
+    └── nexa-core/    # AI core (prompts, tools, rate-limiting)
+```
+
+## Deploy
+
+Push a `main` → deploy automático en Vercel.
+
+## Licencia
+
+MIT
