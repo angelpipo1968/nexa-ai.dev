@@ -410,13 +410,12 @@ export function NexaApp() {
     // ═══════════════════════════════════════════
 
     const send = async (overrideText?: string) => {
-        const text = overrideText || input.trim();
+        const text = (overrideText ?? input).trim();
         if (!text && attachedFiles.length === 0) return;
-        // Reset stuck states before proceeding
-        if (streaming || thinking) {
-            setStreaming(false);
-            setThinking(false);
-        }
+        
+        // Reset stuck states
+        setStreaming(false);
+        setThinking(false);
 
         let messageContent = text;
         if (attachedFiles.length > 0) {
@@ -424,13 +423,25 @@ export function NexaApp() {
             messageContent = text ? `${text}\n\n${fileInfo}` : fileInfo;
         }
 
-        setInput(''); setSuggestion(''); setAttachedFiles([]);
+        if (!overrideText) setInput(''); 
+        setSuggestion(''); 
+        setAttachedFiles([]);
         userScrolledRef.current = false;
-        let cid = convId ?? await createConv(messageContent.slice(0, 50));
-        if (!convId) setConvId(cid);
+
+        let cid = convId;
+        if (!cid) {
+            cid = await createConv(messageContent.slice(0, 50));
+            setConvId(cid);
+        }
+
         const um: Msg = { id: `u-${Date.now()}`, role: 'user', content: messageContent, ts: Date.now() };
-        try { await sb.from('messages').insert({ conversation_id: cid, role: 'user', content: messageContent }); } catch {}
         setMsgs(p => [...p, um]);
+        
+        try { 
+            await sb.from('messages').insert({ conversation_id: cid, role: 'user', content: messageContent }); 
+        } catch (e) {
+            console.error('[NEXA] DB Error:', e);
+        }
         setThinking(true);
         const aid = `a-${Date.now()}`;
 
@@ -532,30 +543,29 @@ export function NexaApp() {
         try {
             voiceSentRef.current = false;
             const r = new SR(); r.lang = lang === 'es' ? 'es-ES' : 'en-US'; r.continuous = true; r.interimResults = true;
-            r.onstart = () => setRecording(true);
+            r.onstart = () => { setRecording(true); setInput(''); };
             r.onresult = (e: any) => {
-                let txt = '';
-                for (let i = e.resultIndex; i < e.results.length; i++) {
-                    txt += e.results[i][0].transcript;
+                let fullTxt = '';
+                for (let i = 0; i < e.results.length; i++) {
+                    fullTxt += e.results[i][0].transcript;
                 }
-                setInput(txt);
+                setInput(fullTxt);
 
-                // Auto-send on final result
                 const lastResult = e.results[e.results.length - 1];
                 if (lastResult.isFinal && autoSend && !voiceSentRef.current) {
-                    const finalTxt = txt.trim();
+                    const finalTxt = fullTxt.trim();
                     if (finalTxt) {
                         voiceSentRef.current = true;
-                        // Enviar primero, luego limpiar el input para evitar burbujas vacías
-                        send(finalTxt);
-                        setInput('');
-                        try { r.stop(); } catch {}
-                        setRecording(false);
+                        send(finalTxt).then(() => {
+                            setInput('');
+                            try { r.stop(); } catch {}
+                            setRecording(false);
+                        });
                     }
                 }
             };
             r.onerror = (e: any) => {
-                if (e.error !== 'no-speech') console.warn('[NEXA] Voice error:', e.error);
+                console.warn('[NEXA] Voice error:', e.error);
                 setRecording(false);
             };
             r.onend = () => setRecording(false);
