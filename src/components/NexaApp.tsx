@@ -466,14 +466,21 @@ export function NexaApp() {
             const reader = res.body?.getReader();
             const dec = new TextDecoder();
             let full = '';
+            let buffer = '';
+            let serverError = '';
             if (reader) {
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    for (const line of dec.decode(value, { stream: true }).split('\n\n')) {
+                    buffer += dec.decode(value, { stream: true });
+                    const parts = buffer.split('\n\n');
+                    buffer = parts.pop() ?? '';
+                    for (const part of parts) {
+                        const line = part.trim();
                         if (!line.startsWith('data: ')) continue;
                         try {
                             const d = JSON.parse(line.slice(6));
+                            if (d.error) { serverError = d.error; }
                             if (d.text) { full += d.text; setMsgs(p => p.map(m => m.id === aid ? { ...m, content: full } : m)); }
                             if (d.done) {
                                 const finalContent = full || d.fullResponse;
@@ -484,9 +491,10 @@ export function NexaApp() {
                     }
                 }
             }
-            // If no content was received, show error
+            // If no content was received, show specific server error or generic message
             if (!full) {
-                setMsgs(p => p.map(m => m.id === aid ? { ...m, content: '❌ No se recibió respuesta del servidor.', streaming: false } : m));
+                const errMsg = serverError ? `❌ ${serverError.split('\n')[0]}` : '❌ No se recibió respuesta del servidor.';
+                setMsgs(p => p.map(m => m.id === aid ? { ...m, content: errMsg, streaming: false } : m));
             } else {
                 try { await sb.from('messages').insert({ conversation_id: cid, role: 'assistant', content: full }); } catch {}
             }
