@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
     appName: 'NEXA AI',
     webDir: 'out',
     server: {
-        url: 'https://www.nexa-ai.dev/',
+        url: 'https://nexa-ai.dev/',
         cleartext: true,
         androidScheme: 'https',
     },
