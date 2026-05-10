@@ -10,7 +10,7 @@ import {
     MoreVertical, Moon, Sun,
     Copy, ThumbsUp, ThumbsDown, RotateCcw, Edit,
     FolderInput, File,
-    Sparkles, Pin, ChevronDown, Palette, Search
+    Sparkles, Pin, ChevronDown, Palette, Search, Code2
 } from 'lucide-react';
 import { SettingsPanel } from './SettingsPanel';
 
@@ -708,6 +708,15 @@ export function NexaApp() {
                                 <button aria-label="Cerrar panel" onClick={() => setDrawer(false)} style={{ ...ibtn, fontSize: 20 }}>✕</button>
                             </div>
                             <button onClick={async () => { await createConv(); setDrawer(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: `${accent}15`, border: `1px solid ${accent}30`, color: accent, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ NUEVO CHAT</button>
+                            <a href="/code" style={{
+                                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '10px 14px', borderRadius: 12, background: '#a855f715',
+                                border: '1px solid #a855f730', color: '#a855f7', fontSize: 13,
+                                fontWeight: 600, cursor: 'pointer', textDecoration: 'none', marginTop: 6,
+                                transition: 'all 0.2s'
+                            }}>
+                                <Code2 size={14} /> GENERAR CÓDIGO
+                            </a>
                         </div>
                         <div style={{ padding: '8px 12px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '6px 10px' }}>
@@ -989,6 +998,17 @@ export function NexaApp() {
                         </div>
                     )}
 
+                    {/* ─── Analyzing image indicator ─── */}
+                    {analyzingImage && (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
+                            background: `${accent}08`, borderTop: `1px solid ${T.border}`
+                        }}>
+                            <Loader2 size={16} color={accent} style={{ animation: 'nexa-spin 1s linear infinite' }} />
+                            <span style={{ fontSize: 13, color: accent, fontWeight: 500 }}>Analizando imagen...</span>
+                        </div>
+                    )}
+
                     {/* ─── Input area ─── */}
                     <div role="region" aria-label="Área de entrada" style={{
                         borderTop: `1px solid ${T.border}`,
@@ -1140,7 +1160,7 @@ function FileUpload({ isOpen, onClose, onFilesSelected, onAnalyzeImage }: { isOp
                         {(Object.entries(FILE_TYPES) as [FileType, any][]).map(([key, config]) => (
                             <button key={key} onClick={() => { setActiveType(key); if (key === 'camera') camRef.current?.click(); else if (key === 'video') vidRef.current?.click(); else { if (fileRef.current) { fileRef.current.accept = config.accept; fileRef.current.click(); } } }}
                                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 14, transition: '0.2s' }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                                onMouseEnter={(e) => e.currentTarget.style.background = `${T.text}08`}
                                 onMouseLeave={(e) => e.currentTarget.style.background = 'none'}>
                                 <div style={{ width: 34, height: 34, borderRadius: '50%', background: T.bg, border: `1px solid ${config.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     {<config.icon size={16} color={config.color} />}
