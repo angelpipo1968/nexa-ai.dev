@@ -784,6 +784,28 @@ export function NexaApp() {
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            {/* Global Speaker / Stop button */}
+                            <button
+                                aria-label={speaking ? "Detener voz" : "Leer última respuesta"}
+                                onClick={() => {
+                                    if (speaking) {
+                                        window.speechSynthesis.cancel();
+                                        setSpeaking(false);
+                                        setSpeakingMsgId(null);
+                                    } else {
+                                        const lastAssistant = [...msgs].reverse().find(m => m.role === 'assistant' && m.content && !m.streaming);
+                                        if (lastAssistant) speak(lastAssistant.content, lastAssistant.id);
+                                    }
+                                }}
+                                style={{
+                                    ...ibtn, width: 32, height: 32,
+                                    color: speaking ? '#ef4444' : T.muted,
+                                    background: speaking ? '#ef444415' : 'transparent',
+                                    transition: 'all 0.2s',
+                                    animation: speaking ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                                }}>
+                                {speaking ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                            </button>
                             {/* Theme color picker */}
                             <button aria-label="Cambiar color del tema" onClick={cycleAccent} style={{ ...ibtn, width: 32, height: 32, position: 'relative' }}>
                                 <Palette size={18} />
