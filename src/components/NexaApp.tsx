@@ -410,53 +410,66 @@ export function NexaApp() {
     // ═══════════════════════════════════════════
 
     const send = async (overrideText?: string) => {
-        const text = (overrideText ?? input).trim();
-        if (!text && attachedFiles.length === 0) return;
+        // CAPTURA INMEDIATA para evitar condiciones de carrera
+        const textToSend = (overrideText ?? input).trim();
+        if (!textToSend && attachedFiles.length === 0) return;
         
-        // Reset stuck states
         setStreaming(false);
         setThinking(false);
 
-        let messageContent = text;
+        let finalContent = textToSend;
         if (attachedFiles.length > 0) {
             const fileInfo = attachedFiles.map(f => `[📎 ${f.name} (${f.type})]`).join(' ');
-            messageContent = text ? `${text}\n\n${fileInfo}` : fileInfo;
+            finalContent = textToSend ? `${textToSend}\n\n${fileInfo}` : fileInfo;
         }
 
-        if (!overrideText) setInput(''); 
-        setSuggestion(''); 
+        // Limpiar UI
+        if (!overrideText) setInput('');
+        setSuggestion('');
         setAttachedFiles([]);
         userScrolledRef.current = false;
 
-        let cid = convId;
-        if (!cid) {
-            cid = await createConv(messageContent.slice(0, 50));
-            setConvId(cid);
+        // Asegurar Conversación
+        let currentCid = convId;
+        if (!currentCid) {
+            currentCid = await createConv(finalContent.slice(0, 50));
+            setConvId(currentCid);
         }
 
-        const um: Msg = { id: `u-${Date.now()}`, role: 'user', content: messageContent, ts: Date.now() };
-        setMsgs(p => [...p, um]);
+        const userMsg: Msg = { 
+            id: `u-${Date.now()}`, 
+            role: 'user', 
+            content: finalContent, 
+            ts: Date.now() 
+        };
         
-        try { 
-            await sb.from('messages').insert({ conversation_id: cid, role: 'user', content: messageContent }); 
-        } catch (e) {
-            console.error('[NEXA] DB Error:', e);
-        }
+        setMsgs(prev => [...prev, userMsg]);
         setThinking(true);
-        const aid = `a-${Date.now()}`;
 
-        // Transition from thinking → streaming after 400ms
+        try {
+            await sb.from('messages').insert({ 
+                conversation_id: currentCid, 
+                role: 'user', 
+                content: finalContent 
+            });
+        } catch (err) {
+            console.error('[NEXA] DB Error:', err);
+        }
+
+        const assistantId = `a-${Date.now()}`;
         const thinkingTimeout = setTimeout(() => {
             setThinking(false);
             setStreaming(true);
-            setMsgs(p => [...p, { id: aid, role: 'assistant', content: '', ts: Date.now(), streaming: true }]);
+            setMsgs(prev => [...prev, { id: assistantId, role: 'assistant', content: '', ts: Date.now(), streaming: true }]);
         }, 400);
 
         try {
             const res = await fetch('https://nexa-ai.dev/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: [...msgs, um].map(m => ({ role: m.role, content: m.content })) }),
+                body: JSON.stringify({ 
+                    messages: [...msgs, userMsg].map(m => ({ role: m.role, content: m.content })) 
+                }),
             });
             if (!res.ok) {
                 const e = await res.json().catch(() => ({}));
