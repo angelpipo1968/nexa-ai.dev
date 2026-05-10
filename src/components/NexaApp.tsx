@@ -411,7 +411,12 @@ export function NexaApp() {
 
     const send = async (overrideText?: string) => {
         const text = overrideText || input.trim();
-        if ((!text && attachedFiles.length === 0) || streaming || thinking) return;
+        if (!text && attachedFiles.length === 0) return;
+        // Reset stuck states before proceeding
+        if (streaming || thinking) {
+            setStreaming(false);
+            setThinking(false);
+        }
 
         let messageContent = text;
         if (attachedFiles.length > 0) {
@@ -428,14 +433,39 @@ export function NexaApp() {
         setMsgs(p => [...p, um]);
         setThinking(true);
         const aid = `a-${Date.now()}`;
-        setTimeout(() => { setMsgs(p => [...p, { id: aid, role: 'assistant', content: '', ts: Date.now(), streaming: true }]); setThinking(false); setStreaming(true); }, 300);
+
+        // Transition from thinking → streaming after 400ms
+        const thinkingTimeout = setTimeout(() => {
+            setThinking(false);
+            setStreaming(true);
+            setMsgs(p => [...p, { id: aid, role: 'assistant', content: '', ts: Date.now(), streaming: true }]);
+        }, 400);
+
         try {
-            const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: [...msgs, um].map(m => ({ role: m.role, content: m.content })) }) });
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: [...msgs, um].map(m => ({ role: m.role, content: m.content })) }),
+            });
             if (!res.ok) {
                 const e = await res.json().catch(() => ({}));
                 throw new Error(e.error || `Error ${res.status}`);
             }
-            const reader = res.body?.getReader(); const dec = new TextDecoder(); let full = '';
+
+            // Make sure streaming bubble is visible
+            clearTimeout(thinkingTimeout);
+            if (!streaming) {
+                setThinking(false);
+                setStreaming(true);
+                setMsgs(p => {
+                    if (p.some(m => m.id === aid)) return p;
+                    return [...p, { id: aid, role: 'assistant' as const, content: '', ts: Date.now(), streaming: true }];
+                });
+            }
+
+            const reader = res.body?.getReader();
+            const dec = new TextDecoder();
+            let full = '';
             if (reader) {
                 while (true) {
                     const { done, value } = await reader.read();
@@ -454,15 +484,31 @@ export function NexaApp() {
                     }
                 }
             }
-            if (full) try { await sb.from('messages').insert({ conversation_id: cid, role: 'assistant', content: full }); } catch {}
+            // If no content was received, show error
+            if (!full) {
+                setMsgs(p => p.map(m => m.id === aid ? { ...m, content: '❌ No se recibió respuesta del servidor.', streaming: false } : m));
+            } else {
+                try { await sb.from('messages').insert({ conversation_id: cid, role: 'assistant', content: full }); } catch {}
+            }
         } catch (e: any) {
-            setMsgs(p => p.map(m => m.id === aid ? { ...m, content: `❌ Error: ${e.message}`, streaming: false } : m));
-        } finally { setStreaming(false); setThinking(false); }
+            clearTimeout(thinkingTimeout);
+            setMsgs(p => {
+                if (p.some(m => m.id === aid)) {
+                    return p.map(m => m.id === aid ? { ...m, content: `❌ Error: ${e.message}`, streaming: false } : m);
+                }
+                return [...p, { id: aid, role: 'assistant' as const, content: `❌ Error: ${e.message}`, ts: Date.now(), streaming: false }];
+            });
+        } finally {
+            setStreaming(false);
+            setThinking(false);
+        }
     };
 
     // ═══════════════════════════════════════════
     //  VOICE
     // ═══════════════════════════════════════════
+
+    const voiceSentRef = useRef(false);
 
     const toggleRec = async () => {
         if (recording) { try { recRef.current?.stop(); } catch {} setRecording(false); return; }
@@ -472,20 +518,35 @@ export function NexaApp() {
             if (navigator.mediaDevices?.getUserMedia) await navigator.mediaDevices.getUserMedia({ audio: true });
         } catch { alert('Permiso de micrófono denegado.'); return; }
         try {
+            voiceSentRef.current = false;
             const r = new SR(); r.lang = lang === 'es' ? 'es-ES' : 'en-US'; r.continuous = true; r.interimResults = true;
             r.onstart = () => setRecording(true);
             r.onresult = (e: any) => {
                 let txt = '';
                 for (let i = e.resultIndex; i < e.results.length; i++) {
                     txt += e.results[i][0].transcript;
-                    if (e.results[i].isFinal && autoSend) {
-                        const finalTxt = txt.trim();
-                        setTimeout(() => { if (finalTxt) { send(finalTxt); try { r.stop(); } catch {} setRecording(false); } }, 500);
-                    }
                 }
                 setInput(txt);
+
+                // Auto-send on final result
+                const lastResult = e.results[e.results.length - 1];
+                if (lastResult.isFinal && autoSend && !voiceSentRef.current) {
+                    const finalTxt = txt.trim();
+                    if (finalTxt) {
+                        voiceSentRef.current = true;
+                        setTimeout(() => {
+                            setInput('');
+                            send(finalTxt);
+                            try { r.stop(); } catch {}
+                            setRecording(false);
+                        }, 300);
+                    }
+                }
             };
-            r.onerror = () => setRecording(false);
+            r.onerror = (e: any) => {
+                if (e.error !== 'no-speech') console.warn('[NEXA] Voice error:', e.error);
+                setRecording(false);
+            };
             r.onend = () => setRecording(false);
             r.start(); recRef.current = r;
         } catch { setRecording(false); }
