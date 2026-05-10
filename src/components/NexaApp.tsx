@@ -800,7 +800,7 @@ export function NexaApp() {
                         style={{
                             flex: 1, overflowY: 'auto', padding: '20px 16px',
                             WebkitOverflowScrolling: 'touch' as any,
-                            overscrollBehaviorY: 'contain', minHeight: 0,
+                            overscrollBehaviorY: 'contain', minHeight: 0, height: 0,
                         }}>
                         {msgs.length === 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 24, textAlign: 'center', padding: 20, position: 'relative' }}>
