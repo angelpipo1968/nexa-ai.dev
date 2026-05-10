@@ -357,6 +357,7 @@ export function NexaApp() {
             try { recRef.current?.stop(); } catch {}
             if (typeof window !== 'undefined' && window.speechSynthesis) {
                 window.speechSynthesis.cancel();
+                window.speechSynthesis.onend = null;
             }
         };
     }, []);
@@ -562,18 +563,27 @@ export function NexaApp() {
 
     const cleanForSpeech = (text: string) => text.replace(/#{1,6}\s*/g, '').replace(/\*{1,3}(.+?)\*{1,3}/g, '$1').replace(/_{1,3}(.+?)_{1,3}/g, '$1').replace(/```[\s\S]*?```/g, 'código').replace(/`([^`]+)`/g, '$1').replace(/\n{2,}/g, '. ').replace(/\n/g, '. ').replace(/\s{2,}/g, ' ').trim();
 
+    const stopSpeaking = useCallback(() => {
+        if (typeof window === 'undefined' || !window.speechSynthesis) return;
+        window.speechSynthesis.cancel();
+        // cancel() is async and onend may not fire reliably — force-reset state immediately
+        setSpeaking(false);
+        setSpeakingMsgId(null);
+    }, []);
+
     const speak = (text: string, msgId?: string) => {
         if (!('speechSynthesis' in window)) return;
         try {
-            window.speechSynthesis.cancel();
+            // If clicking on the same message that's already speaking → stop it
             if (msgId && speakingMsgId === msgId) {
-                setSpeaking(false);
-                setSpeakingMsgId(null);
+                stopSpeaking();
                 return;
             }
+            // Stop any current speech before starting new one
+            stopSpeaking();
             const cleaned = cleanForSpeech(text);
             if (!cleaned) return;
-            if (msgId) setSpeakingMsgId(msgId);
+            setSpeakingMsgId(msgId ?? null);
             const u = new SpeechSynthesisUtterance(cleaned);
             u.lang = lang === 'es' ? 'es-ES' : 'en-US';
             const langVoices = availableVoices.filter(v => v.lang.includes(lang.split('-')[0]));
@@ -795,9 +805,7 @@ export function NexaApp() {
                                 aria-label={speaking ? "Detener voz" : "Leer última respuesta"}
                                 onClick={() => {
                                     if (speaking) {
-                                        window.speechSynthesis.cancel();
-                                        setSpeaking(false);
-                                        setSpeakingMsgId(null);
+                                        stopSpeaking();
                                     } else {
                                         const lastAssistant = [...msgs].reverse().find(m => m.role === 'assistant' && m.content && !m.streaming);
                                         if (lastAssistant) speak(lastAssistant.content, lastAssistant.id);
