@@ -58,19 +58,21 @@ function createStream(
                     logger.info(`Trying provider: ${providerKey}`, 'chat', { requestId });
 
                     if (providerKey === 'gemini') {
-                        const geminiMessages = messages
-                            .filter(m => m.role !== 'system')
-                            .map(m => ({
-                                role: m.role === 'assistant' ? 'model' : 'user',
-                                parts: [{ text: m.content }]
-                            }));
                         const systemMsg = messages.find(m => m.role === 'system');
+                        const nonSystemMessages = messages.filter(m => m.role !== 'system');
+                        const geminiMessages = nonSystemMessages.map(m => ({
+                            role: m.role === 'assistant' ? 'model' : 'user',
+                            parts: [{ text: m.content }]
+                        }));
+                        // v1 API does not support system_instruction — inject as first user turn
+                        if (systemMsg) {
+                            geminiMessages.unshift({ role: 'user', parts: [{ text: systemMsg.content }] });
+                        }
 
                         const response = await fetch(config.url(config.model, key), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                system_instruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
                                 contents: geminiMessages,
                                 generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
                             }),
