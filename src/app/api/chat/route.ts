@@ -16,8 +16,8 @@ const PROVIDERS = {
         keyEnv: 'GROQ_API_KEY'
     },
     gemini: {
-        url: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
-        model: 'gemini-1.5-flash',
+        url: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
+        model: 'gemini-2.0-flash',
         keyEnv: 'GOOGLE_AI_API_KEY'
     },
     deepseek: {
@@ -59,20 +59,18 @@ function createStream(
 
                     if (providerKey === 'gemini') {
                         const systemMsg = messages.find(m => m.role === 'system');
-                        const nonSystemMessages = messages.filter(m => m.role !== 'system');
-                        const geminiMessages = nonSystemMessages.map(m => ({
-                            role: m.role === 'assistant' ? 'model' : 'user',
-                            parts: [{ text: m.content }]
-                        }));
-                        // v1 API does not support system_instruction — inject as first user turn
-                        if (systemMsg) {
-                            geminiMessages.unshift({ role: 'user', parts: [{ text: systemMsg.content }] });
-                        }
+                        const geminiMessages = messages
+                            .filter(m => m.role !== 'system')
+                            .map(m => ({
+                                role: m.role === 'assistant' ? 'model' : 'user',
+                                parts: [{ text: m.content }]
+                            }));
 
                         const response = await fetch(config.url(config.model, key), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
+                                ...(systemMsg && { systemInstruction: { parts: [{ text: systemMsg.content }] } }),
                                 contents: geminiMessages,
                                 generationConfig: { temperature: 0.7, maxOutputTokens: 4096 }
                             }),
