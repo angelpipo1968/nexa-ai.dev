@@ -166,6 +166,7 @@ export function NexaApp() {
     const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
     const [welcomeDone, setWelcomeDone] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [convLoading, setConvLoading] = useState(false);
 
     // Scroll
     const endRef = useRef<HTMLDivElement>(null);
@@ -250,15 +251,23 @@ export function NexaApp() {
         }
     }, [msgs, streaming, scrollToBottom]);
 
-    // Auto-scroll during streaming
+    // Auto-scroll during streaming — faster interval for smoother experience
     useEffect(() => {
         if (streaming) {
             const interval = setInterval(() => {
                 if (!userScrolledRef.current) scrollToBottom(false);
-            }, 80);
+            }, 50);
             return () => clearInterval(interval);
         }
     }, [streaming, scrollToBottom]);
+
+    // Scroll to bottom when conversation changes
+    useEffect(() => {
+        if (convId) {
+            userScrolledRef.current = false;
+            setTimeout(() => scrollToBottom(false), 150);
+        }
+    }, [convId, scrollToBottom]);
 
     // ═══════════════════════════════════════════
     //  THEME SYSTEM
@@ -363,6 +372,16 @@ export function NexaApp() {
     useEffect(() => { checkConn(); const i = setInterval(checkConn, 30000); return () => clearInterval(i); }, []);
     useEffect(() => { loadConvs(); }, []);
 
+    // Cleanup on unmount — prevent memory leaks
+    useEffect(() => {
+        return () => {
+            try { recRef.current?.stop(); } catch {}
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+        };
+    }, []);
+
     const checkConn = async () => {
         setConn('check');
         try { const r = await fetch('/', { method: 'HEAD', signal: AbortSignal.timeout(8000) }); setConn(r.ok ? 'ok' : 'err'); }
@@ -370,10 +389,11 @@ export function NexaApp() {
     };
 
     const loadConvs = async () => {
+        setConvLoading(true);
         try {
             const { data, error } = await sb.from('conversations').select('*').order('updated_at', { ascending: false });
             if (!error && Array.isArray(data)) setConvs(data);
-        } catch {}
+        } catch {} finally { setConvLoading(false); }
     };
 
     const createConv = async (title = 'Nueva conversación') => {
@@ -696,15 +716,25 @@ export function NexaApp() {
                             <button onClick={async () => { await createConv(); setDrawer(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: `${accent}15`, border: `1px solid ${accent}30`, color: accent, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ NUEVO CHAT</button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}>
-                            {filtered.map(c => (
-                                <div key={c.id} style={{ position: 'relative', marginBottom: 2 }}>
-                                    <button onClick={() => selConv(c.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 10px', borderRadius: 10, background: convId === c.id ? `${accent}10` : 'transparent', border: 'none', color: convId === c.id ? accent : T.sec, fontSize: 12, textAlign: 'left', cursor: 'pointer' }}>
-                                        {c.pinned && <Pin size={10} style={{ transform: 'rotate(45deg)' }} />}
-                                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
-                                    </button>
-                                    <button onClick={() => setActiveConvMenu(activeConvMenu === c.id ? null : c.id)} style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', padding: 6, background: 'none', border: 'none', color: T.muted, cursor: 'pointer' }}><MoreVertical size={14} /></button>
+                            {convLoading ? (
+                                <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
+                                    <Loader2 size={20} color={accent} style={{ animation: 'nexa-spin 1s linear infinite' }} />
                                 </div>
-                            ))}
+                            ) : filtered.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '20px 10px', color: T.muted, fontSize: 12 }}>
+                                    {search ? 'Sin resultados' : 'No hay conversaciones'}
+                                </div>
+                            ) : (
+                                filtered.map(c => (
+                                    <div key={c.id} style={{ position: 'relative', marginBottom: 2 }}>
+                                        <button onClick={() => selConv(c.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 10px', borderRadius: 10, background: convId === c.id ? `${accent}10` : 'transparent', border: 'none', color: convId === c.id ? accent : T.sec, fontSize: 12, textAlign: 'left', cursor: 'pointer' }}>
+                                            {c.pinned && <Pin size={10} style={{ transform: 'rotate(45deg)' }} />}
+                                            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</span>
+                                        </button>
+                                        <button onClick={() => setActiveConvMenu(activeConvMenu === c.id ? null : c.id)} style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', padding: 6, background: 'none', border: 'none', color: T.muted, cursor: 'pointer' }}><MoreVertical size={14} /></button>
+                                    </div>
+                                ))
+                            )}
                         </div>
                         <div style={{ padding: '10px 12px', borderTop: `1px solid ${T.border}` }}>
                             <button onClick={() => { setShowSettings(true); setDrawer(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10, borderRadius: 10, background: T.surf, border: `1px solid ${T.border}`, color: T.sec, fontSize: 12, cursor: 'pointer' }}>
@@ -798,9 +828,10 @@ export function NexaApp() {
                     <div ref={chatContainerRef} role="log" aria-label="Mensajes del chat" aria-live="polite"
                         className="chat-scroll"
                         style={{
-                            flex: 1, overflowY: 'auto', padding: '20px 16px',
+                            flex: 1, overflowY: 'scroll', padding: '20px 16px',
                             WebkitOverflowScrolling: 'touch' as any,
                             overscrollBehaviorY: 'contain', minHeight: 0, height: 0,
+                            touchAction: 'pan-y',
                         }}>
                         {msgs.length === 0 ? (
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 24, textAlign: 'center', padding: 20, position: 'relative' }}>
