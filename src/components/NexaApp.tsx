@@ -442,7 +442,7 @@ export function NexaApp() {
         }, 400);
 
         try {
-            const res = await fetch('/api/chat', {
+            const res = await fetch('https://nexa-ai.dev/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ messages: [...msgs, um].map(m => ({ role: m.role, content: m.content })) }),
@@ -521,10 +521,13 @@ export function NexaApp() {
 
     const toggleRec = async () => {
         if (recording) { try { recRef.current?.stop(); } catch {} setRecording(false); return; }
+        if (typeof window === 'undefined') return;
         const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
         if (!SR) { alert('Tu navegador no soporta reconocimiento de voz.'); return; }
         try {
-            if (navigator.mediaDevices?.getUserMedia) await navigator.mediaDevices.getUserMedia({ audio: true });
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+            }
         } catch { alert('Permiso de micrófono denegado.'); return; }
         try {
             voiceSentRef.current = false;
