@@ -15,6 +15,11 @@ const PROVIDERS = {
         model: 'llama-3.3-70b-versatile',
         keyEnv: 'GROQ_API_KEY'
     },
+    groq_fast: {
+        url: 'https://api.groq.com/openai/v1/chat/completions',
+        model: 'llama-3.1-8b-instant',
+        keyEnv: 'GROQ_API_KEY'
+    },
     gemini: {
         url: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
         model: 'gemini-2.0-flash',
@@ -32,7 +37,7 @@ const PROVIDERS = {
     },
 };
 
-const FALLBACK_ORDER = ['groq', 'gemini', 'deepseek', 'openai'];
+const FALLBACK_ORDER = ['groq', 'groq_fast', 'gemini', 'deepseek', 'openai'];
 
 function createStream(
     requestId: string,
