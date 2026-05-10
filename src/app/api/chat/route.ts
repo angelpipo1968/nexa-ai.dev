@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' }; export async function OPTIONS() { return new Response(null, { status: 204, headers: corsHeaders }); }
+
 import { InputValidator } from '@/lib/security/InputValidator';
 import { getSystemPrompt } from '@/lib/nexa-core/prompts';
 import { detectIntent } from '@/lib/nexa-core/tools';
@@ -230,3 +233,4 @@ export async function POST(req: NextRequest) {
         }, { status: 500 });
     }
 }
+
