@@ -546,12 +546,11 @@ export function NexaApp() {
                     const finalTxt = txt.trim();
                     if (finalTxt) {
                         voiceSentRef.current = true;
-                        setTimeout(() => {
-                            setInput('');
-                            send(finalTxt);
-                            try { r.stop(); } catch {}
-                            setRecording(false);
-                        }, 300);
+                        // Enviar primero, luego limpiar el input para evitar burbujas vacías
+                        send(finalTxt);
+                        setInput('');
+                        try { r.stop(); } catch {}
+                        setRecording(false);
                     }
                 }
             };
@@ -596,7 +595,7 @@ export function NexaApp() {
                 return n.includes('female') || n.includes('katerina') || n.includes('sofia') || n.includes('helena');
             });
             const filtered = genderedVoices.length > 0 ? genderedVoices : langVoices;
-            const v = filtered[voiceIndex % filtered.length] || filtered[0] || availableVoices[0];
+            const v = filtered[voiceIndex % filtered.length] || filtered[0] || (availableVoices.length > 0 ? availableVoices[0] : null);
             if (v) u.voice = v;
             u.onerror = () => { setSpeaking(false); setSpeakingMsgId(null); };
             u.onstart = () => setSpeaking(true);
