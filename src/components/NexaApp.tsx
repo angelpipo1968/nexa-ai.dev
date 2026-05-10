@@ -164,6 +164,7 @@ export function NexaApp() {
     const [search, setSearch] = useState('');
     const [recording, setRecording] = useState(false);
     const [speaking, setSpeaking] = useState(false);
+    const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
     const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
     const [welcomeDone, setWelcomeDone] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -584,12 +585,18 @@ export function NexaApp() {
 
     const cleanForSpeech = (text: string) => text.replace(/#{1,6}\s*/g, '').replace(/\*{1,3}(.+?)\*{1,3}/g, '$1').replace(/_{1,3}(.+?)_{1,3}/g, '$1').replace(/```[\s\S]*?```/g, 'código').replace(/`([^`]+)`/g, '$1').replace(/\n{2,}/g, '. ').replace(/\n/g, '. ').replace(/\s{2,}/g, ' ').trim();
 
-    const speak = (text: string) => {
+    const speak = (text: string, msgId?: string) => {
         if (!('speechSynthesis' in window)) return;
         try {
             window.speechSynthesis.cancel();
+            if (msgId && speakingMsgId === msgId) {
+                setSpeaking(false);
+                setSpeakingMsgId(null);
+                return;
+            }
             const cleaned = cleanForSpeech(text);
             if (!cleaned) return;
+            if (msgId) setSpeakingMsgId(msgId);
             const u = new SpeechSynthesisUtterance(cleaned);
             u.lang = lang === 'es' ? 'es-ES' : 'en-US';
             const langVoices = availableVoices.filter(v => v.lang.includes(lang.split('-')[0]));
@@ -601,11 +608,11 @@ export function NexaApp() {
             const filtered = genderedVoices.length > 0 ? genderedVoices : langVoices;
             const v = filtered[voiceIndex % filtered.length] || filtered[0] || availableVoices[0];
             if (v) u.voice = v;
-            u.onerror = () => setSpeaking(false);
+            u.onerror = () => { setSpeaking(false); setSpeakingMsgId(null); };
             u.onstart = () => setSpeaking(true);
-            u.onend = () => { setSpeaking(false); if (autoSend) setTimeout(toggleRec, 500); };
+            u.onend = () => { setSpeaking(false); setSpeakingMsgId(null); if (autoSend && !msgId) setTimeout(toggleRec, 500); };
             window.speechSynthesis.speak(u);
-        } catch { setSpeaking(false); }
+        } catch { setSpeaking(false); setSpeakingMsgId(null); }
     };
 
     // ═══════════════════════════════════════════
@@ -889,6 +896,9 @@ export function NexaApp() {
                                                 <button aria-label="Copiar" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = accent} onMouseLeave={(e) => e.currentTarget.style.color = T.muted} onClick={() => copyToClipboard(m.content)}><Copy size={15} /></button>
                                                 <button aria-label="Me gusta" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#22c55e'} onMouseLeave={(e) => e.currentTarget.style.color = T.muted}><ThumbsUp size={15} /></button>
                                                 <button aria-label="No me gusta" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'} onMouseLeave={(e) => e.currentTarget.style.color = T.muted}><ThumbsDown size={15} /></button>
+                                                <button aria-label={speakingMsgId === m.id ? "Detener voz" : "Leer en voz alta"} style={{ background: 'none', border: 'none', color: speakingMsgId === m.id ? accent : T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = accent} onMouseLeave={(e) => e.currentTarget.style.color = speakingMsgId === m.id ? accent : T.muted} onClick={() => speak(m.content, m.id)}>
+                                                    {speakingMsgId === m.id ? <VolumeX size={15} /> : <Volume2 size={15} />}
+                                                </button>
                                                 <button aria-label="Regenerar" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = accent} onMouseLeave={(e) => e.currentTarget.style.color = T.muted} onClick={() => send(m.content)}><RotateCcw size={15} /></button>
                                                 <div style={{ position: 'relative' }}>
                                                     <button style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} onClick={() => setActiveMsgMenu(activeMsgMenu === m.id ? null : m.id)}><MoreVertical size={15} /></button>
