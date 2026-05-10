@@ -16,7 +16,7 @@ const PROVIDERS = {
         keyEnv: 'GROQ_API_KEY'
     },
     gemini: {
-        url: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
+        url: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
         model: 'gemini-1.5-flash',
         keyEnv: 'GOOGLE_AI_API_KEY'
     },
