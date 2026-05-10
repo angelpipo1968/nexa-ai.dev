@@ -4,13 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase';
 import {
     FileText, Image as ImageIcon, Film, Music, Camera,
-    Plus, Mic, Menu, X, Settings,
-    User, LogOut, Volume2, VolumeX,
-    Zap, Search, Loader2, StopCircle, ArrowUp,
+    Plus, Mic, Menu, X,
+    Volume2, VolumeX,
+    Zap, Loader2, ArrowUp,
     MoreVertical, Moon, Sun,
     Copy, ThumbsUp, ThumbsDown, RotateCcw, Edit,
-    FolderInput, Upload, File,
-    Sparkles, Pin, ChevronDown, Palette
+    FolderInput, File,
+    Sparkles, Pin, ChevronDown, Palette, Search
 } from 'lucide-react';
 import { SettingsPanel } from './SettingsPanel';
 
@@ -130,22 +130,13 @@ export function NexaApp() {
     const [thinking, setThinking] = useState(false);
     const [streaming, setStreaming] = useState(false);
     const [drawer, setDrawer] = useState(false);
-    const [view, setView] = useState<'chat' | 'auth' | 'settings'>('chat');
     const [showUpload, setShowUpload] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<UploadedFile[]>([]);
     const [activeConvMenu, setActiveConvMenu] = useState<string | null>(null);
     const [activeMsgMenu, setActiveMsgMenu] = useState<string | null>(null);
     const [showSettings, setShowSettings] = useState(false);
-    const [showHeaderMenu, setShowHeaderMenu] = useState(false);
     const [analyzingImage, setAnalyzingImage] = useState(false);
     const [activeProvider, setActiveProvider] = useState<string>('groq');
-
-    // Auth
-    const [user, setUser] = useState<any>(null);
-    const [email, setEmail] = useState('');
-    const [pass, setPass] = useState('');
-    const [authErr, setAuthErr] = useState('');
-    const [authLoading, setAuthLoading] = useState(false);
 
     // Settings (Persisted)
     const [accent, setAccent] = useState(THEME_PRESETS.emerald.accent);
@@ -166,9 +157,9 @@ export function NexaApp() {
     const [speaking, setSpeaking] = useState(false);
     const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
     const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-    const [welcomeDone, setWelcomeDone] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [convLoading, setConvLoading] = useState(false);
+    const [msgRatings, setMsgRatings] = useState<Record<string, 'up' | 'down'>>({});
 
     // Scroll
     const endRef = useRef<HTMLDivElement>(null);
@@ -354,22 +345,8 @@ export function NexaApp() {
     }, [accent, themePreset, themeName, autoSpeak, autoSend, voiceGender, voiceIndex, lang]);
 
     // ═══════════════════════════════════════════
-    //  SUPABASE & AUTH
+    //  SUPABASE
     // ═══════════════════════════════════════════
-
-    useEffect(() => {
-        sb.auth.getUser().then(({ data }: any) => {
-            if (data?.user) setUser(data.user);
-        }).catch(() => {});
-        const { data: { subscription } } = sb.auth.onAuthStateChange((_: any, s: any) => setUser(s?.user ?? null));
-        return () => subscription.unsubscribe();
-    }, []);
-
-    useEffect(() => {
-        if (!welcomeDone && mounted) {
-            setWelcomeDone(true);
-        }
-    }, [mounted, welcomeDone]);
 
     useEffect(() => { checkConn(); const i = setInterval(checkConn, 30000); return () => clearInterval(i); }, []);
     useEffect(() => { loadConvs(); }, []);
@@ -417,7 +394,7 @@ export function NexaApp() {
     };
 
     const selConv = async (id: string) => {
-        setConvId(id); setDrawer(false); setView('chat');
+        setConvId(id); setDrawer(false);
         try {
             const { data, error } = await sb.from('messages').select('*').eq('conversation_id', id).order('created_at');
             if (!error && Array.isArray(data)) {
@@ -675,6 +652,14 @@ export function NexaApp() {
     };
 
     const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
+
+    const toggleRating = (msgId: string, rating: 'up' | 'down') => {
+        setMsgRatings(prev => {
+            const next = { ...prev };
+            if (next[msgId] === rating) { delete next[msgId]; } else { next[msgId] = rating; }
+            return next;
+        });
+    };
     const filtered = (Array.isArray(convs) ? convs : []).filter(c => (c.title || '').toLowerCase().includes(search.toLowerCase()));
     const ibtn: React.CSSProperties = { background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' };
     const menuBtn: React.CSSProperties = { background: 'none', border: 'none', cursor: 'pointer', padding: '10px 14px', borderRadius: 10, display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, fontWeight: 500, width: '100%', transition: 'background 0.15s', fontFamily: 'inherit' };
@@ -724,6 +709,19 @@ export function NexaApp() {
                             </div>
                             <button onClick={async () => { await createConv(); setDrawer(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: `${accent}15`, border: `1px solid ${accent}30`, color: accent, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ NUEVO CHAT</button>
                         </div>
+                        <div style={{ padding: '8px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '6px 10px' }}>
+                                <Search size={14} color={T.muted} />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar..."
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    style={{ flex: 1, background: 'none', border: 'none', color: T.text, fontSize: 12, outline: 'none' }}
+                                />
+                                {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 2 }}><X size={12} /></button>}
+                            </div>
+                        </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}>
                             {convLoading ? (
                                 <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
@@ -755,7 +753,6 @@ export function NexaApp() {
             </AnimatePresence>
 
             {/* ═══ CHAT VIEW ═══ */}
-            {view === 'chat' && (
                 <main role="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10, minHeight: 0 }}>
 
                     {/* ─── Header ─── */}
@@ -916,14 +913,14 @@ export function NexaApp() {
                                         {m.role === 'assistant' && !m.streaming && m.content && (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, paddingLeft: 4 }}>
                                                 <button aria-label="Copiar" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = accent} onMouseLeave={(e) => e.currentTarget.style.color = T.muted} onClick={() => copyToClipboard(m.content)}><Copy size={15} /></button>
-                                                <button aria-label="Me gusta" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#22c55e'} onMouseLeave={(e) => e.currentTarget.style.color = T.muted}><ThumbsUp size={15} /></button>
-                                                <button aria-label="No me gusta" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'} onMouseLeave={(e) => e.currentTarget.style.color = T.muted}><ThumbsDown size={15} /></button>
+                                                <button aria-label="Me gusta" style={{ background: 'none', border: 'none', color: msgRatings[m.id] === 'up' ? '#22c55e' : T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#22c55e'} onMouseLeave={(e) => e.currentTarget.style.color = msgRatings[m.id] === 'up' ? '#22c55e' : T.muted} onClick={() => toggleRating(m.id, 'up')}><ThumbsUp size={15} /></button>
+                                                <button aria-label="No me gusta" style={{ background: 'none', border: 'none', color: msgRatings[m.id] === 'down' ? '#ef4444' : T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'} onMouseLeave={(e) => e.currentTarget.style.color = msgRatings[m.id] === 'down' ? '#ef4444' : T.muted} onClick={() => toggleRating(m.id, 'down')}><ThumbsDown size={15} /></button>
                                                 <button aria-label={speakingMsgId === m.id ? "Detener voz" : "Leer en voz alta"} style={{ background: 'none', border: 'none', color: speakingMsgId === m.id ? accent : T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = accent} onMouseLeave={(e) => e.currentTarget.style.color = speakingMsgId === m.id ? accent : T.muted} onClick={() => speak(m.content, m.id)}>
                                                     {speakingMsgId === m.id ? <VolumeX size={15} /> : <Volume2 size={15} />}
                                                 </button>
                                                 <button aria-label="Regenerar" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4, borderRadius: 6, transition: 'color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.color = accent} onMouseLeave={(e) => e.currentTarget.style.color = T.muted} onClick={() => send(m.content)}><RotateCcw size={15} /></button>
                                                 <div style={{ position: 'relative' }}>
-                                                    <button style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} onClick={() => setActiveMsgMenu(activeMsgMenu === m.id ? null : m.id)}><MoreVertical size={15} /></button>
+                                                    <button aria-label="Más opciones" style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 4 }} onClick={() => setActiveMsgMenu(activeMsgMenu === m.id ? null : m.id)}><MoreVertical size={15} /></button>
                                                     <AnimatePresence>
                                                         {activeMsgMenu === m.id && (
                                                             <>
@@ -1073,7 +1070,6 @@ export function NexaApp() {
                         </div>
                     </div>
                 </main>
-            )}
 
             <SettingsPanel 
                 isOpen={showSettings} 
@@ -1140,16 +1136,16 @@ function FileUpload({ isOpen, onClose, onFilesSelected, onAnalyzeImage }: { isOp
             {isOpen && (
                 <div style={{ position: 'absolute', bottom: 56, left: 0, zIndex: 70, width: 230 }}>
                     <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        style={{ position: 'relative', width: '100%', background: 'rgba(18,18,18,0.95)', backdropFilter: 'blur(10px)', border: '1px solid #222', borderRadius: 20, padding: 6, boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}>
+                        style={{ position: 'relative', width: '100%', background: T.surf, backdropFilter: 'blur(10px)', border: `1px solid ${T.border}`, borderRadius: 20, padding: 6, boxShadow: `0 20px 50px rgba(0,0,0,0.5)` }}>
                         {(Object.entries(FILE_TYPES) as [FileType, any][]).map(([key, config]) => (
                             <button key={key} onClick={() => { setActiveType(key); if (key === 'camera') camRef.current?.click(); else if (key === 'video') vidRef.current?.click(); else { if (fileRef.current) { fileRef.current.accept = config.accept; fileRef.current.click(); } } }}
                                 style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', borderRadius: 14, transition: '0.2s' }}
                                 onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
                                 onMouseLeave={(e) => e.currentTarget.style.background = 'none'}>
-                                <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#0a0a0a', border: `1px solid ${config.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ width: 34, height: 34, borderRadius: '50%', background: T.bg, border: `1px solid ${config.color}40`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     {<config.icon size={16} color={config.color} />}
                                 </div>
-                                <span style={{ fontSize: 13, fontWeight: 500, color: '#eee' }}>{config.label}</span>
+                                <span style={{ fontSize: 13, fontWeight: 500, color: T.text }}>{config.label}</span>
                             </button>
                         ))}
                     </motion.div>
