@@ -82,6 +82,7 @@ function createStream(
                         });
 
                         if (response.ok && response.body) {
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ provider: providerKey })}\n\n`));
                             const reader = response.body.getReader();
                             while (true) {
                                 const { done, value } = await reader.read();
@@ -124,6 +125,7 @@ function createStream(
                         });
 
                         if (response.ok && response.body) {
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ provider: providerKey })}\n\n`));
                             const reader = response.body.getReader();
                             const dec = new TextDecoder();
                             while (true) {

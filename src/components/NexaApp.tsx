@@ -138,6 +138,7 @@ export function NexaApp() {
     const [showSettings, setShowSettings] = useState(false);
     const [showHeaderMenu, setShowHeaderMenu] = useState(false);
     const [analyzingImage, setAnalyzingImage] = useState(false);
+    const [activeProvider, setActiveProvider] = useState<string>('groq');
 
     // Auth
     const [user, setUser] = useState<any>(null);
@@ -480,6 +481,7 @@ export function NexaApp() {
                         if (!line.startsWith('data: ')) continue;
                         try {
                             const d = JSON.parse(line.slice(6));
+                            if (d.provider) { setActiveProvider(d.provider); }
                             if (d.error) { serverError = d.error; }
                             if (d.text) { full += d.text; setMsgs(p => p.map(m => m.id === aid ? { ...m, content: full } : m)); }
                             if (d.done) {
@@ -717,7 +719,7 @@ export function NexaApp() {
 
             {/* ═══ CHAT VIEW ═══ */}
             {view === 'chat' && (
-                <main role="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10 }}>
+                <main role="main" style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 10, minHeight: 0 }}>
 
                     {/* ─── Header ─── */}
                     <header role="banner" style={{
@@ -1010,7 +1012,15 @@ export function NexaApp() {
                 </main>
             )}
 
-            <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} theme={themeName} onThemeChange={(t: any) => setThemeName(t)} locale={lang} onLocaleChange={(l: any) => setLang(l)} />
+            <SettingsPanel 
+                isOpen={showSettings} 
+                onClose={() => setShowSettings(false)} 
+                theme={themeName} 
+                onThemeChange={(t: any) => setThemeName(t)} 
+                locale={lang} 
+                onLocaleChange={(l: any) => setLang(l)} 
+                activeProvider={activeProvider}
+            />
 
             <style>{`textarea::-webkit-scrollbar { width: 0px; }`}</style>
         </div>
