@@ -409,11 +409,14 @@ export function NexaApp() {
     //  SEND MESSAGE
     // ═══════════════════════════════════════════
 
+    const [sending, setSending] = useState(false);
+
     const send = async (overrideText?: string) => {
-        // CAPTURA INMEDIATA para evitar condiciones de carrera
+        if (sending) return;
         const textToSend = (overrideText ?? input).trim();
         if (!textToSend && attachedFiles.length === 0) return;
         
+        setSending(true);
         setStreaming(false);
         setThinking(false);
 
@@ -423,75 +426,60 @@ export function NexaApp() {
             finalContent = textToSend ? `${textToSend}\n\n${fileInfo}` : fileInfo;
         }
 
-        // Limpiar UI
         if (!overrideText) setInput('');
         setSuggestion('');
         setAttachedFiles([]);
         userScrolledRef.current = false;
 
-        // Asegurar Conversación
         let currentCid = convId;
         if (!currentCid) {
             currentCid = await createConv(finalContent.slice(0, 50));
             setConvId(currentCid);
         }
 
-        const userMsg: Msg = { 
-            id: `u-${Date.now()}`, 
-            role: 'user', 
-            content: finalContent, 
-            ts: Date.now() 
-        };
-        
+        const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: finalContent, ts: Date.now() };
         setMsgs(prev => [...prev, userMsg]);
         setThinking(true);
 
-        try {
-            await sb.from('messages').insert({ 
-                conversation_id: currentCid, 
-                role: 'user', 
-                content: finalContent 
-            });
-        } catch (err) {
-            console.error('[NEXA] DB Error:', err);
-        }
-
-        const assistantId = `a-${Date.now()}`;
+        const aid = `a-${Date.now()}`;
         const thinkingTimeout = setTimeout(() => {
             setThinking(false);
             setStreaming(true);
-            setMsgs(prev => [...prev, { id: assistantId, role: 'assistant', content: '', ts: Date.now(), streaming: true }]);
+            setMsgs(prev => [...prev, { id: aid, role: 'assistant', content: '', ts: Date.now(), streaming: true }]);
         }, 400);
 
         try {
+            await sb.from('messages').insert({ conversation_id: currentCid, role: 'user', content: finalContent });
+            
             const res = await fetch('https://nexa-ai.dev/api/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    messages: [...msgs, userMsg].map(m => ({ role: m.role, content: m.content })) 
+                    messages: [...msgs, userMsg].map(m => ({ role: m.role, content: m.content })),
+                    stream: true 
                 }),
             });
+
             if (!res.ok) {
                 const e = await res.json().catch(() => ({}));
                 throw new Error(e.error || `Error ${res.status}`);
             }
 
-            // Make sure streaming bubble is visible
             clearTimeout(thinkingTimeout);
-            if (!streaming) {
-                setThinking(false);
-                setStreaming(true);
-                setMsgs(p => {
-                    if (p.some(m => m.id === aid)) return p;
-                    return [...p, { id: aid, role: 'assistant' as const, content: '', ts: Date.now(), streaming: true }];
-                });
-            }
+            setThinking(false);
+            setStreaming(true);
+            
+            setMsgs(p => {
+                if (p.some(m => m.id === aid)) return p;
+                return [...p, { id: aid, role: 'assistant', content: '', ts: Date.now(), streaming: true }];
+            });
 
             const reader = res.body?.getReader();
             const dec = new TextDecoder();
             let full = '';
             let buffer = '';
             let serverError = '';
+
             if (reader) {
                 while (true) {
                     const { done, value } = await reader.read();
@@ -504,38 +492,42 @@ export function NexaApp() {
                         if (!line.startsWith('data: ')) continue;
                         try {
                             const d = JSON.parse(line.slice(6));
-                            if (d.provider) { setActiveProvider(d.provider); }
-                            if (d.error) { serverError = d.error; }
-                            if (d.text) { full += d.text; setMsgs(p => p.map(m => m.id === aid ? { ...m, content: full } : m)); }
+                            if (d.provider) setActiveProvider(d.provider);
+                            if (d.error) serverError = d.error;
+                            if (d.text) {
+                                full += d.text;
+                                setMsgs(p => p.map(m => m.id === aid ? { ...m, content: full } : m));
+                            }
                             if (d.done) {
-                                const finalContent = full || d.fullResponse;
-                                setMsgs(p => p.map(m => m.id === aid ? { ...m, content: finalContent, streaming: false } : m));
-                                if (autoSpeak) speak(finalContent);
+                                const finalRes = full || d.fullResponse || '';
+                                setMsgs(p => p.map(m => m.id === aid ? { ...m, content: finalRes, streaming: false } : m));
+                                if (autoSpeak) speak(finalRes);
                             }
                         } catch {}
                     }
                 }
             }
-            // If no content was received, show specific server error or generic message
+
             if (!full) {
                 const errMsg = serverError ? `❌ ${serverError.split('\n')[0]}` : '❌ No se recibió respuesta del servidor.';
                 setMsgs(p => p.map(m => m.id === aid ? { ...m, content: errMsg, streaming: false } : m));
             } else {
-                try { await sb.from('messages').insert({ conversation_id: cid, role: 'assistant', content: full }); } catch {}
+                try { await sb.from('messages').insert({ conversation_id: currentCid, role: 'assistant', content: full }); } catch {}
             }
+
         } catch (e: any) {
             clearTimeout(thinkingTimeout);
             setMsgs(p => {
                 if (p.some(m => m.id === aid)) {
                     return p.map(m => m.id === aid ? { ...m, content: `❌ Error: ${e.message}`, streaming: false } : m);
                 }
-                return [...p, { id: aid, role: 'assistant' as const, content: `❌ Error: ${e.message}`, ts: Date.now(), streaming: false }];
+                return [...p, { id: `e-${Date.now()}`, role: 'assistant', content: `❌ Error: ${e.message}`, ts: Date.now() }];
             });
         } finally {
-            setStreaming(false);
+            setSending(false);
             setThinking(false);
+            setStreaming(false);
         }
-    };
 
     // ═══════════════════════════════════════════
     //  VOICE

@@ -6,6 +6,16 @@ export const runtime = 'edge';
 
 const limiter = createRateLimiter();
 
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export async function OPTIONS() {
+    return new Response(null, { status: 204, headers: corsHeaders });
+}
+
 interface IncomingMessage {
     role: string;
     content: string;
@@ -25,7 +35,6 @@ Responde siempre en español. Usa markdown cuando sea apropiado.`;
 
 export async function POST(req: NextRequest) {
     try {
-        // Rate limiting
         const identifier = getIdentifier(req);
         const rateLimit = await limiter.checkPreset(identifier, 'chat');
         if (!rateLimit.allowed) {
@@ -33,28 +42,15 @@ export async function POST(req: NextRequest) {
                 { error: 'Rate limit exceeded', code: 'RATE_LIMITED' },
                 {
                     status: 429,
-                    headers: { 'Retry-After': String(Math.ceil((rateLimit.retryAfterMs || 60000) / 1000)) }
+                    headers: { ...corsHeaders, 'Retry-After': String(Math.ceil((rateLimit.retryAfterMs || 60000) / 1000)) }
                 }
             );
         }
 
-        const rawBody = await req.json();
-        const parsed = aiSchema.safeParse(rawBody);
-        if (!parsed.success) {
-            return NextResponse.json(
-                { error: 'Invalid input', code: 'VALIDATION_ERROR', details: parsed.error.issues },
-                { status: 400 }
-            );
-        }
-
-        const body: RequestBody = {
-            ...rawBody,
-            messages: parsed.data.messages,
-        };
+        const body: RequestBody = await req.json();
         const provider = body.provider || 'auto';
-        const messages: IncomingMessage[] = body.messages || [];
+        const messages = body.messages || [];
         
-        // Ensure system prompt
         if (!messages.find((m) => m.role === 'system')) {
             messages.unshift({ role: 'system', content: SYSTEM_PROMPT });
         }
@@ -62,112 +58,71 @@ export async function POST(req: NextRequest) {
         let fullText = '';
         let usedProvider = '';
 
-        // Try Gemini (Google) first
+        // Gemini (Google)
         if (provider === 'gemini' || provider === 'auto') {
-            const key = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+            const key = process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
             if (key) {
                 const model = body.model || 'gemini-1.5-flash';
-                const geminiMessages = messages
-                    .filter((m) => m.role !== 'system')
-                    .map((m) => ({
-                        role: m.role === 'assistant' ? 'model' : 'user',
-                        parts: [{ text: m.content }]
-                    }));
+                const geminiMessages = messages.filter(m => m.role !== 'system').map(m => ({
+                    role: m.role === 'assistant' ? 'model' : 'user',
+                    parts: [{ text: m.content }]
+                }));
+                const systemMsg = messages.find(m => m.role === 'system');
 
-                const systemMsg = messages.find((m) => m.role === 'system');
-
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        system_instruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
-                        contents: geminiMessages,
-                        generationConfig: { temperature: body.temperature ?? 0.7 }
-                    }),
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    fullText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                    usedProvider = 'gemini';
-                }
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            system_instruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
+                            contents: geminiMessages,
+                            generationConfig: { temperature: body.temperature ?? 0.7 }
+                        }),
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        fullText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                        usedProvider = 'gemini';
+                    }
+                } catch {}
             }
         }
 
-        // Try Anthropic next
-        if (!fullText && (provider === 'anthropic' || provider === 'auto')) {
-            const key = process.env.ANTHROPIC_API_KEY;
+        // Groq
+        if (!fullText && (provider === 'groq' || provider === 'auto')) {
+            const key = process.env.GROQ_API_KEY;
             if (key) {
-                const anthropicMessages = messages
-                    .filter((m) => m.role !== 'system')
-                    .map((m) => ({
-                        role: m.role === 'user' ? 'user' : 'assistant',
-                        content: m.content
-                    }));
-                    
-                const systemMsg = messages.find((m) => m.role === 'system');
-
-                const res = await fetch('https://api.anthropic.com/v1/messages', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': key,
-                        'anthropic-version': '2023-06-01',
-                    },
-                    body: JSON.stringify({
-                        model: body.model || 'claude-3-haiku-20240307',
-                        messages: anthropicMessages,
-                        system: systemMsg?.content,
-                        temperature: body.temperature ?? 0.7,
-                        max_tokens: body.max_tokens ?? 2048,
-                    }),
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    fullText = data.content?.[0]?.text || '';
-                    usedProvider = 'anthropic';
-                }
+                try {
+                    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                        body: JSON.stringify({
+                            model: body.model || 'llama-3.3-70b-versatile',
+                            messages: messages.map(m => ({ role: m.role, content: m.content })),
+                            temperature: body.temperature ?? 0.7
+                        }),
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        fullText = data.choices?.[0]?.message?.content || '';
+                        usedProvider = 'groq';
+                    }
+                } catch {}
             }
         }
 
         if (!fullText) {
-            return NextResponse.json({ error: 'All providers failed or no keys found' }, { status: 503 });
+            return NextResponse.json({ error: 'All providers failed or no key found' }, { status: 503, headers: corsHeaders });
         }
 
-        // Return fake SSE stream so NexaApp.tsx parses it correctly
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-            start(controller) {
-                // Send the text chunk
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: fullText })}\n\n`));
-                // Send the done chunk
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse: fullText })}\n\n`));
-                controller.close();
-            }
-        });
+        return NextResponse.json({ 
+            content: fullText, 
+            provider: usedProvider,
+            ts: Date.now() 
+        }, { headers: corsHeaders });
 
-        return new NextResponse(stream, {
-            headers: {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
-            },
-        });
-
-    } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        return NextResponse.json({ error: message }, { status: 500 });
+    } catch (error: any) {
+        console.error('[NEXA] Chat error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }
-}
-
-export async function OPTIONS() {
-    return new NextResponse(null, {
-        status: 204,
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
-    });
 }
