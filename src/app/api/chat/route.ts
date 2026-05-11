@@ -185,25 +185,8 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: NextRequest) {
-    const requestId = generateRequestId();
-    
-    try {
-        const body = await req.json().catch(() => null);
-        if (!body) {
-            return NextResponse.json({ error: 'Cuerpo de petición vacío' }, { status: 400, headers: corsHeaders });
-        }
-
-        const parsed = chatSchema.safeParse(body);
-        if (!parsed.success) {
-            return NextResponse.json({ error: 'Formato inválido', details: parsed.error.issues }, { status: 400, headers: corsHeaders });
-        }
-
-        const { messages, mode = 'default' } = parsed.data;
-        const systemPrompt = getSystemPrompt(mode);
-        
-        if (!messages.find(m => m.role === 'system')) {
-            messages.unshift({ role: 'system', content: systemPrompt });
-        }
+    return NextResponse.json({ message: "Backend is LIVE", status: "OK" }, { headers: corsHeaders });
+}
 
         const keys = {
             GROQ_API_KEY: process.env.GROQ_API_KEY,
