@@ -412,7 +412,6 @@ export function NexaApp() {
         setTimeout(() => scrollToBottom(false), 100);
     };
 
-<<<<<<< HEAD
     const exportConv = (id: string, format: 'json' | 'txt') => {
         const c = (Array.isArray(convs) ? convs : []).find(cv => cv.id === id);
         const content = format === 'json' 
@@ -424,13 +423,12 @@ export function NexaApp() {
         a.href = url; a.download = `${c?.title || 'nexa-chat'}.${format}`; a.click();
         URL.revokeObjectURL(url);
     };
-=======
+
     // ═══════════════════════════════════════════
     //  SEND MESSAGE
     // ═══════════════════════════════════════════
 
     const [sending, setSending] = useState(false);
->>>>>>> d04f5f407b99893da2103c48af6df4590f21113d
 
     const send = async (overrideText?: string) => {
         if (sending) return;
