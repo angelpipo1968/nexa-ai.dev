@@ -1,1 +1,0 @@
-# NEXA OS Avatar Module

@@ -9,7 +9,6 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
-nul
 
 # IDE
 .vscode/
@@ -21,64 +20,23 @@ nul
 .env
 .env.*
 !.env.example
-mcp_config.json*
-hf_secrets.py
-execution/
-scripts/
-*.sig
-*.vsix
-*.apk
-*.exe
-*.bin
-
-# BACKUPS
-backup/
-backups/
-_backup/
-_backups/
-src_backup_*
-*.bak
-*.old
 
 # LOGS
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lint_debug.txt
-eslint_debug.txt
-error.txt
-help.txt
-output.txt
-temp.txt
-tsc.txt
-logcat.txt
 
-# DATABASE
-*.sql
-*.sqlite
-*.db
+# BUILD ARTIFACTS
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# COVERAGE
+coverage/
+
+# ANDROID
+*.apk
+*.aab
 
 # MISC
 temp/
-coverage/
 __pycache__/
 *.pyc
-nixpacks.toml
-Procfile
-Makefile
-Dockerfile
-docker-compose.yml
-
-# Supabase temp
-supabase/.temp/
-
-# Build artifacts in packages
-src/packages/**/*.d.ts
-src/packages/**/*.d.ts.map
-src/packages/**/*.js
-src/packages/**/*.js.map
-.vercel
-
-# Sentry auth token
-.env.sentry-build-plugin

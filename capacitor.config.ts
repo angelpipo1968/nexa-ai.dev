@@ -5,8 +5,6 @@ const config: CapacitorConfig = {
     appName: 'NEXA AI',
     webDir: 'out',
     server: {
-        url: 'https://nexa-ai.dev/',
-        cleartext: true,
         androidScheme: 'https',
     },
     android: {
@@ -16,9 +14,12 @@ const config: CapacitorConfig = {
         },
     },
     plugins: {
+        CapacitorHttp: {
+            enabled: true,
+        },
         SplashScreen: {
-            launchAutoHide: false,              // Control manual
-            launchShowDuration: 3000,           // 3 segundos
+            launchAutoHide: false,
+            launchShowDuration: 3000,
             backgroundColor: '#0a0a0a',
             showSpinner: false,
             androidSplashResourceName: 'splash',

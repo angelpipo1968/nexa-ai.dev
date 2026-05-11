@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -18,40 +14,10 @@
     "jsx": "preserve",
     "incremental": true,
     "paths": {
-      "@/*": [
-        "./src/*",
-        "./*"
-      ],
-      "@nexa/*": [
-        "./src/packages/*"
-      ]
+      "@/*": ["./src/*"]
     },
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
+    "plugins": [{ "name": "next" }]
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build",
-    "coverage",
-    "src_backup_20260202_152431",
-    "_backup",
-    "**/*backup*",
-    "scripts",
-    "public",
-    "apps",
-    "python_agent",
-    "supabase/functions",
-    "**/*.test.ts",
-    "**/*.spec.ts"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
 }

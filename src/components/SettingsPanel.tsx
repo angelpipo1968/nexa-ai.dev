@@ -55,13 +55,24 @@ interface SettingsProps {
     onThemeChange: (t: 'system' | 'light' | 'dark') => void;
     locale: string;
     onLocaleChange: (l: string) => void;
+    activeProvider?: string;
 }
+
+const PROVIDER_NAMES: Record<string, string> = {
+    groq: 'Nexa Core (Llama 3.3 70B)',
+    groq_fast: 'Nexa Fast (Llama 3.1 8B)',
+    gemini: 'Nexa Vision (Gemini 2.0 Flash)',
+    deepseek: 'Nexa Deep (DeepSeek Chat)',
+    openai: 'Nexa GPT (GPT-4o Mini)',
+};
 
 // ═══════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════
 
-export function SettingsPanel({ isOpen, onClose, theme, onThemeChange, locale, onLocaleChange }: SettingsProps) {
+export function SettingsPanel({ 
+    isOpen, onClose, theme, onThemeChange, locale, onLocaleChange, activeProvider = 'groq' 
+}: SettingsProps) {
     const [page, setPage] = useState<Page>('main');
     const [user, setUser] = useState<any>(null);
     const [aMode, setAMode] = useState<'login' | 'signup'>('login');
@@ -516,7 +527,7 @@ export function SettingsPanel({ isOpen, onClose, theme, onThemeChange, locale, o
                             <SettingRow
                                 icon={Brain} iconColor={C.accent}
                                 label="Modelo de IA"
-                                value="Claude Sonnet 4"
+                                value={PROVIDER_NAMES[activeProvider] || activeProvider}
                             />
                             <Divider />
                             <SettingRow
