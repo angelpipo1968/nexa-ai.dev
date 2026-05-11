@@ -55,25 +55,65 @@ function createStream(
     intent: any
 ) {
     const encoder = new TextEncoder();
+    const model = intent?.model;
     
     return new ReadableStream({
         async start(controller) {
+            let usedProvider = '';
             let fullResponse = '';
-            
+
             for (const providerKey of FALLBACK_ORDER) {
                 const config = (PROVIDERS as any)[providerKey];
                 const key = keys[config.keyEnv];
                 
-                // Ollama doesn't need a key
                 if (providerKey !== 'ollama' && !key) {
-                    logger.debug(`Skipping provider ${providerKey} - No API Key`, 'chat', { requestId });
+                    logger.debug(`Skipping ${providerKey} - Missing API Key`, 'chat', { requestId });
                     continue;
                 }
 
                 try {
-                    logger.info(`Trying provider: ${providerKey}`, 'chat', { requestId });
+                    logger.info(`Attempting chat with ${providerKey}`, 'chat', { requestId, model: model || config.model });
                     
-                    if (providerKey === 'gemini') {
+                    if (providerKey === 'groq') {
+                        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${key}`,
+                            },
+                            body: JSON.stringify({
+                                model: model || 'llama-3.3-70b-versatile',
+                                messages: messages,
+                                stream: true,
+                                temperature: 0.7,
+                            }),
+                        });
+
+                        if (res.ok && res.body) {
+                            usedProvider = 'groq';
+                            const reader = res.body.getReader();
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                const chunk = new TextDecoder().decode(value);
+                                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                                for (const line of lines) {
+                                    if (line.includes('[DONE]')) continue;
+                                    if (line.startsWith('data: ')) {
+                                        try {
+                                            const data = JSON.parse(line.slice(6));
+                                            const content = data.choices?.[0]?.delta?.content || '';
+                                            fullResponse += content;
+                                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'groq' })}\n\n`));
+                                        } catch (e) { }
+                                    }
+                                }
+                            }
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'groq' })}\n\n`));
+                            controller.close();
+                            return;
+                        }
+                    } else if (providerKey === 'gemini') {
                         const geminiMessages = messages
                             .filter(m => m.role !== 'system')
                             .map(m => ({
@@ -235,11 +275,18 @@ export async function POST(req: NextRequest) {
     const requestId = generateRequestId();
     
     try {
-        const body = await req.json();
+        const body = await req.json().catch(() => null);
+        if (!body) {
+            return NextResponse.json({ error: 'Cuerpo de petición vacío o inválido' }, { status: 400 });
+        }
+
         const parsed = chatSchema.safeParse(body);
-        
         if (!parsed.success) {
-            return NextResponse.json({ error: 'Payload inválido' }, { status: 400 });
+            return NextResponse.json({ 
+                error: 'Invalid input format', 
+                details: parsed.error.issues,
+                code: 'VALIDATION_ERROR'
+            }, { status: 400 });
         }
 
         const { messages, mode = 'default' } = parsed.data;

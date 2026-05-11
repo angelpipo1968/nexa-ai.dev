@@ -377,7 +377,9 @@ export function NexaApp() {
 
     const exportConv = (id: string, format: 'json' | 'txt') => {
         const c = (Array.isArray(convs) ? convs : []).find(cv => cv.id === id);
-        const content = format === 'json' ? JSON.stringify({ title: c?.title, messages: msgs }, null, 2) : (Array.isArray(msgs) ? msgs : []).map(m => `${m.role.toUpperCase()}: ${renderMessageContent(m.content)}`).join('\n\n');
+        const content = format === 'json' 
+            ? JSON.stringify({ title: c?.title, messages: msgs }, null, 2) 
+            : (Array.isArray(msgs) ? msgs : []).map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
         const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/plain' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
