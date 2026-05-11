@@ -111,8 +111,69 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        // OpenAI
+        if (!fullText && (provider === 'openai' || provider === 'auto')) {
+            const key = process.env.OPENAI_API_KEY;
+            if (key) {
+                try {
+                    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                        body: JSON.stringify({
+                            model: body.model || 'gpt-4o-mini',
+                            messages: messages.map(m => ({ role: m.role, content: m.content })),
+                            temperature: body.temperature ?? 0.7
+                        }),
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        fullText = data.choices?.[0]?.message?.content || '';
+                        usedProvider = 'openai';
+                    }
+                } catch {}
+            }
+        }
+
+        // Anthropic
+        if (!fullText && (provider === 'anthropic' || provider === 'auto')) {
+            const key = process.env.ANTHROPIC_API_KEY;
+            if (key) {
+                try {
+                    const res = await fetch('https://api.anthropic.com/v1/messages', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json', 
+                            'x-api-key': key,
+                            'anthropic-version': '2023-06-01'
+                        },
+                        body: JSON.stringify({
+                            model: body.model || 'claude-3-5-sonnet-20240620',
+                            max_tokens: 1024,
+                            messages: messages.filter(m => m.role !== 'system').map(m => ({ role: m.role, content: m.content })),
+                            system: messages.find(m => m.role === 'system')?.content,
+                            temperature: body.temperature ?? 0.7
+                        }),
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        fullText = data.content?.[0]?.text || '';
+                        usedProvider = 'anthropic';
+                    }
+                } catch {}
+            }
+        }
+
         if (!fullText) {
-            return NextResponse.json({ error: 'All providers failed or no key found' }, { status: 503, headers: corsHeaders });
+            const status = {
+                google: !!process.env.GOOGLE_AI_API_KEY,
+                groq: !!process.env.GROQ_API_KEY,
+                openai: !!process.env.OPENAI_API_KEY,
+                anthropic: !!process.env.ANTHROPIC_API_KEY,
+            };
+            return NextResponse.json({ 
+                error: 'All providers failed or no keys found',
+                debug: status
+            }, { status: 503, headers: corsHeaders });
         }
 
         return NextResponse.json({ 

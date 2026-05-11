@@ -55,8 +55,11 @@ interface Conv { id: string; title: string; pinned?: boolean; archived?: boolean
 // ═══════════════════════════════════════════
 
 function Particles({ color, count = 20 }: { color: string; count?: number }) {
-    const particles = useRef(
-        Array.from({ length: count }, (_, i) => ({
+    const [particles, setParticles] = useState<{ id: number; x: number; y: number; size: number; duration: number; delay: number; opacity: number; }[]>([]);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setParticles(Array.from({ length: count }, (_, i) => ({
             id: i,
             x: Math.random() * 100,
             y: Math.random() * 100,
@@ -64,8 +67,11 @@ function Particles({ color, count = 20 }: { color: string; count?: number }) {
             duration: Math.random() * 20 + 15,
             delay: Math.random() * 10,
             opacity: Math.random() * 0.15 + 0.03,
-        }))
-    ).current;
+        })));
+        setMounted(true);
+    }, [count]);
+
+    if (!mounted) return null;
 
     return (
         <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
@@ -121,6 +127,8 @@ function TypingIndicator({ accent }: { accent: string }) {
 // ═══════════════════════════════════════════
 
 export function NexaApp() {
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
     // ─── States ───
     const [msgs, setMsgs] = useState<Msg[]>([]);
     const [convs, setConvs] = useState<Conv[]>([]);
@@ -157,7 +165,6 @@ export function NexaApp() {
     const [speaking, setSpeaking] = useState(false);
     const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
     const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
-    const [mounted, setMounted] = useState(false);
     const [convLoading, setConvLoading] = useState(false);
     const [msgRatings, setMsgRatings] = useState<Record<string, 'up' | 'down'>>({});
 
@@ -1049,7 +1056,7 @@ export function NexaApp() {
                                 boxShadow: `0 4px 24px rgba(0,0,0,${resolvedTheme === 'light' ? '0.04' : '0.3'})`,
                                 transition: 'border-color 0.3s, box-shadow 0.3s',
                             }}>
-                                <FileUpload isOpen={showUpload} onClose={() => setShowUpload(false)} onFilesSelected={(files) => setAttachedFiles(p => [...p, ...files])} onAnalyzeImage={analyzeImage} />
+                                <FileUpload isOpen={showUpload} onClose={() => setShowUpload(false)} onFilesSelected={(files) => setAttachedFiles(p => [...p, ...files])} onAnalyzeImage={analyzeImage} theme={T} />
 
                                 <button aria-label="Adjuntar" onClick={() => setShowUpload(!showUpload)}
                                     style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, border: 'none', background: `${accent}10`, color: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}>
@@ -1135,7 +1142,7 @@ export function NexaApp() {
 //  FILE UPLOAD COMPONENT
 // ═══════════════════════════════════════════
 
-function FileUpload({ isOpen, onClose, onFilesSelected, onAnalyzeImage }: { isOpen: boolean; onClose: () => void; onFilesSelected: (files: UploadedFile[]) => void; onAnalyzeImage?: (file: File) => Promise<void> }) {
+function FileUpload({ isOpen, onClose, onFilesSelected, onAnalyzeImage, theme: T }: { isOpen: boolean; onClose: () => void; onFilesSelected: (files: UploadedFile[]) => void; onAnalyzeImage?: (file: File) => Promise<void>; theme: any }) {
     const fileRef = useRef<HTMLInputElement>(null);
     const camRef = useRef<HTMLInputElement>(null);
     const vidRef = useRef<HTMLInputElement>(null);

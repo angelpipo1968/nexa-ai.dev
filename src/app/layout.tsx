@@ -23,7 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <link rel="icon" href="/favicon.ico" />
             </head>
             <body suppressHydrationWarning>
-                <SentryInit />
+                {/* <SentryInit /> */}
                 {children}
             </body>
         </html>
