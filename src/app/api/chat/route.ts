@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRateLimiter, getIdentifier } from '@/lib/rate-limiter';
 import { aiSchema } from '@/lib/validation';
 
-export const runtime = 'edge';
+// export const runtime = 'edge'; // Switching to Node.js for higher memory limit and reliability
+export const maxDuration = 60; // 60 seconds limit
 
 const limiter = createRateLimiter();
 
@@ -58,33 +59,39 @@ export async function POST(req: NextRequest) {
         let fullText = '';
         let usedProvider = '';
 
-        // Gemini (Google)
-        if (provider === 'gemini' || provider === 'auto') {
-            const key = process.env.GOOGLE_AI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-            if (key) {
-                const model = body.model || 'gemini-1.5-flash';
-                const geminiMessages = messages.filter(m => m.role !== 'system').map(m => ({
-                    role: m.role === 'assistant' ? 'model' : 'user',
-                    parts: [{ text: m.content }]
-                }));
-                const systemMsg = messages.find(m => m.role === 'system');
+        // ─── Provider Fallback Chain ───
 
+        // Gemini
+        if (!fullText && (provider === 'gemini' || provider === 'auto')) {
+            const key = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
+            if (key) {
                 try {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            system_instruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
-                            contents: geminiMessages,
-                            generationConfig: { temperature: body.temperature ?? 0.7 }
-                        }),
-                    });
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+                    
+                    const res = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/${body.model || 'gemini-1.5-flash'}:generateContent?key=${key}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            signal: controller.signal,
+                            body: JSON.stringify({
+                                system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                                contents: [{ parts: messages.map(m => ({ text: m.content })) }],
+                                generationConfig: { temperature: body.temperature ?? 0.7, maxOutputTokens: 2048 }
+                            }),
+                        }
+                    );
+                    clearTimeout(timeoutId);
+                    
                     if (res.ok) {
                         const data = await res.json();
                         fullText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
                         usedProvider = 'gemini';
                     }
-                } catch {}
+                } catch (e) {
+                    console.error('[NEXA] Gemini Fallback Error:', e);
+                }
             }
         }
 
