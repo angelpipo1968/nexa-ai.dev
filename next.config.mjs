@@ -41,8 +41,8 @@ let finalConfig = nextConfig;
 if (hasSentryToken) {
     try {
         finalConfig = withSentryConfig(nextConfig, {
-            org: 'nexa-na',
-            project: 'javascript-nextjs',
+            org: process.env.SENTRY_ORG || 'nexa-ai',
+            project: process.env.SENTRY_PROJECT || 'nexa-ai',
             authToken: process.env.SENTRY_AUTH_TOKEN,
             tunnelRoute: '/sentry-tunnel',
             silent: !process.env.CI,
@@ -50,6 +50,9 @@ if (hasSentryToken) {
             hideSourceMaps: true,
             disableLogger: true,
             automaticVercelMonitors: true,
+            // Dry run prevents sentry-cli from failing the build if token lacks release permissions
+            // Remove this line once your Sentry token has "release" and "org" permissions
+            dryRun: true,
         });
     } catch (e) {
         console.warn('Sentry: withSentryConfig failed to apply. Falling back to default config.');
