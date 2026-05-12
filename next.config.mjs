@@ -1,9 +1,10 @@
-import { withSentryConfig } from '@sentry/nextjs';
+﻿import { withSentryConfig } from '@sentry/nextjs';
 
 const hasSentryToken = !!process.env.SENTRY_AUTH_TOKEN;
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    output: 'export',
     reactStrictMode: true,
     eslint: { ignoreDuringBuilds: true },
     typescript: { ignoreBuildErrors: true },
@@ -19,7 +20,7 @@ const nextConfig = {
             { protocol: 'https', hostname: 'ykzoeytmcxlsodwdavtv.supabase.co' },
         ],
     },
-    compress: true,
+
     async headers() {
         return [
             {
@@ -57,3 +58,7 @@ if (hasSentryToken) {
 }
 
 export default finalConfig;
+
+
+
+
