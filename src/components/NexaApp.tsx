@@ -547,6 +547,7 @@ export function NexaApp() {
             setThinking(false);
             setStreaming(false);
         }
+    };
 
     // ═══════════════════════════════════════════
     //  VOICE
@@ -1148,8 +1149,6 @@ export function NexaApp() {
             <style>{`textarea::-webkit-scrollbar { width: 0px; }`}</style>
         </div>
     );
-}
-
 }
 
 // ═══════════════════════════════════════════
