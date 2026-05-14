@@ -764,6 +764,15 @@ export function NexaApp() {
                             }}>
                                 <Code2 size={14} /> GENERAR CÓDIGO
                             </a>
+                            <a href="/developer" style={{
+                                width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '10px 14px', borderRadius: 12, background: '#00e5a015',
+                                border: '1px solid #00e5a030', color: '#00e5a0', fontSize: 13,
+                                fontWeight: 600, cursor: 'pointer', textDecoration: 'none', marginTop: 6,
+                                transition: 'all 0.2s'
+                            }}>
+                                <Zap size={14} /> MODO DEVELOPER (SOLO)
+                            </a>
                         </div>
                         <div style={{ padding: '8px 12px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: T.inputBg, border: `1px solid ${T.border}`, borderRadius: 10, padding: '6px 10px' }}>
