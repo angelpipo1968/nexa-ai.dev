@@ -14,4 +14,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Nexa AI"
-include(":app")
+include(":android_app")
