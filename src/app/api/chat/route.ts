@@ -18,6 +18,7 @@ import { getMemories, extractAndSaveFacts } from '@/lib/nexa-core/memory';
 import { auditCode } from '@/lib/nexa-core/repairer';
 import { searchVideos, searchLibraries } from '@/lib/nexa-core/multimedia';
 import { searchReddit, searchYouTube } from '@/lib/nexa-core/social';
+import { searchSpotify } from '@/lib/nexa-core/spotify';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -436,6 +437,18 @@ export async function POST(req: NextRequest) {
             try {
                 const query = userQuery.replace(/youtube|ver video de|busca en youtube/gi, "").trim();
                 toolContext += await searchYouTube(query) + "\n";
+            } catch {}
+        }
+
+        const triggerSpotify = ['spotify', 'canción de', 'cancion de', 'álbum de', 'album de', 'playlist de', 'escuchar a'];
+        if (triggerSpotify.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                let type: 'track' | 'playlist' | 'album' = 'track';
+                if (lowerQuery.includes('playlist')) type = 'playlist';
+                if (lowerQuery.includes('album') || lowerQuery.includes('álbum')) type = 'album';
+                
+                const query = userQuery.replace(/spotify|canción de|cancion de|álbum de|album de|playlist de|escuchar a/gi, "").trim();
+                toolContext += await searchSpotify(query, type) + "\n";
             } catch {}
         }
 
