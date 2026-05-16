@@ -21,6 +21,7 @@ import { searchReddit, searchYouTube } from '@/lib/nexa-core/social';
 import { searchSpotify } from '@/lib/nexa-core/spotify';
 import { getUserLocation, getLocalTime } from '@/lib/nexa-core/location';
 import { searchPlace } from '@/lib/nexa-core/maps';
+import { searchArXiv, searchBooks } from '@/lib/nexa-core/academic';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -477,6 +478,23 @@ Hora Local: ${timeStr}
             try {
                 const query = userQuery.replace(/mapa de|dónde queda|donde queda|ubicación de|ubicacion de|dirección de|direccion de/gi, "").trim();
                 toolContext += await searchPlace(query) + "\n";
+            } catch {}
+        }
+
+        // 15. ACADÉMICO Y LIBROS (ArXiv y Gutenberg)
+        const triggerScience = ['artículo de', 'estudio de', 'ciencia de', 'arxiv', 'investigación sobre'];
+        if (triggerScience.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const query = userQuery.replace(/artículo de|estudio de|ciencia de|arxiv|investigación sobre/gi, "").trim();
+                toolContext += await searchArXiv(query) + "\n";
+            } catch {}
+        }
+
+        const triggerBooks = ['libro de', 'novela de', 'literatura de', 'gutenberg', 'leer a'];
+        if (triggerBooks.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const query = userQuery.replace(/libro de|novela de|literatura de|gutenberg|leer a/gi, "").trim();
+                toolContext += await searchBooks(query) + "\n";
             } catch {}
         }
 
