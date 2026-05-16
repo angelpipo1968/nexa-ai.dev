@@ -8,6 +8,8 @@ import { searchFlights } from '@/lib/nexa-core/aviation';
 import { getWeather } from '@/lib/nexa-core/weather';
 import { generateImage } from '@/lib/nexa-core/images';
 import { getWolframAnswer } from '@/lib/nexa-core/wolfram';
+import { searchMovies } from '@/lib/nexa-core/tmdb';
+import { getNASAAPOD, searchMarsPhotos } from '@/lib/nexa-core/nasa';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -301,6 +303,29 @@ export async function POST(req: NextRequest) {
                 const answer = await getWolframAnswer(userQuery);
                 if (answer && !answer.includes('Error')) {
                     toolContext += `DATOS EXACTOS (WolframAlpha): ${answer}\n`;
+                }
+            } catch {}
+        }
+
+        // 5. PELÍCULAS Y SERIES (TMDB)
+        const triggerMovies = ['película', 'serie', 'actor', 'director', 'estreno', 'reparto', 'quien sale en'];
+        if (triggerMovies.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const report = await searchMovies(userQuery);
+                if (report && !report.includes('Error')) {
+                    toolContext += `${report}\n`;
+                }
+            } catch {}
+        }
+
+        // 6. ESPACIO Y NASA
+        const triggerSpace = ['nasa', 'espacio', 'marte', 'universo', 'estrella', 'galaxia', 'planeta'];
+        if (triggerSpace.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                if (lowerQuery.includes('marte')) {
+                    toolContext += await searchMarsPhotos() + "\n";
+                } else {
+                    toolContext += await getNASAAPOD() + "\n";
                 }
             } catch {}
         }
