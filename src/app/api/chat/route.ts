@@ -19,6 +19,7 @@ import { auditCode } from '@/lib/nexa-core/repairer';
 import { searchVideos, searchLibraries } from '@/lib/nexa-core/multimedia';
 import { searchReddit, searchYouTube } from '@/lib/nexa-core/social';
 import { searchSpotify } from '@/lib/nexa-core/spotify';
+import { getUserLocation, getLocalTime } from '@/lib/nexa-core/location';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -252,6 +253,14 @@ export async function POST(req: NextRequest) {
         const userQuery = messages[messages.length - 1].content;
         const lowerQuery = userQuery.toLowerCase();
         let toolContext = "";
+
+        // 0. CONTEXTO DE UBICACIÓN Y TIEMPO (Auto-Inyectado)
+        const location = await getUserLocation();
+        const timeStr = await getLocalTime(location?.timezone);
+        toolContext += `[CONTEXTO ACTUAL DEL USUARIO]:
+Ubicación: ${location?.city || 'Desconocida'}, ${location?.country || 'Desconocida'}
+Hora Local: ${timeStr}
+--------------------------------------------------\n\n`;
 
         // 1. CLIMA
         if (lowerQuery.includes('clima') || lowerQuery.includes('tiempo') || lowerQuery.includes('weather') || lowerQuery.includes('temperatura')) {
