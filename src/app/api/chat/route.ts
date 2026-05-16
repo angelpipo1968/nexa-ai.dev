@@ -11,6 +11,7 @@ import { getWolframAnswer } from '@/lib/nexa-core/wolfram';
 import { searchMovies } from '@/lib/nexa-core/tmdb';
 import { getNASAAPOD, searchMarsPhotos } from '@/lib/nexa-core/nasa';
 import { getStockPrice, getCryptoPrice } from '@/lib/nexa-core/finance';
+import { getLotteryResults } from '@/lib/nexa-core/lottery';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -346,6 +347,19 @@ export async function POST(req: NextRequest) {
                         toolContext += await getStockPrice(symbolMatch[0]) + "\n";
                     }
                 }
+            } catch {}
+        }
+
+        // 8. LOTERÍA
+        const triggerLottery = ['lotería', 'loteria', 'sorteo', 'powerball', 'megamillions', 'melate', 'chispazo'];
+        if (triggerLottery.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                // Mapeo básico de juegos comunes
+                let game = 'us_powerball';
+                if (lowerQuery.includes('mega')) game = 'us_megamillions';
+                if (lowerQuery.includes('melate')) game = 'mx_melate';
+                
+                toolContext += await getLotteryResults(game) + "\n";
             } catch {}
         }
 
