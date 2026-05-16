@@ -3,6 +3,7 @@ import { getSystemPrompt } from '@/lib/nexa-core/prompts';
 import { checkRateLimit, getIdentifier, RATE_LIMITS } from '@/lib/nexa-core/rate-limiter';
 import { logger, generateRequestId } from '@/lib/nexa-core/logger';
 import { visionSchema } from '@/lib/validation';
+import { processAdvancedVision } from '@/lib/nexa-core/vision-plus';
 
 export async function POST(req: NextRequest) {
     const requestId = generateRequestId();
@@ -32,6 +33,10 @@ export async function POST(req: NextRequest) {
 
         logger.info('Vision analysis request', 'vision', { requestId, mimeType });
 
+        // 🧠 --- PROCESAMIENTO AVANZADO (QR / OCR PROACTIVO) ---
+        const advancedData = await processAdvancedVision(image);
+        const isQR = advancedData.includes('[QR DETECTADO]');
+
         const googleKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
         const openaiKey = process.env.OPENAI_API_KEY;
 
@@ -59,7 +64,11 @@ export async function POST(req: NextRequest) {
 
                 if (res.ok) {
                     const data = await res.json();
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    
+                    // Combinamos el escaneo técnico con el análisis de la IA
+                    if (advancedData) text = `${advancedData}\n\nANÁLISIS VISUAL:\n${text}`;
+                    
                     logger.info('Vision analysis completed via Gemini', 'vision', { requestId });
                     return NextResponse.json({ response: text, provider: 'gemini', model });
                 } else {
