@@ -10,6 +10,7 @@ import { generateImage } from '@/lib/nexa-core/images';
 import { getWolframAnswer } from '@/lib/nexa-core/wolfram';
 import { searchMovies } from '@/lib/nexa-core/tmdb';
 import { getNASAAPOD, searchMarsPhotos } from '@/lib/nexa-core/nasa';
+import { getStockPrice, getCryptoPrice } from '@/lib/nexa-core/finance';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -326,6 +327,24 @@ export async function POST(req: NextRequest) {
                     toolContext += await searchMarsPhotos() + "\n";
                 } else {
                     toolContext += await getNASAAPOD() + "\n";
+                }
+            } catch {}
+        }
+
+        // 7. FINANZAS (Cripto y Bolsa)
+        const triggerFinance = ['precio de', 'cotización', 'cuanto vale', 'cuánto vale', 'bitcoin', 'ethereum', 'btc', 'eth', 'bolsa', 'acción', 'accion'];
+        if (triggerFinance.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                if (lowerQuery.includes('bitcoin') || lowerQuery.includes('btc')) {
+                    toolContext += await getCryptoPrice('bitcoin') + "\n";
+                } else if (lowerQuery.includes('ethereum') || lowerQuery.includes('eth')) {
+                    toolContext += await getCryptoPrice('ethereum') + "\n";
+                } else {
+                    // Intenta extraer símbolo de bolsa (ej: AAPL, TSLA)
+                    const symbolMatch = userQuery.match(/\b[A-Z]{3,5}\b/);
+                    if (symbolMatch) {
+                        toolContext += await getStockPrice(symbolMatch[0]) + "\n";
+                    }
                 }
             } catch {}
         }
