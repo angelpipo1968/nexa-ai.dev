@@ -49,7 +49,7 @@ export async function getCountryData(country: string): Promise<string> {
 Capital: ${c.capital?.[0]}
 Población: ${c.population.toLocaleString()}
 Continente: ${c.continents?.[0]}
-Moneda: ${Object.values(c.currencies || {})[0]?.name || 'N/A'}`;
+Moneda: ${(Object.values(c.currencies || {})[0] as any)?.name || 'N/A'}`;
     } catch {
         return "Error al consultar datos del país.";
     }

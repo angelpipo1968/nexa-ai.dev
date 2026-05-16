@@ -281,12 +281,12 @@ export function NexaApp() {
             mql.addEventListener('change', update);
             return () => mql.removeEventListener('change', update);
         }
-        setResolvedTheme(themeName as keyof typeof THEMES);
+        setResolvedTheme(themeName as any);
     }, [themeName]);
 
     const cycleTheme = () => {
         const next = resolvedTheme === 'dark' ? 'light' : resolvedTheme === 'light' ? 'ultra' : 'dark';
-        setThemeName(next);
+        setThemeName(next as any);
         localStorage.setItem('nexa_theme', next);
     };
 
@@ -295,7 +295,7 @@ export function NexaApp() {
         const idx = keys.indexOf(themePreset);
         const next = keys[(idx + 1) % keys.length];
         setThemePreset(next);
-        setAccent(THEME_PRESETS[next].accent);
+        setAccent(THEME_PRESETS[next].accent as any);
         localStorage.setItem('nexa_preset', next);
         localStorage.setItem('nexa_accent', THEME_PRESETS[next].accent);
     };
@@ -316,9 +316,9 @@ export function NexaApp() {
 
         if (savedPreset && THEME_PRESETS[savedPreset]) {
             setThemePreset(savedPreset);
-            setAccent(THEME_PRESETS[savedPreset].accent);
+            setAccent(THEME_PRESETS[savedPreset].accent as any);
         } else if (savedAccent) {
-            setAccent(savedAccent);
+            setAccent(savedAccent as any);
         }
         if (savedTheme) setThemeName(savedTheme as any);
         if (savedAuto) setAutoSpeak(savedAuto === 'true');
@@ -364,7 +364,6 @@ export function NexaApp() {
             try { recRef.current?.stop(); } catch {}
             if (typeof window !== 'undefined' && window.speechSynthesis) {
                 window.speechSynthesis.cancel();
-                window.speechSynthesis.onend = null;
             }
         };
     }, []);
@@ -888,7 +887,7 @@ export function NexaApp() {
                                     <div style={{ fontSize: 10, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 8, padding: '0 4px' }}>Color de acento</div>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
                                         {Object.entries(THEME_PRESETS).map(([key, p]) => (
-                                            <button key={key} onClick={() => { setThemePreset(key as ThemePreset); setAccent(p.accent); setShowThemePicker(false); }}
+                                            <button key={key} onClick={() => { setThemePreset(key as ThemePreset); setAccent(p.accent as any); setShowThemePicker(false); }}
                                                 style={{ width: 40, height: 40, borderRadius: 10, background: `${p.accent}18`, border: themePreset === key ? `2px solid ${p.accent}` : `1px solid ${T.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, transition: 'all 0.2s' }}
                                                 title={p.name}>
                                                 {p.emoji}
@@ -903,7 +902,7 @@ export function NexaApp() {
                                             { id: 'light' as const, icon: Sun, label: 'Claro' },
                                             { id: 'ultra' as const, icon: Zap, label: 'Ultra' },
                                         ].map(m => (
-                                            <button key={m.id} onClick={() => { setThemeName(m.id); setShowThemePicker(false); }}
+                                            <button key={m.id} onClick={() => { setThemeName(m.id as any); setShowThemePicker(false); }}
                                                 style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 4px', borderRadius: 8, background: resolvedTheme === m.id ? `${accent}12` : 'transparent', border: resolvedTheme === m.id ? `1px solid ${accent}25` : '1px solid transparent', color: resolvedTheme === m.id ? accent : T.muted, cursor: 'pointer', fontSize: 9, fontWeight: 600, transition: 'all 0.2s' }}>
                                                 <m.icon size={14} />
                                                 {m.label}
@@ -1197,7 +1196,7 @@ function FileUpload({ isOpen, onClose, onFilesSelected, onAnalyzeImage, theme: T
                     const ia = new Uint8Array(ab);
                     for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
                     const blob = new Blob([ab], { type: f.mimeType });
-                    await onAnalyzeImage(new File([blob], f.name, { type: f.mimeType }));
+                    await onAnalyzeImage(new (File as any)([blob], f.name, { type: f.mimeType }));
                 }
                 return;
             }
