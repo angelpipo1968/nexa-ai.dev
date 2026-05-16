@@ -13,6 +13,7 @@ import { getNASAAPOD, searchMarsPhotos } from '@/lib/nexa-core/nasa';
 import { getStockPrice, getCryptoPrice } from '@/lib/nexa-core/finance';
 import { getLotteryResults } from '@/lib/nexa-core/lottery';
 import { searchSkyscannerFlights } from '@/lib/nexa-core/skyscanner';
+import { searchWikipedia, getCountryData } from '@/lib/nexa-core/knowledge';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -368,6 +369,23 @@ export async function POST(req: NextRequest) {
                 if (lowerQuery.includes('melate')) game = 'mx_melate';
                 
                 toolContext += await getLotteryResults(game) + "\n";
+            } catch {}
+        }
+
+        // 9. ENCICLOPEDIA (Wikipedia y Países)
+        const triggerWiki = ['quien es', 'quién es', 'qué es', 'que es', 'significa', 'biografía', 'historia de'];
+        if (triggerWiki.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const topic = userQuery.replace(/quien es|quién es|qué es|que es|dime sobre|háblame de/gi, "").trim();
+                toolContext += await searchWikipedia(topic) + "\n";
+            } catch {}
+        }
+
+        const triggerCountry = ['población de', 'capital de', 'moneda de', 'continente de', 'país', 'pais'];
+        if (triggerCountry.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const country = userQuery.match(/de\s+([A-Z][a-z]+)/)?.[1] || userQuery.split(' ').pop();
+                if (country) toolContext += await getCountryData(country) + "\n";
             } catch {}
         }
 
