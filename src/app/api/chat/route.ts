@@ -14,7 +14,7 @@ import { getStockPrice, getCryptoPrice } from '@/lib/nexa-core/finance';
 import { getLotteryResults } from '@/lib/nexa-core/lottery';
 import { searchSkyscannerFlights } from '@/lib/nexa-core/skyscanner';
 import { searchWikipedia, getCountryData } from '@/lib/nexa-core/knowledge';
-import { getMemories, extractAndSaveFacts } from '@/lib/nexa-core/memory';
+import { getMemories, extractAndSaveFacts, logActivity } from '@/lib/nexa-core/memory';
 import { auditCode } from '@/lib/nexa-core/repairer';
 import { searchVideos, searchLibraries } from '@/lib/nexa-core/multimedia';
 import { searchReddit, searchYouTube } from '@/lib/nexa-core/social';
@@ -496,6 +496,7 @@ Hora Local: ${timeStr}
         // EXTRACCIÓN DE NUEVOS RECUERDOS (En segundo plano)
         // No bloqueamos la respuesta, se ejecuta asíncronamente
         extractAndSaveFacts(userId, userQuery).catch(console.error);
+        logActivity(userId, location?.city || 'Unknown', location?.country || 'Unknown', lowerQuery).catch(console.error);
 
         // INYECCIÓN DE CONTEXTO FINAL (ADJUNTO AL MENSAJE DEL USUARIO)
         if (toolContext) {

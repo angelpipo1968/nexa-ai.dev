@@ -62,3 +62,20 @@ export async function extractAndSaveFacts(userId: string, userMessage: string): 
         console.error("Error extrayendo hechos:", e);
     }
 }
+
+export async function logActivity(userId: string, city: string, country: string, topic: string): Promise<void> {
+    if (!process.env.REDIS_URL) return;
+    try {
+        const timestamp = new Date().toISOString();
+        const activity = { timestamp, city, country, topic };
+        
+        // Guardamos un historial de actividad
+        await redis.lpush(`activity:${userId}`, JSON.stringify(activity));
+        await redis.ltrim(`activity:${userId}`, 0, 99); // Guardamos los últimos 100 eventos
+        
+        // Actualizamos el "Último Visto"
+        await redis.set(`last_seen:${userId}`, timestamp);
+    } catch (e) {
+        console.error("Error logueando actividad:", e);
+    }
+}
