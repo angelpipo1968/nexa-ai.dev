@@ -54,3 +54,21 @@ Moneda: ${(Object.values(c.currencies || {})[0] as any)?.name || 'N/A'}`;
         return "Error al consultar datos del país.";
     }
 }
+
+// 4. VOCABULARIO MODERNO (Urban Dictionary)
+export async function searchSlang(word: string): Promise<string> {
+    try {
+        const url = `https://api.urbandictionary.com/v0/define?term=${encodeURIComponent(word)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        if (!data.list || data.list.length === 0) return `No encontré jerga o vocabulario informal para "${word}".`;
+        
+        const entry = data.list[0];
+        return `VOCABULARIO MODERNO (${word}):
+Definición: ${entry.definition.replace(/[\[\]]/g, '')}
+Ejemplo: ${entry.example.replace(/[\[\]]/g, '')}`;
+    } catch {
+        return "Error al consultar el diccionario de jerga.";
+    }
+}
