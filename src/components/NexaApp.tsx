@@ -673,6 +673,57 @@ export function NexaApp() {
 
     const renderMessageContent = (content: string) => {
         if (!content) return <span style={{ whiteSpace: 'pre-wrap', opacity: 0.4 }}>(vacío)</span>;
+
+        // 1. Manejo de Mapas Visuales
+        if (content.includes('[MAPA VISUAL]:')) {
+            const mapUrl = content.match(/\[MAPA VISUAL\]: (https?:\/\/[^\s\n]+)/)?.[1];
+            if (mapUrl) {
+                const textBefore = content.split('[MAPA VISUAL]:')[0];
+                return (
+                    <div>
+                        {textBefore && <div style={{ marginBottom: 10 }}>{renderMessageContent(textBefore)}</div>}
+                        <div style={{ borderRadius: 16, overflow: 'hidden', border: `1px solid ${T.border}`, margin: '10px 0' }}>
+                            <img src={mapUrl} alt="Mapa de ubicación" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                        </div>
+                    </div>
+                );
+            }
+        }
+
+        // 2. Manejo de Spotify
+        if (content.includes('[REPRODUCTOR]:')) {
+            const spotifyUrl = content.match(/\[REPRODUCTOR\]: (https?:\/\/[^\s\n]+)/)?.[1];
+            if (spotifyUrl) {
+                const textBefore = content.split('[REPRODUCTOR]:')[0];
+                return (
+                    <div>
+                        {textBefore && <div style={{ marginBottom: 10 }}>{renderMessageContent(textBefore)}</div>}
+                        <div style={{ borderRadius: 16, overflow: 'hidden', margin: '10px 0' }}>
+                            <iframe src={spotifyUrl} width="100%" height="152" frameBorder="0" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" />
+                        </div>
+                    </div>
+                );
+            }
+        }
+
+        // 3. Manejo de Imágenes (Markdown)
+        if (content.includes('![') && content.includes('](')) {
+            const imgMatch = content.match(/!\[.*?\]\((https?:\/\/[^\s\n)]+)\)/);
+            if (imgMatch) {
+                const imgUrl = imgMatch[1];
+                const parts = content.split(imgMatch[0]);
+                return (
+                    <div>
+                        {parts[0] && <span>{parts[0]}</span>}
+                        <div style={{ borderRadius: 16, overflow: 'hidden', border: `1px solid ${T.border}`, margin: '12px 0' }}>
+                            <img src={imgUrl} alt="Visual" style={{ width: '100%', maxHeight: 400, objectFit: 'cover' }} />
+                        </div>
+                        {parts[1] && <span>{parts[1]}</span>}
+                    </div>
+                );
+            }
+        }
+
         const parts = content.split(/(```[\s\S]*?```)/g);
         return parts.map((part, i) => {
             if (part.startsWith('```')) {
