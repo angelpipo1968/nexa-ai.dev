@@ -66,10 +66,15 @@ const PROVIDERS = {
         url: 'https://api.z.ai/api/v4/chat/completions',
         model: 'glm-4.7',
         keyEnv: 'ZAI_API_KEY'
+    },
+    openrouter: {
+        url: 'https://openrouter.ai/api/v1/chat/completions',
+        model: 'anthropic/claude-3.5-sonnet',
+        keyEnv: 'OPENROUTER_API_KEY'
     }
 };
 
-const FALLBACK_ORDER = ['groq', 'zai', 'anthropic', 'gemini', 'deepseek', 'openai'];
+const FALLBACK_ORDER = ['openrouter', 'groq', 'zai', 'anthropic', 'gemini', 'deepseek', 'openai'];
 
 // ─── Tool Integration: Detect and execute tools before AI responds ───
 async function processTools(userMessage: string): Promise<string | null> {
@@ -118,8 +123,8 @@ function createStream(requestId: string, messages: any[], keys: Record<string, s
                 try {
                     logger.info(`Attempting chat with ${providerKey}`, 'chat', { requestId });
                     
-                    // OpenAI Compatible (Groq, DeepSeek, OpenAI, Z.ai)
-                    if (['groq', 'deepseek', 'openai', 'zai'].includes(providerKey)) {
+                    // OpenAI Compatible (Groq, DeepSeek, OpenAI, Z.ai, OpenRouter)
+                    if (['groq', 'deepseek', 'openai', 'zai', 'openrouter'].includes(providerKey)) {
                         const res = await fetch(config.url, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
