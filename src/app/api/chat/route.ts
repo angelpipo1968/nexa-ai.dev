@@ -264,6 +264,35 @@ Ubicación: ${location?.city || 'Desconocida'}, ${location?.country || 'Desconoc
 Hora Local: ${timeStr}
 --------------------------------------------------\n\n`;
 
+        // --- DETECTOR DE INTENCIONES AVANZADO (NEXA BRAIN V4) ---
+        const groqKey = process.env.GROQ_API_KEY;
+        let selectedTools: string[] = [];
+        if (groqKey) {
+            try {
+                const intentRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
+                    body: JSON.stringify({
+                        model: 'llama-3.1-8b-instant', // Usamos el modelo más rápido de Groq
+                        messages: [{ 
+                            role: 'system', 
+                            content: 'Analiza la pregunta e identifica herramientas necesarias: [movies, nasa, science, books, finance, flights, lottery, weather, knowledge, social, music, maps]. Responde solo con una lista separada por comas o "none".' 
+                        }, { role: 'user', content: userQuery }],
+                        max_tokens: 20
+                    }),
+                });
+                const intentData = await intentRes.json();
+                const intentText = intentData.choices[0].message.content.toLowerCase();
+                selectedTools = intentText.split(',').map((t: string) => t.trim());
+            } catch {}
+        }
+
+        // Ejecución proactiva basada en intención
+        if (selectedTools.includes('music')) toolContext += await searchSpotify(userQuery) + "\n";
+        if (selectedTools.includes('science')) toolContext += await searchArXiv(userQuery) + "\n";
+        if (selectedTools.includes('books')) toolContext += await searchBooks(userQuery) + "\n";
+        if (selectedTools.includes('maps')) toolContext += await searchPlace(userQuery) + "\n";
+
         // 1. CLIMA
         if (lowerQuery.includes('clima') || lowerQuery.includes('tiempo') || lowerQuery.includes('weather') || lowerQuery.includes('temperatura')) {
             try {
