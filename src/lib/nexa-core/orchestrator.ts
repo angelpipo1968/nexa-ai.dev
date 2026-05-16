@@ -11,6 +11,21 @@ import { searchFlights } from './aviation';
 import { getLotteryResults } from './lottery';
 import { getWeather } from './weather';
 
+// Herramientas de Búsqueda Web Profunda
+async function deepSearch(query: string): Promise<string> {
+    const tavilyKey = process.env.TAVILY_API_KEY;
+    if (!tavilyKey) return "Error: Falta TAVILY_API_KEY.";
+    try {
+        const res = await fetch('https://api.tavily.com/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ api_key: tavilyKey, query, search_depth: "advanced" })
+        });
+        const data = await res.json();
+        return data.results.map((r: any) => `- ${r.title}: ${r.content}`).join('\n');
+    } catch { return "Error en búsqueda web profunda."; }
+}
+
 export interface AgentTask {
     id: string;
     step: string;
@@ -43,6 +58,7 @@ export async function runAutonomousLoop(userQuery: string): Promise<string> {
                         - 'flights': Estado de vuelos (IATA).
                         - 'lottery': Resultados de sorteos.
                         - 'weather': Clima por ciudad.
+                        - 'web_search': Búsqueda general en internet para cualquier otra cosa.
                         
                         Responde EXCLUSIVAMENTE en formato JSON: {"plan": [{"step": "desc", "tool": "name", "params": {"key": "val"}}]} ` 
                     },
@@ -69,6 +85,7 @@ export async function runAutonomousLoop(userQuery: string): Promise<string> {
                 case 'flights': result = await searchFlights(task.params.origin, task.params.destination); break;
                 case 'lottery': result = await getLotteryResults(task.params.game || 'us_powerball'); break;
                 case 'weather': result = await getWeather(task.params.city); break;
+                case 'web_search': result = await deepSearch(task.params.query || userQuery); break;
             }
             totalContext += `[RESULTADO ${task.tool.toUpperCase()}]: ${result}\n\n`;
         }
