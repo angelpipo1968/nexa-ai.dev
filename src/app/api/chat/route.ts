@@ -17,6 +17,7 @@ import { searchWikipedia, getCountryData } from '@/lib/nexa-core/knowledge';
 import { getMemories, extractAndSaveFacts } from '@/lib/nexa-core/memory';
 import { auditCode } from '@/lib/nexa-core/repairer';
 import { searchVideos, searchLibraries } from '@/lib/nexa-core/multimedia';
+import { searchReddit, searchYouTube } from '@/lib/nexa-core/social';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -416,6 +417,25 @@ export async function POST(req: NextRequest) {
             try {
                 const query = userQuery.replace(/librería|libreria|repo de|biblioteca de/gi, "").trim();
                 toolContext += await searchLibraries(query) + "\n";
+            } catch {}
+        }
+
+        // 12. REDES SOCIALES (Reddit y YouTube)
+        const triggerReddit = ['reddit', 'foro de', 'hilos de', 'que dicen en'];
+        if (triggerReddit.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                // Intenta extraer el nombre del subreddit (ej: technology, gaming)
+                const subMatch = userQuery.match(/r\/(\w+)/i) || userQuery.match(/(?:en|de)\s+(\w+)/i);
+                const sub = subMatch ? subMatch[1] : 'technology';
+                toolContext += await searchReddit(sub) + "\n";
+            } catch {}
+        }
+
+        const triggerYT = ['youtube', 'video tutorial', 'música', 'musica', 'ver video de'];
+        if (triggerYT.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const query = userQuery.replace(/youtube|ver video de|busca en youtube/gi, "").trim();
+                toolContext += await searchYouTube(query) + "\n";
             } catch {}
         }
 
