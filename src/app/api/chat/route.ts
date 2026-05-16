@@ -16,6 +16,7 @@ import { searchSkyscannerFlights } from '@/lib/nexa-core/skyscanner';
 import { searchWikipedia, getCountryData } from '@/lib/nexa-core/knowledge';
 import { getMemories, extractAndSaveFacts } from '@/lib/nexa-core/memory';
 import { auditCode } from '@/lib/nexa-core/repairer';
+import { searchVideos, searchLibraries } from '@/lib/nexa-core/multimedia';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -398,6 +399,23 @@ export async function POST(req: NextRequest) {
                 // Si el mensaje contiene un bloque de código, lo extraemos, si no usamos todo el mensaje
                 const codeBlock = userQuery.match(/```[\s\S]*?```/)?.[0] || userQuery;
                 toolContext += await auditCode(codeBlock) + "\n";
+            } catch {}
+        }
+
+        // 11. MULTIMEDIA Y LIBRERÍAS
+        const triggerVideo = ['video de', 'clip de', 'metraje de', 'vídeo de'];
+        if (triggerVideo.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const topic = userQuery.replace(/video de|clip de|vídeo de/gi, "").trim();
+                toolContext += await searchVideos(topic) + "\n";
+            } catch {}
+        }
+
+        const triggerLib = ['librería', 'libreria', 'repo de', 'código de', 'github de', 'biblioteca de'];
+        if (triggerLib.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const query = userQuery.replace(/librería|libreria|repo de|biblioteca de/gi, "").trim();
+                toolContext += await searchLibraries(query) + "\n";
             } catch {}
         }
 
