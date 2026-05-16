@@ -14,6 +14,7 @@ import { getStockPrice, getCryptoPrice } from '@/lib/nexa-core/finance';
 import { getLotteryResults } from '@/lib/nexa-core/lottery';
 import { searchSkyscannerFlights } from '@/lib/nexa-core/skyscanner';
 import { searchWikipedia, getCountryData } from '@/lib/nexa-core/knowledge';
+import { getMemories, extractAndSaveFacts } from '@/lib/nexa-core/memory';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -389,11 +390,22 @@ export async function POST(req: NextRequest) {
             } catch {}
         }
 
+        // 10. MEMORIA DE LARGO PLAZO (Recuperación)
+        const userId = "angelpipo1968"; // Id por defecto
+        const memories = await getMemories(userId);
+        if (memories.length > 0) {
+            toolContext += `[MEMORIA DE SESIONES PASADAS - Lo que recuerdas de este usuario]:\n- ${memories.join('\n- ')}\n\n`;
+        }
+
         // 4. OLD DETECT INTENT
         if (!toolContext) {
             const extraContext = await processTools(userQuery) || undefined;
             if (extraContext) toolContext += extraContext + "\n";
         }
+
+        // EXTRACCIÓN DE NUEVOS RECUERDOS (En segundo plano)
+        // No bloqueamos la respuesta, se ejecuta asíncronamente
+        extractAndSaveFacts(userId, userQuery).catch(console.error);
 
         // INYECCIÓN DE CONTEXTO FINAL (ADJUNTO AL MENSAJE DEL USUARIO)
         if (toolContext) {
