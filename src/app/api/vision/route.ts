@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            system_instruction: { parts: [{ text: getSystemPrompt('vision') }] },
+                            system_instruction: { parts: [{ text: getSystemPrompt('vision') + "\n\n" + advancedData }] },
                             contents: [{
                                 parts: [
                                     { text: question || 'Analiza esta imagen en detalle. Describe TODO lo que ves, identifica texto, objetos, patrones. Si es código, explica qué hace. Si es UI, sugiere mejoras. Da recomendaciones específicas y accionables.' },
@@ -65,9 +65,6 @@ export async function POST(req: NextRequest) {
                 if (res.ok) {
                     const data = await res.json();
                     let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                    
-                    // Combinamos el escaneo técnico con el análisis de la IA
-                    if (advancedData) text = `${advancedData}\n\nANÁLISIS VISUAL:\n${text}`;
                     
                     logger.info('Vision analysis completed via Gemini', 'vision', { requestId });
                     return NextResponse.json({ response: text, provider: 'gemini', model });
