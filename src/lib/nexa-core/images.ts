@@ -30,3 +30,28 @@ export async function generateImage(prompt: string): Promise<string> {
         return `Error al generar imagen: ${error.message}`;
     }
 }
+
+export async function searchPhotos(query: string): Promise<string> {
+    const accessKey = process.env.UNSPLASH_ACCESS_KEY;
+    if (!accessKey) return "Error: No hay Access Key de Unsplash configurada.";
+
+    try {
+        const response = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=3&orientation=landscape`, {
+            headers: { 'Authorization': `Client-ID ${accessKey}` }
+        });
+
+        const data = await response.json();
+        if (data.errors) return `Error de Unsplash: ${data.errors[0]}`;
+
+        const photos = data.results;
+        if (photos.length === 0) return `No encontré fotos para "${query}" en Unsplash.`;
+
+        const results = photos.map((p: any) => 
+            `- ${p.description || p.alt_description || 'Sin título'} (por ${p.user.name})\n  Foto: ${p.urls.regular}`
+        ).join('\n');
+
+        return `FOTOS DE ALTA CALIDAD ENCONTRADAS (Unsplash):\n${results}`;
+    } catch (error: any) {
+        return `Error al buscar fotos: ${error.message}`;
+    }
+}

@@ -47,7 +47,10 @@ export async function searchSpotify(query: string, type: 'track' | 'playlist' | 
             const name = item.name;
             const artist = item.artists ? item.artists[0].name : '';
             const url = item.external_urls.spotify;
-            return `- ${name} ${artist ? `por ${artist}` : ''}\n  Link: ${url}`;
+            const id = item.id;
+            const embedUrl = `https://open.spotify.com/embed/${type}/${id}?utm_source=generator&theme=0`;
+            
+            return `- ${name} ${artist ? `por ${artist}` : ''}\n  Link: ${url}\n  [REPRODUCTOR]: ${embedUrl}`;
         }).join('\n');
 
         return `RESULTADOS DE SPOTIFY (${type.toUpperCase()}):\n${results}`;

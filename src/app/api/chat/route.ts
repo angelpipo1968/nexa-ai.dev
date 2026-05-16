@@ -6,7 +6,7 @@ import { getSystemPrompt } from '@/lib/nexa-core/prompts';
 import { detectIntent, executeIntent } from '@/lib/nexa-core/tools';
 import { searchFlights } from '@/lib/nexa-core/aviation';
 import { getWeather } from '@/lib/nexa-core/weather';
-import { generateImage } from '@/lib/nexa-core/images';
+import { generateImage, searchPhotos } from '@/lib/nexa-core/images';
 import { getWolframAnswer } from '@/lib/nexa-core/wolfram';
 import { searchMovies } from '@/lib/nexa-core/tmdb';
 import { getNASAAPOD, searchMarsPhotos } from '@/lib/nexa-core/nasa';
@@ -449,6 +449,15 @@ export async function POST(req: NextRequest) {
                 
                 const query = userQuery.replace(/spotify|canción de|cancion de|álbum de|album de|playlist de|escuchar a/gi, "").trim();
                 toolContext += await searchSpotify(query, type) + "\n";
+            } catch {}
+        }
+
+        // 13. FOTOS DE ALTA CALIDAD (Unsplash)
+        const triggerPhotos = ['foto de', 'imagen de', 'paisaje de', 'fotografía de', 'fotografia de', 'unsplash'];
+        if (triggerPhotos.some(kw => lowerQuery.includes(kw)) && !toolContext && !lowerQuery.includes('crea') && !lowerQuery.includes('genera')) {
+            try {
+                const query = userQuery.replace(/foto de|imagen de|paisaje de|fotografía de|fotografia de|unsplash/gi, "").trim();
+                toolContext += await searchPhotos(query) + "\n";
             } catch {}
         }
 
