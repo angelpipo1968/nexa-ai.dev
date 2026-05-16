@@ -12,6 +12,7 @@ import { searchMovies } from '@/lib/nexa-core/tmdb';
 import { getNASAAPOD, searchMarsPhotos } from '@/lib/nexa-core/nasa';
 import { getStockPrice, getCryptoPrice } from '@/lib/nexa-core/finance';
 import { getLotteryResults } from '@/lib/nexa-core/lottery';
+import { searchSkyscannerFlights } from '@/lib/nexa-core/skyscanner';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -281,20 +282,27 @@ export async function POST(req: NextRequest) {
             } catch {}
         }
 
-        // 3. VUELOS
-        if (lowerQuery.includes('vuelo') || lowerQuery.includes('viaje')) {
+        // 3. VUELOS (Estado y Precios)
+        if (lowerQuery.includes('vuelo') || lowerQuery.includes('viaje') || lowerQuery.includes('avión') || lowerQuery.includes('avión')) {
             try {
                 const extractionRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
                     body: JSON.stringify({
                         model: 'llama-3.3-70b-versatile',
-                        messages: [{ role: 'system', content: 'Extract IATA origin/dest: {"origin": "IATA", "destination": "IATA"}.' }, { role: 'user', content: userQuery }],
+                        messages: [{ role: 'system', content: 'Extract IATA origin/dest and date (YYYY-MM-DD): {"origin": "IATA", "destination": "IATA", "date": "YYYY-MM-DD"}.' }, { role: 'user', content: userQuery }],
                         response_format: { type: "json_object" }
                     }),
                 });
                 const info = JSON.parse((await extractionRes.json()).choices[0].message.content);
-                if (info.destination) toolContext += await searchFlights(info.origin || 'LAS', info.destination) + "\n";
+                
+                if (info.destination) {
+                    if (lowerQuery.includes('precio') || lowerQuery.includes('barato') || lowerQuery.includes('cuanto cuesta')) {
+                        toolContext += await searchSkyscannerFlights(info.origin || 'MEX', info.destination, info.date || new Date().toISOString().split('T')[0]) + "\n";
+                    } else {
+                        toolContext += await searchFlights(info.origin || 'LAS', info.destination) + "\n";
+                    }
+                }
             } catch {}
         }
 
