@@ -16,25 +16,45 @@ export async function OPTIONS() {
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const city = searchParams.get('city');
-    const apiKey = process.env.OPENWEATHER_API_KEY;
+    const accuKey = process.env.ACCUWEATHER_API_KEY;
 
     if (!city) {
         return NextResponse.json({ error: 'Missing city parameter' }, { status: 400, headers: corsHeaders });
     }
 
     try {
-        if (apiKey) {
-            // Future implementation for OpenWeatherMap
-            const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=es`);
-            const data = await res.json();
-            if (res.ok) {
-                return NextResponse.json(data, { headers: corsHeaders });
+        if (accuKey) {
+            // 1. Get Location Key
+            const locRes = await fetch(`http://dataservice.accuweather.com/locations/v1/cities/search?apikey=${accuKey}&q=${encodeURIComponent(city)}&language=es-es`);
+            const locData = await locRes.json();
+            
+            if (locRes.ok && locData.length > 0) {
+                const locationKey = locData[0].Key;
+                const cityName = locData[0].LocalizedName;
+
+                // 2. Get Current Conditions
+                const weatherRes = await fetch(`http://dataservice.accuweather.com/currentconditions/v1/${locationKey}?apikey=${accuKey}&language=es-es&details=true`);
+                const weatherData = await weatherRes.json();
+
+                if (weatherRes.ok && weatherData.length > 0) {
+                    const current = weatherData[0];
+                    return NextResponse.json({
+                        source: 'AccuWeather',
+                        city: cityName,
+                        temp: current.Temperature.Metric.Value,
+                        condition: current.WeatherText,
+                        humidity: current.RelativeHumidity,
+                        wind: current.Wind.Speed.Metric.Value,
+                        uvIndex: current.UVIndex,
+                        report: `CLIMA EN ${cityName.toUpperCase()} (AccuWeather):\n${current.WeatherText}, ${current.Temperature.Metric.Value}°C. Humedad: ${current.RelativeHumidity}%, Viento: ${current.Wind.Speed.Metric.Value} km/h.`
+                    }, { headers: corsHeaders });
+                }
             }
         }
         
         // Fallback to existing wttr.in logic
         const report = await getWeather(city);
-        return NextResponse.json({ report }, { headers: corsHeaders });
+        return NextResponse.json({ source: 'wttr.in', report }, { headers: corsHeaders });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500, headers: corsHeaders });
     }

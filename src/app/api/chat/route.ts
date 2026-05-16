@@ -7,6 +7,7 @@ import { detectIntent, executeIntent } from '@/lib/nexa-core/tools';
 import { searchFlights } from '@/lib/nexa-core/aviation';
 import { getWeather } from '@/lib/nexa-core/weather';
 import { generateImage } from '@/lib/nexa-core/images';
+import { getWolframAnswer } from '@/lib/nexa-core/wolfram';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -290,6 +291,17 @@ export async function POST(req: NextRequest) {
                 });
                 const info = JSON.parse((await extractionRes.json()).choices[0].message.content);
                 if (info.destination) toolContext += await searchFlights(info.origin || 'LAS', info.destination) + "\n";
+            } catch {}
+        }
+
+        // 4. WOLFRAM ALPHA (Ciencia, Datos, Matemáticas)
+        const triggerWolfram = ['cuanto es', 'cuánto es', 'qué es', 'que es', 'quién es', 'quien es', 'distancia', 'masa', 'población', 'capital de'];
+        if (triggerWolfram.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const answer = await getWolframAnswer(userQuery);
+                if (answer && !answer.includes('Error')) {
+                    toolContext += `DATOS EXACTOS (WolframAlpha): ${answer}\n`;
+                }
             } catch {}
         }
 
