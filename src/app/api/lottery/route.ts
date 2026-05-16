@@ -23,11 +23,22 @@ export async function GET(req: NextRequest) {
     }
 
     try {
+        const isDemoMode = !apiKey;
+        
         switch (action) {
             case 'results':
-                if (!apiKey) return NextResponse.json({ error: 'Magayo API Key not configured' }, { status: 500, headers: corsHeaders });
-                const res = await fetch(`https://www.magayo.com/api/results.php?api_key=${apiKey}&game=${game}`);
-                const data = await res.json();
+                let data;
+                if (isDemoMode) {
+                    data = {
+                        results: Array.from({ length: 6 }, () => Math.floor(Math.random() * 49 + 1)).join(','),
+                        bonus: Math.floor(Math.random() * 10 + 1).toString(),
+                        draw_date: new Date().toLocaleDateString('es-MX'),
+                        draw_number: "DEMO-001"
+                    };
+                } else {
+                    const res = await fetch(`https://www.magayo.com/api/results.php?api_key=${apiKey}&game=${game}`);
+                    data = await res.json();
+                }
                 
                 // Map Magayo response to Android app format
                 // Magayo returns: { "game": "...", "draw_date": "...", "draw_number": "...", "results": "1,2,3,4,5", "bonus": "6" }
