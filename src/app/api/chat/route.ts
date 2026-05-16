@@ -74,7 +74,7 @@ const PROVIDERS = {
     }
 };
 
-const FALLBACK_ORDER = ['openrouter', 'groq', 'zai', 'anthropic', 'gemini', 'deepseek', 'openai'];
+const FALLBACK_ORDER = ['groq', 'openai', 'gemini', 'openrouter', 'zai', 'anthropic', 'deepseek'];
 
 // ─── Tool Integration: Detect and execute tools before AI responds ───
 async function processTools(userMessage: string): Promise<string | null> {
@@ -101,153 +101,108 @@ function createStream(requestId: string, messages: any[], keys: Record<string, s
         async start(controller) {
             let fullResponse = '';
             
-            // Inject tool context into the conversation if available
             if (toolContext) {
-                const toolMessage = {
-                    role: 'system',
-                    content: `[DATOS EN TIEMPO REAL - Usa estos datos para responder al usuario]\n\n${toolContext}\n\nResponde al usuario usando estos datos. Sé natural y conversacional.`
-                };
-                // Insert tool message before the last user message
-                const lastUserIdx = messages.map(m => m.role).lastIndexOf('user');
-                if (lastUserIdx >= 0) {
-                    messages.splice(lastUserIdx, 0, toolMessage);
-                } else {
-                    messages.push(toolMessage);
-                }
+                const toolMsg = { role: 'system', content: `[CONTEXTO]: ${toolContext}` };
+                messages.splice(messages.length - 1, 0, toolMsg);
             }
             
             for (const providerKey of FALLBACK_ORDER) {
                 const config = (PROVIDERS as any)[providerKey];
                 const key = keys[config.keyEnv];
-                if (!key) continue;
+                
+                if (!key || key.length < 10) {
+                    console.log(`[CHAT] Saltando ${providerKey}: Sin llave válida`);
+                    continue;
+                }
+
                 try {
-                    logger.info(`Attempting chat with ${providerKey}`, 'chat', { requestId });
+                    console.log(`[CHAT] Probando ${providerKey}...`);
                     
-                    // OpenAI Compatible (Groq, DeepSeek, OpenAI, Z.ai, OpenRouter)
-                    if (['groq', 'deepseek', 'openai', 'zai', 'openrouter'].includes(providerKey)) {
-                        const res = await fetch(config.url, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-                            body: JSON.stringify({ model: config.model, messages, stream: true, temperature: 0.7 }),
-                        });
-                        if (res.ok && res.body) {
-                            const reader = res.body.getReader();
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                const chunk = new TextDecoder().decode(value);
-                                for (const line of chunk.split('\n')) {
-                                    if (line.startsWith('data: ') && !line.includes('[DONE]')) {
-                                        try {
-                                            const content = JSON.parse(line.slice(6)).choices?.[0]?.delta?.content || '';
-                                            if (content) {
-                                                fullResponse += content;
-                                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: providerKey })}\n\n`));
-                                            }
-                                        } catch {}
-                                    }
-                                }
-                            }
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: providerKey })}\n\n`));
-                            controller.close();
-                            return;
-                        }
-                    } 
-                    // Anthropic Logic
-                    else if (providerKey === 'anthropic') {
-                        const systemMessage = messages.find(m => m.role === 'system')?.content;
-                        const userMessages = messages.filter(m => m.role !== 'system');
+                    if (['groq', 'openai', 'zai', 'deepseek', 'openrouter'].includes(providerKey)) {
                         const res = await fetch(config.url, {
                             method: 'POST',
                             headers: { 
                                 'Content-Type': 'application/json', 
-                                'x-api-key': key,
-                                'anthropic-version': '2023-06-01'
+                                'Authorization': `Bearer ${key.trim()}`,
+                                'HTTP-Referer': 'https://nexa-ai.dev'
                             },
                             body: JSON.stringify({ 
                                 model: config.model, 
-                                system: systemMessage,
-                                messages: userMessages, 
-                                stream: true, 
-                                max_tokens: 4096 
+                                messages, 
+                                stream: true,
+                                temperature: 0.7
                             }),
                         });
-                        if (res.ok && res.body) {
-                            const reader = res.body.getReader();
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                const chunk = new TextDecoder().decode(value);
-                                for (const line of chunk.split('\n')) {
-                                    if (line.startsWith('data: ')) {
-                                        try {
-                                            const data = JSON.parse(line.slice(6));
-                                            const content = data.delta?.text || '';
-                                            if (content) {
-                                                fullResponse += content;
-                                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'anthropic' })}\n\n`));
-                                            }
-                                        } catch {}
-                                    }
+
+                        if (!res.ok) {
+                            console.error(`[CHAT] ${providerKey} falló con status ${res.status}`);
+                            continue;
+                        }
+
+                        const reader = res.body?.getReader();
+                        if (!reader) continue;
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            const chunk = new TextDecoder().decode(value);
+                            const lines = chunk.split('\n');
+                            
+                            for (const line of lines) {
+                                if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+                                    try {
+                                        const data = JSON.parse(line.slice(6));
+                                        const content = data.choices?.[0]?.delta?.content || '';
+                                        if (content) {
+                                            fullResponse += content;
+                                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: providerKey })}\n\n`));
+                                        }
+                                    } catch (e) {}
                                 }
                             }
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'anthropic' })}\n\n`));
+                        }
+                        
+                        if (fullResponse.length > 0) {
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: providerKey })}\n\n`));
                             controller.close();
                             return;
                         }
-                    }
-                    // Gemini Multimodal Logic
-                    else if (providerKey === 'gemini') {
-                        const contents = messages.filter(m => m.role !== 'system').map(m => {
-                            const parts = [];
-                            // Si el contenido tiene una imagen (asumimos formato [IMAGE:base64])
-                            const imageMatch = m.content.match(/\[IMAGE:(.*?)\]/);
-                            if (imageMatch) {
-                                const base64 = imageMatch[1];
-                                parts.push({ inlineData: { mimeType: "image/jpeg", data: base64 } });
-                                parts.push({ text: m.content.replace(/\[IMAGE:.*?\]/, '').trim() || "Describe esta imagen." });
-                            } else {
-                                parts.push({ text: m.content });
-                            }
-                            return { role: m.role === 'assistant' ? 'model' : 'user', parts };
-                        });
+                    } else if (providerKey === 'gemini') {
+                        // Lógica simplificada de Gemini
+                        const contents = messages.filter(m => m.role !== 'system').map(m => ({
+                            role: m.role === 'assistant' ? 'model' : 'user',
+                            parts: [{ text: m.content }]
+                        }));
 
-                        const res = await fetch(config.url(config.model, key), {
+                        const res = await fetch(config.url(config.model, key.trim()), {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ contents }),
                         });
-                        if (res.ok && res.body) {
-                            const reader = res.body.getReader();
-                            // ... resto del stream
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                const chunk = new TextDecoder().decode(value);
-                                for (const line of chunk.split('\n')) {
-                                    if (line.startsWith('data: ')) {
-                                        try {
-                                            const content = JSON.parse(line.slice(6)).candidates?.[0]?.content?.parts?.[0]?.text || '';
-                                            if (content) {
-                                                fullResponse += content;
-                                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'gemini' })}\n\n`));
-                                            }
-                                        } catch {}
-                                    }
-                                }
-                            }
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'gemini' })}\n\n`));
+
+                        if (!res.ok) continue;
+                        const data = await res.json();
+                        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                        if (content) {
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'gemini' })}\n\n`));
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse: content, provider: 'gemini' })}\n\n`));
                             controller.close();
                             return;
                         }
                     }
-                } catch (e: any) { logger.warn(`Provider ${providerKey} failed: ${e.message}`, 'chat', { requestId }); }
+                } catch (err: any) {
+                    console.error(`[CHAT] Error crítico en ${providerKey}: ${err.message}`);
+                    continue;
+                }
             }
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Todos los proveedores fallaron.' })}\n\n`));
+            
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Lo siento, todos mis cerebros de IA están ocupados. Por favor, intenta de nuevo en un momento.' })}\n\n`));
             controller.close();
         }
     });
 }
+
+
 
 export async function OPTIONS() { return new Response(null, { headers: corsHeaders }); }
 

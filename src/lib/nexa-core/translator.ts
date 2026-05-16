@@ -2,19 +2,17 @@
  * NEXA CORE — Universal Translator Hub
  * Traducción profesional en tiempo real para más de 100 idiomas.
  */
-
 export async function translateText(text: string, targetLang: string): Promise<string> {
     try {
-        const googleKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-        if (!googleKey) return "No tengo acceso al motor de traducción (falta GOOGLE_API_KEY).";
-
+        const googleKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
+        if (!googleKey) return "No tengo acceso al motor de traducción (falta GOOGLE_AI_API_KEY).";
+        
         // Usamos Gemini para una traducción contextual superior a la de un diccionario simple
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleKey}`;
         
         const prompt = `Actúa como un traductor profesional experto. Traduce el siguiente texto al idioma "${targetLang}". 
 Mantén el tono original (formal/informal) y asegúrate de que la traducción sea natural para un hablante nativo. 
 Responde ÚNICAMENTE con la traducción, sin explicaciones ni saludos.
-
 Texto a traducir:
 "${text}"`;
 
