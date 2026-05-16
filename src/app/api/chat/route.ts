@@ -15,6 +15,7 @@ import { getLotteryResults } from '@/lib/nexa-core/lottery';
 import { searchSkyscannerFlights } from '@/lib/nexa-core/skyscanner';
 import { searchWikipedia, getCountryData } from '@/lib/nexa-core/knowledge';
 import { getMemories, extractAndSaveFacts } from '@/lib/nexa-core/memory';
+import { auditCode } from '@/lib/nexa-core/repairer';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -387,6 +388,16 @@ export async function POST(req: NextRequest) {
             try {
                 const country = userQuery.match(/de\s+([A-Z][a-z]+)/)?.[1] || userQuery.split(' ').pop();
                 if (country) toolContext += await getCountryData(country) + "\n";
+            } catch {}
+        }
+
+        // 10. REPARADOR DE CÓDIGO (Auditoría y Arreglo)
+        const triggerRepair = ['repara', 'arregla', 'audita', 'optimiza', 'qué está mal', 'que esta mal', 'check code'];
+        if ((triggerRepair.some(kw => lowerQuery.includes(kw)) || userQuery.includes('```')) && !toolContext) {
+            try {
+                // Si el mensaje contiene un bloque de código, lo extraemos, si no usamos todo el mensaje
+                const codeBlock = userQuery.match(/```[\s\S]*?```/)?.[0] || userQuery;
+                toolContext += await auditCode(codeBlock) + "\n";
             } catch {}
         }
 
