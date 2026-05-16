@@ -23,6 +23,7 @@ import { getUserLocation, getLocalTime } from '@/lib/nexa-core/location';
 import { searchPlace } from '@/lib/nexa-core/maps';
 import { searchArXiv, searchBooks } from '@/lib/nexa-core/academic';
 import { searchSpecies } from '@/lib/nexa-core/nature';
+import { searchGlobalFacts } from '@/lib/nexa-core/world-knowledge';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -277,7 +278,7 @@ Hora Local: ${timeStr}
                         model: 'llama-3.1-8b-instant', // Usamos el modelo más rápido de Groq
                         messages: [{ 
                             role: 'system', 
-                            content: 'Analiza la pregunta e identifica herramientas necesarias: [movies, nasa, science, books, finance, flights, lottery, weather, knowledge, social, music, maps, nature]. Responde solo con una lista separada por comas o "none".' 
+                            content: 'Analiza la pregunta e identifica herramientas necesarias: [movies, nasa, science, books, finance, flights, lottery, weather, knowledge, social, music, maps, nature, encyclopedia]. Responde solo con una lista separada por comas o "none".' 
                         }, { role: 'user', content: userQuery }],
                         max_tokens: 20
                     }),
@@ -294,6 +295,7 @@ Hora Local: ${timeStr}
         if (selectedTools.includes('books')) toolContext += await searchBooks(userQuery) + "\n";
         if (selectedTools.includes('maps')) toolContext += await searchPlace(userQuery) + "\n";
         if (selectedTools.includes('nature')) toolContext += await searchSpecies(userQuery) + "\n";
+        if (selectedTools.includes('encyclopedia')) toolContext += await searchGlobalFacts(userQuery) + "\n";
 
         // 1. CLIMA
         if (lowerQuery.includes('clima') || lowerQuery.includes('tiempo') || lowerQuery.includes('weather') || lowerQuery.includes('temperatura')) {
