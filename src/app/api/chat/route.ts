@@ -20,6 +20,7 @@ import { searchVideos, searchLibraries } from '@/lib/nexa-core/multimedia';
 import { searchReddit, searchYouTube } from '@/lib/nexa-core/social';
 import { searchSpotify } from '@/lib/nexa-core/spotify';
 import { getUserLocation, getLocalTime } from '@/lib/nexa-core/location';
+import { searchPlace } from '@/lib/nexa-core/maps';
 
 export const maxDuration = 60;
 export const runtime = 'nodejs';
@@ -467,6 +468,15 @@ Hora Local: ${timeStr}
             try {
                 const query = userQuery.replace(/foto de|imagen de|paisaje de|fotografía de|fotografia de|unsplash/gi, "").trim();
                 toolContext += await searchPhotos(query) + "\n";
+            } catch {}
+        }
+
+        // 14. MAPAS Y LUGARES (Cartógrafo)
+        const triggerMaps = ['mapa de', 'dónde queda', 'donde queda', 'ubicación de', 'ubicacion de', 'dirección de', 'direccion de', 'lugar'];
+        if (triggerMaps.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const query = userQuery.replace(/mapa de|dónde queda|donde queda|ubicación de|ubicacion de|dirección de|direccion de/gi, "").trim();
+                toolContext += await searchPlace(query) + "\n";
             } catch {}
         }
 
