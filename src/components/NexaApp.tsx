@@ -2,27 +2,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getSupabase } from '@/lib/supabase';
-import { 
-    FileText, Image as ImageIcon, Film, Music, Camera, 
-    Plus, Send, Mic, MicOff, Menu, X, Settings, 
-    User, LogOut, ChevronLeft, Volume2, VolumeX,
-    Zap, Search, RefreshCw, Loader2, StopCircle, ArrowUp,
-    MoreVertical, Download, Trash2, Moon, Sun, Monitor,
-    Copy, ThumbsUp, ThumbsDown, Share, RotateCcw, Edit,
-    Pin, Archive, FolderInput, CopyPlus, Upload, File, AlertCircle,
+import {
+    FileText, Image as ImageIcon, Film, Music, Camera,
+    Plus, Mic, Menu, X, Settings,
+    Volume2, VolumeX,
+    Zap, Loader2, StopCircle, ArrowUp,
+    MoreVertical,
+    Copy, ThumbsUp, ThumbsDown, RotateCcw, Edit,
+    Pin, FolderInput, File,
     Sparkles
 } from 'lucide-react';
 
 import { SettingsPanel } from './SettingsPanel';
-
-const COLORS = {
-    cyan: '#00e5a0',
-    purple: '#a855f7',
-    orange: '#f97316',
-    pink: '#ec4899',
-    blue: '#3b82f6',
-    red: '#ef4444',
-};
 
 const THEMES = {
     light: { bg: '#ffffff', surf: '#f4f4f5', border: '#e4e4e7', text: '#18181b', sec: '#71717a', muted: '#a1a1aa' },
@@ -106,7 +97,6 @@ export function NexaApp() {
     const [thinking, setThinking] = useState(false);
     const [streaming, setStreaming] = useState(false);
     const [drawer, setDrawer] = useState(false);
-    const [view, setView] = useState<'chat' | 'auth' | 'settings'>('chat');
     const [showUpload, setShowUpload] = useState(false);
     const [attachedFiles, setAttachedFiles] = useState<UploadedFile[]>([]);
     const [activeConvMenu, setActiveConvMenu] = useState<string | null>(null);
@@ -115,13 +105,9 @@ export function NexaApp() {
     
     // Auth
     const [user, setUser] = useState<any>(null);
-    const [email, setEmail] = useState('');
-    const [pass, setPass] = useState('');
-    const [authErr, setAuthErr] = useState('');
-    const [authLoading, setAuthLoading] = useState(false);
 
     // Settings States (Persisted)
-    const [accent, setAccent] = useState(COLORS.cyan);
+    const [accent, setAccent] = useState('#00e5a0');
     const [themeName, setThemeName] = useState<'system' | 'light' | 'dark'>('dark');
     const [resolvedTheme, setResolvedTheme] = useState<keyof typeof THEMES>('dark');
     const [autoSpeak, setAutoSpeak] = useState(false);
@@ -132,7 +118,6 @@ export function NexaApp() {
 
     // System States
     const [conn, setConn] = useState<'ok' | 'err' | 'check'>('check');
-    const [search, setSearch] = useState('');
     const [recording, setRecording] = useState(false);
     const [speaking, setSpeaking] = useState(false);
     const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -273,28 +258,12 @@ export function NexaApp() {
         return local.id;
     };
 
-    const delConv = async (id: string) => {
-        try { await sb.from('messages').delete().eq('conversation_id', id); await sb.from('conversations').delete().eq('id', id); } catch { }
-        setConvs(p => p.filter(c => c.id !== id));
-        if (convId === id) { setConvId(null); setMsgs([]); }
-    };
-
     const selConv = async (id: string) => {
-        setConvId(id); setDrawer(false); setView('chat');
+        setConvId(id); setDrawer(false);
         try {
             const { data } = await sb.from('messages').select('*').eq('conversation_id', id).order('created_at');
             if (data) setMsgs(data.map((m: any) => ({ id: m.id, role: m.role, content: m.content, ts: +new Date(m.created_at) })));
         } catch { }
-    };
-
-    const exportConv = (id: string, format: 'json' | 'txt') => {
-        const c = convs.find(cv => cv.id === id);
-        const content = format === 'json' ? JSON.stringify({ title: c?.title, messages: msgs }, null, 2) : msgs.map(m => `${m.role.toUpperCase()}: ${m.content}`).join('\n\n');
-        const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `${c?.title || 'nexa-chat'}.${format}`; a.click();
-        URL.revokeObjectURL(url);
     };
 
     const send = async (overrideText?: string) => {
@@ -383,7 +352,6 @@ export function NexaApp() {
 
     const copyToClipboard = (text: string) => { navigator.clipboard.writeText(text); };
 
-    const filtered = convs.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
     const ibtn: React.CSSProperties = { background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 8, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' };
 
     return (
@@ -405,10 +373,10 @@ export function NexaApp() {
                                 </div>
                                 <button onClick={() => setDrawer(false)} style={{ ...ibtn, fontSize: 20 }}>✕</button>
                             </div>
-                            <button onClick={async () => { await createConv(); setDrawer(false); setView('chat'); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: `${accent}15`, border: `1px solid ${accent}30`, color: accent, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ NUEVO CHAT</button>
+                            <button onClick={async () => { await createConv(); setDrawer(false); }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 12, background: `${accent}15`, border: `1px solid ${accent}30`, color: accent, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>+ NUEVO CHAT</button>
                         </div>
                         <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px' }}>
-                            {filtered.map(c => (
+                            {convs.map(c => (
                                 <div key={c.id} style={{ position: 'relative', marginBottom: 2 }}>
                                     <button onClick={() => selConv(c.id)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: '10px 10px', borderRadius: 10, background: convId === c.id ? `${accent}10` : 'transparent', border: 'none', color: convId === c.id ? accent : T.sec, fontSize: 12, textAlign: 'left', cursor: 'pointer' }}>
                                         {c.pinned && <Pin size={10} style={{ transform: 'rotate(45deg)' }} />}
