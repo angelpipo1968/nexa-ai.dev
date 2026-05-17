@@ -1,5 +1,3 @@
-import DOMPurify from 'isomorphic-dompurify';
-
 export interface ValidationResult {
   safe: boolean;
   reason?: string;
@@ -26,9 +24,12 @@ export class InputValidator {
   public validate(input: string): ValidationResult {
     if (!input) return { safe: true };
 
-    // 1. Sanitize HTML/scripts
-    const clean = DOMPurify.sanitize(input);
-    if (clean !== input) {
+    // 1. Check for HTML/script injection (lightweight, no DOM dependency)
+    const hasHtmlTags = /<[a-z][\s\S]*>/i.test(input);
+    const hasJsProtocol = /javascript\s*:/i.test(input);
+    const hasEventHandler = /\bon\w+\s*=/i.test(input);
+    
+    if (hasHtmlTags || hasJsProtocol || hasEventHandler) {
       return { safe: false, reason: 'Inyección de HTML/Script detectada' };
     }
 

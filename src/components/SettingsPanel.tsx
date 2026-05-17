@@ -55,13 +55,24 @@ interface SettingsProps {
     onThemeChange: (t: 'system' | 'light' | 'dark') => void;
     locale: string;
     onLocaleChange: (l: string) => void;
+    activeProvider?: string;
 }
+
+const PROVIDER_NAMES: Record<string, string> = {
+    groq: 'Nexa Core (Llama 3.3 70B)',
+    groq_fast: 'Nexa Fast (Llama 3.1 8B)',
+    gemini: 'Nexa Vision (Gemini 2.0 Flash)',
+    deepseek: 'Nexa Deep (DeepSeek Chat)',
+    openai: 'Nexa GPT (GPT-4o Mini)',
+};
 
 // ═══════════════════════════════════════════
 //  COMPONENTE PRINCIPAL
 // ═══════════════════════════════════════════
 
-export function SettingsPanel({ isOpen, onClose, theme, onThemeChange, locale, onLocaleChange }: SettingsProps) {
+export function SettingsPanel({ 
+    isOpen, onClose, theme, onThemeChange, locale, onLocaleChange, activeProvider = 'groq' 
+}: SettingsProps) {
     const [page, setPage] = useState<Page>('main');
     const [user, setUser] = useState<any>(null);
     const [aMode, setAMode] = useState<'login' | 'signup'>('login');
@@ -156,16 +167,26 @@ export function SettingsPanel({ isOpen, onClose, theme, onThemeChange, locale, o
     }) {
         const [hovered, setHovered] = useState(false);
         return (
-            <button
+            <div
                 onClick={onClick}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
+                onKeyDown={(e) => {
+                    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        onClick();
+                    }
+                }}
+                role={onClick ? "button" : undefined}
+                tabIndex={onClick ? 0 : undefined}
                 style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                     padding: '12px 14px', borderRadius: 12,
                     background: hovered ? C.surfaceH : 'transparent',
                     border: 'none', cursor: onClick || right ? 'pointer' : 'default',
                     textAlign: 'left', transition: 'all 0.15s',
+                    userSelect: 'none',
+                    outline: 'none',
                 }}
             >
                 <div style={{
@@ -193,7 +214,7 @@ export function SettingsPanel({ isOpen, onClose, theme, onThemeChange, locale, o
                 </div>
                 {right || (value && <span style={{ fontSize: 12, color: C.sec }}>{value}</span>)}
                 {onClick && !right && <ChevronRight size={14} color={C.muted} />}
-            </button>
+            </div>
         );
     }
 
@@ -506,7 +527,7 @@ export function SettingsPanel({ isOpen, onClose, theme, onThemeChange, locale, o
                             <SettingRow
                                 icon={Brain} iconColor={C.accent}
                                 label="Modelo de IA"
-                                value="Claude Sonnet 4"
+                                value={PROVIDER_NAMES[activeProvider] || activeProvider}
                             />
                             <Divider />
                             <SettingRow

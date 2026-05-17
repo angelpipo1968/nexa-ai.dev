@@ -1,23 +1,43 @@
 import type { Metadata, Viewport } from 'next';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import './globals.css';
+import { SentryInit } from '@/components/sentry-init';
 
 export const metadata: Metadata = {
     title: 'NEXA AI — Intelligence Reborn',
-    description: 'Asistente de IA avanzado con capacidades multimodales, voz y análisis inteligente.',
-    keywords: ['NEXA', 'AI', 'asistente', 'inteligencia artificial', 'chat', 'voz'],
-    authors: [{ name: 'NEXA AI' }],
+    description: 'Asistente de IA avanzado con chat en tiempo real, voz, y análisis de imágenes.',
+    manifest: '/manifest.json',
+    metadataBase: new URL('https://nexa-ai.dev'),
     openGraph: {
         title: 'NEXA AI — Intelligence Reborn',
-        description: 'Asistente de IA avanzado con capacidades multimodales',
-        type: 'website',
+        description: 'Asistente de IA avanzado con chat en tiempo real, voz, y análisis de imágenes.',
+        url: 'https://nexa-ai.dev',
+        siteName: 'NEXA AI',
+        images: [
+            {
+                url: '/logo-nexa.png',
+                width: 1200,
+                height: 630,
+                alt: 'NEXA AI — Intelligence Reborn',
+            },
+        ],
         locale: 'es_ES',
+        type: 'website',
     },
-    manifest: '/manifest.json',
+    twitter: {
+        card: 'summary_large_image',
+        title: 'NEXA AI — Intelligence Reborn',
+        description: 'Asistente de IA avanzado con chat en tiempo real, voz, y análisis de imágenes.',
+        images: ['/logo-nexa.png'],
+    },
+    icons: {
+        icon: '/favicon.ico',
+        apple: '/apple-touch-icon.png',
+    },
 };
 
 export const viewport: Viewport = {
-    themeColor: '#04040a',
+    themeColor: '#02020a',
     width: 'device-width',
     initialScale: 1,
     maximumScale: 1,
@@ -26,18 +46,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="es">
+        <html lang="es" suppressHydrationWarning>
             <head>
-                <link
-                    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-                    rel="stylesheet"
-                />
                 <link rel="icon" href="/favicon.ico" />
-                <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-                <meta name="apple-mobile-web-app-capable" content="yes" />
-                <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
             </head>
-            <body>
+            <body suppressHydrationWarning>
+                {/* <SentryInit /> */}
                 <ErrorBoundary>
                     {children}
                 </ErrorBoundary>

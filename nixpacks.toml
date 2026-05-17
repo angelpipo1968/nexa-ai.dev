@@ -1,11 +1,11 @@
-providers = ["node"]
+[phases.setup]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm install --legacy-peer-deps"]
+cmds = ["npm install"]
 
 [phases.build]
 cmds = ["NODE_OPTIONS='--max-old-space-size=4096' npm run build"]
 
-[variables]
-NODE_ENV = "production"
-NEXT_TELEMETRY_DISABLED = "1"
+[start]
+cmd = "npm run start"

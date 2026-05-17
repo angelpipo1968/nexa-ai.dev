@@ -1,207 +1,543 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { InputValidator } from '@/lib/security/InputValidator';
+import { getIdentifier } from '@/lib/nexa-core/rate-limiter';
+import { logger, generateRequestId } from '@/lib/nexa-core/logger';
+import { chatSchema } from '@/lib/validation';
+import { getSystemPrompt } from '@/lib/nexa-core/prompts';
+import { detectIntent, executeIntent } from '@/lib/nexa-core/tools';
+import { searchFlights } from '@/lib/nexa-core/aviation';
+import { getWeather } from '@/lib/nexa-core/weather';
+import { generateImage, searchPhotos } from '@/lib/nexa-core/images';
+import { getWolframAnswer } from '@/lib/nexa-core/wolfram';
+import { searchMovies } from '@/lib/nexa-core/tmdb';
+import { getNASAAPOD, searchMarsPhotos } from '@/lib/nexa-core/nasa';
+import { getStockPrice, getCryptoPrice } from '@/lib/nexa-core/finance';
+import { getLotteryResults } from '@/lib/nexa-core/lottery';
+import { searchSkyscannerFlights } from '@/lib/nexa-core/skyscanner';
+import { searchWikipedia, getCountryData } from '@/lib/nexa-core/knowledge';
+import { getMemories, extractAndSaveFacts, logActivity } from '@/lib/nexa-core/memory';
+import { auditCode } from '@/lib/nexa-core/repairer';
+import { searchVideos, searchLibraries } from '@/lib/nexa-core/multimedia';
+import { searchReddit, searchYouTube } from '@/lib/nexa-core/social';
+import { searchSpotify } from '@/lib/nexa-core/spotify';
+import { getUserLocation, getLocalTime } from '@/lib/nexa-core/location';
+import { searchPlace } from '@/lib/nexa-core/maps';
+import { searchArXiv, searchBooks } from '@/lib/nexa-core/academic';
+import { searchSpecies } from '@/lib/nexa-core/nature';
+import { searchGlobalFacts } from '@/lib/nexa-core/world-knowledge';
+import { searchNews, getTopHeadlines } from '@/lib/nexa-core/news';
+import { translateText } from '@/lib/nexa-core/translator';
+
+export const maxDuration = 60;
+export const runtime = 'nodejs';
+
+const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+const PROVIDERS = {
+    groq: {
+        url: 'https://api.groq.com/openai/v1/chat/completions',
+        model: 'llama-3.3-70b-versatile',
+        keyEnv: 'GROQ_API_KEY'
+    },
+    anthropic: {
+        url: 'https://api.anthropic.com/v1/messages',
+        model: 'claude-3-5-sonnet-20241022',
+        keyEnv: 'ANTHROPIC_API_KEY'
+    },
+    gemini: {
+        url: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
+        model: 'gemini-1.5-flash',
+        keyEnv: 'GOOGLE_AI_API_KEY'
+    },
+    deepseek: {
+        url: 'https://api.deepseek.com/chat/completions',
+        model: 'deepseek-chat',
+        keyEnv: 'DEEPSEEK_API_KEY'
+    },
+    openai: {
+        url: 'https://api.openai.com/v1/chat/completions',
+        model: 'gpt-4o-mini',
+        keyEnv: 'OPENAI_API_KEY'
+    },
+    zai: {
+        url: 'https://api.z.ai/api/v4/chat/completions',
+        model: 'glm-4.7',
+        keyEnv: 'ZAI_API_KEY'
+    },
+    openrouter: {
+        url: 'https://openrouter.ai/api/v1/chat/completions',
+        model: 'anthropic/claude-3.5-sonnet',
+        keyEnv: 'OPENROUTER_API_KEY'
+    }
+};
+
+const FALLBACK_ORDER = ['groq', 'openai', 'gemini', 'openrouter', 'zai', 'anthropic', 'deepseek'];
+
+// ─── Tool Integration: Detect and execute tools before AI responds ───
+async function processTools(userMessage: string): Promise<string | null> {
+    const intent = detectIntent(userMessage);
+    
+    // Only process tool-related intents (not chat/code/web/design/analysis/vision)
+    const toolTypes = ['weather', 'search', 'geolocation', 'geocode', 'exchange', 'translate', 'news', 'jokes', 'facts', 'time', 'qrcode', 'countries'];
+    if (!toolTypes.includes(intent.type)) return null;
+    
+    try {
+        const result = await executeIntent(intent);
+        if (result.success && result.output) {
+            return result.output;
+        }
+    } catch (e: any) {
+        logger.warn(`Tool execution failed: ${e.message}`, 'tools');
+    }
+    return null;
+}
+
+function createStream(requestId: string, messages: any[], keys: Record<string, string | undefined>, toolContext?: string) {
+    const encoder = new TextEncoder();
+    return new ReadableStream({
+        async start(controller) {
+            let fullResponse = '';
+            
+            if (toolContext) {
+                const toolMsg = { role: 'system', content: `[CONTEXTO]: ${toolContext}` };
+                messages.splice(messages.length - 1, 0, toolMsg);
+            }
+            
+            for (const providerKey of FALLBACK_ORDER) {
+                const config = (PROVIDERS as any)[providerKey];
+                const key = keys[config.keyEnv];
+                
+                if (!key || key.length < 10) {
+                    console.log(`[CHAT] Saltando ${providerKey}: Sin llave válida`);
+                    continue;
+                }
+
+                try {
+                    console.log(`[CHAT] Probando ${providerKey}...`);
+                    
+                    if (['groq', 'openai', 'zai', 'deepseek', 'openrouter'].includes(providerKey)) {
+                        const res = await fetch(config.url, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json', 
+                                'Authorization': `Bearer ${key.trim()}`,
+                                'HTTP-Referer': 'https://nexa-ai.dev'
+                            },
+                            body: JSON.stringify({ 
+                                model: config.model, 
+                                messages, 
+                                stream: true,
+                                temperature: 0.7
+                            }),
+                        });
+
+                        if (!res.ok) {
+                            console.error(`[CHAT] ${providerKey} falló con status ${res.status}`);
+                            continue;
+                        }
+
+                        const reader = res.body?.getReader();
+                        if (!reader) continue;
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            const chunk = new TextDecoder().decode(value);
+                            const lines = chunk.split('\n');
+                            
+                            for (const line of lines) {
+                                if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+                                    try {
+                                        const data = JSON.parse(line.slice(6));
+                                        const content = data.choices?.[0]?.delta?.content || '';
+                                        if (content) {
+                                            fullResponse += content;
+                                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: providerKey })}\n\n`));
+                                        }
+                                    } catch (e) {}
+                                }
+                            }
+                        }
+                        
+                        if (fullResponse.length > 0) {
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: providerKey })}\n\n`));
+                            controller.close();
+                            return;
+                        }
+                    } else if (providerKey === 'gemini') {
+                        // Lógica simplificada de Gemini
+                        const contents = messages.filter(m => m.role !== 'system').map(m => ({
+                            role: m.role === 'assistant' ? 'model' : 'user',
+                            parts: [{ text: m.content }]
+                        }));
+
+                        const res = await fetch(config.url(config.model, key.trim()), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents }),
+                        });
+
+                        if (!res.ok) continue;
+                        const data = await res.json();
+                        const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                        if (content) {
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'gemini' })}\n\n`));
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse: content, provider: 'gemini' })}\n\n`));
+                            controller.close();
+                            return;
+                        }
+                    }
+                } catch (err: any) {
+                    console.error(`[CHAT] Error crítico en ${providerKey}: ${err.message}`);
+                    continue;
+                }
+            }
+            
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Lo siento, todos mis cerebros de IA están ocupados. Por favor, intenta de nuevo en un momento.' })}\n\n`));
+            controller.close();
+        }
+    });
+}
+
+
+
+export async function OPTIONS() { return new Response(null, { headers: corsHeaders }); }
 
 export async function POST(req: NextRequest) {
+    const requestId = generateRequestId();
     try {
-        const { messages } = await req.json();
-
-        if (!messages || !Array.isArray(messages) || messages.length === 0) {
-            return NextResponse.json({ error: 'Se requiere al menos un mensaje', code: 'EMPTY_MESSAGES' }, { status: 400 });
-        }
-
-        // Rate limiting check - max 50 messages per conversation
-        if (messages.length > 50) {
-            return NextResponse.json({ error: 'Conversación demasiado larga. Inicia un nuevo chat.', code: 'CONVERSATION_TOO_LONG' }, { status: 400 });
-        }
-
-        // --- SECURITY CHECK ---
-        const validator = new InputValidator();
-        const lastMessage = messages[messages.length - 1]?.content || '';
-        const validation = validator.validate(lastMessage);
+        const body = await req.json().catch(() => null);
+        if (!body) return NextResponse.json({ error: 'Body vacío' }, { status: 400, headers: corsHeaders });
+        const parsed = chatSchema.safeParse(body);
+        if (!parsed.success) return NextResponse.json({ error: 'Formato inválido' }, { status: 400, headers: corsHeaders });
+        let { messages, mode = 'default' } = parsed.data;
         
-        if (!validation.safe) {
-            console.warn('NEXA Security: Blocked message:', validation.reason);
-            return NextResponse.json({ error: `Seguridad NEXA: ${validation.reason}` }, { status: 403 });
-        }
-        // ----------------------
+        // --- NEXA INTELLIGENCE HUB (V3 - HIGH PRIORITY) ---
+        const userQuery = messages[messages.length - 1].content;
+        const lowerQuery = userQuery.toLowerCase();
+        let toolContext = "";
 
-        const anthropicKey = process.env.ANTHROPIC_API_KEY || process.env.VITE_ANTHROPIC_API_KEY || process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY;
-        const googleKey = process.env.GOOGLE_API_KEY || process.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
-        const groqKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY;
+        // 0. CONTEXTO DE UBICACIÓN Y TIEMPO (Auto-Inyectado)
+        const location = await getUserLocation();
+        const timeStr = await getLocalTime(location?.timezone);
+        toolContext += `[CONTEXTO ACTUAL DEL USUARIO]:
+Ubicación: ${location?.city || 'Desconocida'}, ${location?.country || 'Desconocida'}
+Hora Local: ${timeStr}
+--------------------------------------------------\n\n`;
 
-        // Keys loaded (no logging in production)
-
-        // 1. TRY GROQ (Fastest & Most Reliable currently)
+        // --- DETECTOR DE INTENCIONES AVANZADO (NEXA BRAIN V4) ---
+        const groqKey = process.env.GROQ_API_KEY;
+        let selectedTools: string[] = [];
         if (groqKey) {
             try {
-                console.log('NEXA: Attempting Groq...');
-                const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                const intentRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
                     body: JSON.stringify({
-                        model: 'llama-3.3-70b-versatile',
-                        messages: [{ role: 'system', content: 'Eres NEXA, una IA avanzada.' }, ...messages],
-                        stream: true,
+                        model: 'llama-3.1-8b-instant', // Usamos el modelo más rápido de Groq
+                        messages: [{ 
+                            role: 'system', 
+                            content: 'Analiza la pregunta e identifica herramientas necesarias: [movies, nasa, science, books, finance, flights, lottery, weather, knowledge, social, music, maps, nature, encyclopedia, news, preview, translate]. Responde solo con una lista separada por comas o "none".' 
+                        }, { role: 'user', content: userQuery }],
+                        max_tokens: 20
                     }),
                 });
-
-                if (response.ok) {
-                    const stream = new ReadableStream({
-                        async start(controller) {
-                            const encoder = new TextEncoder();
-                            const reader = response.body?.getReader();
-                            const decoder = new TextDecoder();
-                            let fullResponse = '';
-
-                            if (reader) {
-                                try {
-                                    while (true) {
-                                        const { done, value } = await reader.read();
-                                        if (done) break;
-                                        
-                                        const chunk = decoder.decode(value, { stream: true });
-                                        const lines = chunk.split('\n');
-                                        
-                                        for (const line of lines) {
-                                            const trimmedLine = line.trim();
-                                            if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
-                                            
-                                            if (trimmedLine.startsWith('data: ')) {
-                                                try {
-                                                    const data = JSON.parse(trimmedLine.slice(6));
-                                                    const content = data.choices[0]?.delta?.content || '';
-                                                    if (content) {
-                                                        fullResponse += content;
-                                                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content })}\n\n`));
-                                                    }
-                                                } catch (e) {
-                                                    // Skip partial JSON or non-JSON lines
-                                                }
-                                            }
-                                        }
-                                    }
-                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse })}\n\n`));
-                                } catch (e: any) {
-                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: e.message })}\n\n`));
-                                }
-                            }
-                            controller.close();
-                        },
-                    });
-                    return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } });
-                } else {
-                    const err = await response.text();
-                    console.error('NEXA: Groq failed:', response.status, err);
-                }
-            } catch (e) { console.error('NEXA: Groq exception:', e); }
+                const intentData = await intentRes.json();
+                const intentText = intentData.choices[0].message.content.toLowerCase();
+                selectedTools = intentText.split(',').map((t: string) => t.trim());
+            } catch {}
         }
 
-        // 2. TRY ANTHROPIC (High Intelligence)
-        if (anthropicKey) {
+        // Ejecución proactiva basada en intención
+        if (selectedTools.includes('music')) toolContext += await searchSpotify(userQuery) + "\n";
+        if (selectedTools.includes('science')) toolContext += await searchArXiv(userQuery) + "\n";
+        if (selectedTools.includes('books')) toolContext += await searchBooks(userQuery) + "\n";
+        if (selectedTools.includes('maps')) toolContext += await searchPlace(userQuery) + "\n";
+        if (selectedTools.includes('nature')) toolContext += await searchSpecies(userQuery) + "\n";
+        if (selectedTools.includes('encyclopedia')) toolContext += await searchGlobalFacts(userQuery) + "\n";
+        if (selectedTools.includes('news')) toolContext += await searchNews(userQuery) + "\n";
+        if (selectedTools.includes('preview')) toolContext += "\n[SISTEMA DE PREVIEW]: Puedes generar previsualizaciones HTML/CSS/JS. Pide al usuario que abra el link generado.\n";
+        if (selectedTools.includes('translate')) {
+            const targetLang = userQuery.match(/a (la|el| )?([a-zA-Z]+)$/i)?.[2] || 'inglés';
+            toolContext += `\n[SISTEMA DE TRADUCCIÓN]: Traduciendo a ${targetLang}. Resultado: ${await translateText(userQuery, targetLang)}\n`;
+        }
+
+        // 1. CLIMA
+        if (lowerQuery.includes('clima') || lowerQuery.includes('tiempo') || lowerQuery.includes('weather') || lowerQuery.includes('temperatura')) {
             try {
-                console.log('NEXA: Attempting Anthropic...');
-                const response = await fetch('https://api.anthropic.com/v1/messages', {
+                const extractionRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': anthropicKey,
-                        'anthropic-version': '2023-06-01',
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
                     body: JSON.stringify({
-                        model: 'claude-3-5-sonnet-latest',
-                        max_tokens: 4096,
-                        system: 'Eres NEXA, una IA avanzada. Responde en el idioma del usuario.',
-                        messages: messages.map((m: any) => ({ role: m.role, content: m.content })),
-                        stream: true,
+                        model: 'llama-3.3-70b-versatile',
+                        messages: [{ role: 'system', content: 'Extract city in JSON: {"city": "Name"}. Only JSON.' }, { role: 'user', content: userQuery }],
+                        response_format: { type: "json_object" }
                     }),
                 });
-
-                if (response.ok) {
-                    const stream = new ReadableStream({
-                        async start(controller) {
-                            const encoder = new TextEncoder();
-                            const reader = response.body?.getReader();
-                            const decoder = new TextDecoder();
-                            let fullResponse = '';
-                            if (reader) {
-                                try {
-                                    while (true) {
-                                        const { done, value } = await reader.read();
-                                        if (done) break;
-                                        const chunk = decoder.decode(value, { stream: true });
-                                        for (const line of chunk.split('\n')) {
-                                            if (line.startsWith('data: ')) {
-                                                try {
-                                                    const data = JSON.parse(line.slice(6));
-                                                    if (data.type === 'content_block_delta' && data.delta?.text) {
-                                                        fullResponse += data.delta.text;
-                                                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: data.delta.text })}\n\n`));
-                                                    }
-                                                    if (data.type === 'message_stop') {
-                                                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse })}\n\n`));
-                                                    }
-                                                } catch { }
-                                            }
-                                        }
-                                    }
-                                } catch (e: any) {
-                                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: e.message })}\n\n`));
-                                }
-                            }
-                            controller.close();
-                        },
-                    });
-                    return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } });
-                } else {
-                    const err = await response.text();
-                    console.error('NEXA: Anthropic failed:', response.status, err);
-                }
-            } catch (e) { console.error('NEXA: Anthropic exception:', e); }
+                const info = JSON.parse((await extractionRes.json()).choices[0].message.content);
+                if (info.city) toolContext += await getWeather(info.city) + "\n";
+            } catch {}
         }
 
-        // 3. TRY GOOGLE (Context)
-        if (googleKey) {
+        // 2. IMÁGENES (Detección Ultra-Sensible)
+        const triggerImages = ['dibuja', 'genera', 'diseña', 'crea', 'imagina', 'muestra', 'muéstrame', 'foto', 'imagen', 'ver', 'mira', 'playa', 'sol'];
+        if (triggerImages.some(kw => lowerQuery.includes(kw))) {
             try {
-                console.log('NEXA: Attempting Google...');
-                const geminiMsgs = messages
-                    .filter((m: any) => m.role !== 'system')
-                    .map((m: any) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
-
-                const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${googleKey}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            system_instruction: { parts: [{ text: 'Eres NEXA, una IA avanzada.' }] },
-                            contents: geminiMsgs,
-                            generationConfig: { temperature: 0.7 },
-                        }),
-                    }
-                );
-
-                if (res.ok) {
-                    const data = await res.json();
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                    const encoder = new TextEncoder();
-                    const stream = new ReadableStream({
-                        start(controller) {
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse: text })}\n\n`));
-                            controller.close();
-                        },
-                    });
-                    return new Response(stream, { headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' } });
-                } else {
-                    const err = await res.text();
-                    console.error('NEXA: Google failed:', res.status, err);
-                }
-            } catch (e) { console.error('NEXA: Google exception:', e); }
+                const promptRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
+                    body: JSON.stringify({
+                        model: 'llama-3.3-70b-versatile',
+                        messages: [{ role: 'system', content: 'Crea un prompt descriptivo en inglés para DALL-E basado en el pedido del usuario. Solo el prompt.' }, { role: 'user', content: userQuery }],
+                    }),
+                });
+                const cleanPrompt = promptRes.ok ? (await promptRes.json()).choices[0].message.content : userQuery;
+                const imageResult = await generateImage(cleanPrompt);
+                toolContext += `RESULTADO GENERACIÓN IMAGEN: ${imageResult}\n`;
+            } catch {}
         }
 
-        return NextResponse.json({ error: 'NEXA ERROR: All AI providers failed. Check keys.' }, { status: 503 });
+        // 3. VUELOS (Estado y Precios)
+        if (lowerQuery.includes('vuelo') || lowerQuery.includes('viaje') || lowerQuery.includes('avión') || lowerQuery.includes('avión')) {
+            try {
+                const extractionRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
+                    body: JSON.stringify({
+                        model: 'llama-3.3-70b-versatile',
+                        messages: [{ role: 'system', content: 'Extract IATA origin/dest and date (YYYY-MM-DD): {"origin": "IATA", "destination": "IATA", "date": "YYYY-MM-DD"}.' }, { role: 'user', content: userQuery }],
+                        response_format: { type: "json_object" }
+                    }),
+                });
+                const info = JSON.parse((await extractionRes.json()).choices[0].message.content);
+                
+                if (info.destination) {
+                    if (lowerQuery.includes('precio') || lowerQuery.includes('barato') || lowerQuery.includes('cuanto cuesta')) {
+                        toolContext += await searchSkyscannerFlights(info.origin || 'MEX', info.destination, info.date || new Date().toISOString().split('T')[0]) + "\n";
+                    } else {
+                        toolContext += await searchFlights(info.origin || 'LAS', info.destination) + "\n";
+                    }
+                }
+            } catch {}
+        }
 
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        // 4. WOLFRAM ALPHA (Ciencia, Datos, Matemáticas)
+        const triggerWolfram = ['cuanto es', 'cuánto es', 'qué es', 'que es', 'quién es', 'quien es', 'distancia', 'masa', 'población', 'capital de'];
+        if (triggerWolfram.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const answer = await getWolframAnswer(userQuery);
+                if (answer && !answer.includes('Error')) {
+                    toolContext += `DATOS EXACTOS (WolframAlpha): ${answer}\n`;
+                }
+            } catch {}
+        }
+
+        // 5. PELÍCULAS Y SERIES (TMDB)
+        const triggerMovies = ['película', 'serie', 'actor', 'director', 'estreno', 'reparto', 'quien sale en'];
+        if (triggerMovies.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const report = await searchMovies(userQuery);
+                if (report && !report.includes('Error')) {
+                    toolContext += `${report}\n`;
+                }
+            } catch {}
+        }
+
+        // 6. ESPACIO Y NASA
+        const triggerSpace = ['nasa', 'espacio', 'marte', 'universo', 'estrella', 'galaxia', 'planeta'];
+        if (triggerSpace.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                if (lowerQuery.includes('marte')) {
+                    toolContext += await searchMarsPhotos() + "\n";
+                } else {
+                    toolContext += await getNASAAPOD() + "\n";
+                }
+            } catch {}
+        }
+
+        // 7. FINANZAS (Cripto y Bolsa)
+        const triggerFinance = ['precio de', 'cotización', 'cuanto vale', 'cuánto vale', 'bitcoin', 'ethereum', 'btc', 'eth', 'bolsa', 'acción', 'accion'];
+        if (triggerFinance.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                if (lowerQuery.includes('bitcoin') || lowerQuery.includes('btc')) {
+                    toolContext += await getCryptoPrice('bitcoin') + "\n";
+                } else if (lowerQuery.includes('ethereum') || lowerQuery.includes('eth')) {
+                    toolContext += await getCryptoPrice('ethereum') + "\n";
+                } else {
+                    // Intenta extraer símbolo de bolsa (ej: AAPL, TSLA)
+                    const symbolMatch = userQuery.match(/\b[A-Z]{3,5}\b/);
+                    if (symbolMatch) {
+                        toolContext += await getStockPrice(symbolMatch[0]) + "\n";
+                    }
+                }
+            } catch {}
+        }
+
+        // 8. LOTERÍA
+        const triggerLottery = ['lotería', 'loteria', 'sorteo', 'powerball', 'megamillions', 'melate', 'chispazo'];
+        if (triggerLottery.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                // Mapeo básico de juegos comunes
+                let game = 'us_powerball';
+                if (lowerQuery.includes('mega')) game = 'us_megamillions';
+                if (lowerQuery.includes('melate')) game = 'mx_melate';
+                
+                toolContext += await getLotteryResults(game) + "\n";
+            } catch {}
+        }
+
+        // 9. ENCICLOPEDIA (Wikipedia y Países)
+        const triggerWiki = ['quien es', 'quién es', 'qué es', 'que es', 'significa', 'biografía', 'historia de'];
+        if (triggerWiki.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const topic = userQuery.replace(/quien es|quién es|qué es|que es|dime sobre|háblame de/gi, "").trim();
+                toolContext += await searchWikipedia(topic) + "\n";
+            } catch {}
+        }
+
+        const triggerCountry = ['población de', 'capital de', 'moneda de', 'continente de', 'país', 'pais'];
+        if (triggerCountry.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const country = userQuery.match(/de\s+([A-Z][a-z]+)/)?.[1] || userQuery.split(' ').pop();
+                if (country) toolContext += await getCountryData(country) + "\n";
+            } catch {}
+        }
+
+        // 10. REPARADOR DE CÓDIGO (Auditoría y Arreglo)
+        const triggerRepair = ['repara', 'arregla', 'audita', 'optimiza', 'qué está mal', 'que esta mal', 'check code'];
+        if ((triggerRepair.some(kw => lowerQuery.includes(kw)) || userQuery.includes('```')) && !toolContext) {
+            try {
+                // Si el mensaje contiene un bloque de código, lo extraemos, si no usamos todo el mensaje
+                const codeBlock = userQuery.match(/```[\s\S]*?```/)?.[0] || userQuery;
+                toolContext += await auditCode(codeBlock) + "\n";
+            } catch {}
+        }
+
+        // 11. MULTIMEDIA Y LIBRERÍAS
+        const triggerVideo = ['video de', 'clip de', 'metraje de', 'vídeo de'];
+        if (triggerVideo.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const topic = userQuery.replace(/video de|clip de|vídeo de/gi, "").trim();
+                toolContext += await searchVideos(topic) + "\n";
+            } catch {}
+        }
+
+        const triggerLib = ['librería', 'libreria', 'repo de', 'código de', 'github de', 'biblioteca de'];
+        if (triggerLib.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const query = userQuery.replace(/librería|libreria|repo de|biblioteca de/gi, "").trim();
+                toolContext += await searchLibraries(query) + "\n";
+            } catch {}
+        }
+
+        // 12. REDES SOCIALES (Reddit y YouTube)
+        const triggerReddit = ['reddit', 'foro de', 'hilos de', 'que dicen en'];
+        if (triggerReddit.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                // Intenta extraer el nombre del subreddit (ej: technology, gaming)
+                const subMatch = userQuery.match(/r\/(\w+)/i) || userQuery.match(/(?:en|de)\s+(\w+)/i);
+                const sub = subMatch ? subMatch[1] : 'technology';
+                toolContext += await searchReddit(sub) + "\n";
+            } catch {}
+        }
+
+        const triggerYT = ['youtube', 'video tutorial', 'música', 'musica', 'ver video de'];
+        if (triggerYT.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const query = userQuery.replace(/youtube|ver video de|busca en youtube/gi, "").trim();
+                toolContext += await searchYouTube(query) + "\n";
+            } catch {}
+        }
+
+        const triggerSpotify = ['spotify', 'canción de', 'cancion de', 'álbum de', 'album de', 'playlist de', 'escuchar a'];
+        if (triggerSpotify.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                let type: 'track' | 'playlist' | 'album' = 'track';
+                if (lowerQuery.includes('playlist')) type = 'playlist';
+                if (lowerQuery.includes('album') || lowerQuery.includes('álbum')) type = 'album';
+                
+                const query = userQuery.replace(/spotify|canción de|cancion de|álbum de|album de|playlist de|escuchar a/gi, "").trim();
+                toolContext += await searchSpotify(query, type) + "\n";
+            } catch {}
+        }
+
+        // 13. FOTOS DE ALTA CALIDAD (Unsplash)
+        const triggerPhotos = ['foto de', 'imagen de', 'paisaje de', 'fotografía de', 'fotografia de', 'unsplash'];
+        if (triggerPhotos.some(kw => lowerQuery.includes(kw)) && !toolContext && !lowerQuery.includes('crea') && !lowerQuery.includes('genera')) {
+            try {
+                const query = userQuery.replace(/foto de|imagen de|paisaje de|fotografía de|fotografia de|unsplash/gi, "").trim();
+                toolContext += await searchPhotos(query) + "\n";
+            } catch {}
+        }
+
+        // 14. MAPAS Y LUGARES (Cartógrafo)
+        const triggerMaps = ['mapa de', 'dónde queda', 'donde queda', 'ubicación de', 'ubicacion de', 'dirección de', 'direccion de', 'lugar'];
+        if (triggerMaps.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const query = userQuery.replace(/mapa de|dónde queda|donde queda|ubicación de|ubicacion de|dirección de|direccion de/gi, "").trim();
+                toolContext += await searchPlace(query) + "\n";
+            } catch {}
+        }
+
+        // 15. ACADÉMICO Y LIBROS (ArXiv y Gutenberg)
+        const triggerScience = ['artículo de', 'estudio de', 'ciencia de', 'arxiv', 'investigación sobre'];
+        if (triggerScience.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const query = userQuery.replace(/artículo de|estudio de|ciencia de|arxiv|investigación sobre/gi, "").trim();
+                toolContext += await searchArXiv(query) + "\n";
+            } catch {}
+        }
+
+        const triggerBooks = ['libro de', 'novela de', 'literatura de', 'gutenberg', 'leer a'];
+        if (triggerBooks.some(kw => lowerQuery.includes(kw)) && !toolContext) {
+            try {
+                const query = userQuery.replace(/libro de|novela de|literatura de|gutenberg|leer a/gi, "").trim();
+                toolContext += await searchBooks(query) + "\n";
+            } catch {}
+        }
+
+        // 10. MEMORIA DE LARGO PLAZO (Recuperación)
+        const userId = "angelpipo1968"; // Id por defecto
+        const memories = await getMemories(userId);
+        if (memories.length > 0) {
+            toolContext += `[MEMORIA DE SESIONES PASADAS - Lo que recuerdas de este usuario]:\n- ${memories.join('\n- ')}\n\n`;
+        }
+
+        // 4. OLD DETECT INTENT
+        if (!toolContext) {
+            const extraContext = await processTools(userQuery) || undefined;
+            if (extraContext) toolContext += extraContext + "\n";
+        }
+
+        // EXTRACCIÓN DE NUEVOS RECUERDOS (En segundo plano)
+        // No bloqueamos la respuesta, se ejecuta asíncronamente
+        extractAndSaveFacts(userId, userQuery).catch(console.error);
+        logActivity(userId, location?.city || 'Unknown', location?.country || 'Unknown', lowerQuery).catch(console.error);
+
+        // INYECCIÓN DE CONTEXTO FINAL (ADJUNTO AL MENSAJE DEL USUARIO)
+        if (toolContext) {
+            const lastIndex = messages.length - 1;
+            messages[lastIndex].content += `\n\n[SISTEMA - INFORMACIÓN REAL OBTENIDA]:\n${toolContext}\n\nINSTRUCCIÓN: Usa los datos de arriba para responder. SI HAY UNA IMAGEN, DEBES MOSTRARLA USANDO Markdown: ![Imagen](URL). NO DIGAS QUE NO PUEDES.`;
+        }
+
+        if (!messages.find((m: any) => m.role === 'system')) messages.unshift({ role: 'system', content: getSystemPrompt(mode as any) });
+        
+        const keys = { 
+            GROQ_API_KEY: process.env.GROQ_API_KEY, 
+            GOOGLE_AI_API_KEY: process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY, 
+            ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+            DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
+            OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+            ZAI_API_KEY: process.env.ZAI_API_KEY
+        };
+        const stream = createStream(requestId, messages, keys);
+        return new Response(stream, { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' } });
+    } catch (e: any) {
+        logger.error(`Chat crash: ${e.message}`, 'chat', { requestId });
+        return NextResponse.json({ error: 'Error interno' }, { status: 500, headers: corsHeaders });
     }
 }
+
