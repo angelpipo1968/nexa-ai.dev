@@ -587,7 +587,7 @@ export function NexaApp() {
                             </button>
                         </div>
                     </div>
-                </div>
+                </main>
             )}
             
             <SettingsPanel 
