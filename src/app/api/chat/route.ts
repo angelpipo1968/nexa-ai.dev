@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
         const googleKey = process.env.GOOGLE_API_KEY || process.env.VITE_GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_API_KEY;
         const groqKey = process.env.GROQ_API_KEY || process.env.VITE_GROQ_API_KEY || process.env.NEXT_PUBLIC_GROQ_API_KEY;
 
-        console.log('NEXA API Keys Status:', { anthropic: !!anthropicKey, google: !!googleKey, groq: !!groqKey });
+        // Keys loaded (no logging in production)
 
         // 1. TRY GROQ (Fastest & Most Reliable currently)
         if (groqKey) {
