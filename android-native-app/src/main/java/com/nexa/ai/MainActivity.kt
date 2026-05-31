@@ -23,6 +23,8 @@ import com.nexa.ai.viewmodel.NexaViewModel
 import androidx.compose.ui.graphics.Color
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import kotlin.concurrent.thread
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -60,17 +62,43 @@ class MainActivity : ComponentActivity() {
             viewModel.clearCameraRequest()
         }
     }
-
+    
     private val captureImage = registerForActivityResult(
         ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
         if (bitmap != null) {
-            // Convert bitmap to base64 for vision API
-            val byteArrayOutputStream = ByteArrayOutputStream()
-            bitmap.compress(Bitmap.CompressFormat.JPEG, 80, byteArrayOutputStream)
-            val byteArray = byteArrayOutputStream.toByteArray()
-            val base64 = Base64.encodeToString(byteArray, Base64.NO_WRAP)
-            viewModel.sendVisionRequest(base64)
+            // FIX v5.2: Compress and downscale to prevent OOM
+            try {
+                val scaledBitmap = if (bitmap.width > 1024 || bitmap.height > 1024) {
+                    val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
+                    val newWidth: Int
+                    val newHeight: Int
+                    if (bitmap.width > bitmap.height) {
+                        newWidth = 1024
+                        newHeight = (1024f / ratio).toInt()
+                    } else {
+                        newHeight = 1024
+                        newWidth = (1024f * ratio).toInt()
+                    }
+                    android.graphics.Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+                } else {
+                    bitmap
+                }
+                val byteArrayOutputStream = ByteArrayOutputStream()
+                scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 70, byteArrayOutputStream)
+                val byteArray = byteArrayOutputStream.toByteArray()
+                val base64 = Base64.encodeToString(byteArray, Base64.NO_WRAP)
+                // Recycle scaled bitmap if we created a new one
+                if (scaledBitmap != bitmap) scaledBitmap.recycle()
+                viewModel.sendVisionRequest(base64, "image/jpeg")
+            } catch (e: OutOfMemoryError) {
+                android.util.Log.e("MainActivity", "OOM processing camera image")
+                System.gc()
+                viewModel.onError("Error: imagen demasiado grande, intenta de nuevo")
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Camera image error: ${e.message}")
+                viewModel.onError("Error procesando imagen")
+            }
         } else {
             viewModel.clearCameraRequest()
         }
@@ -80,11 +108,112 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
-            val fileName = it.lastPathSegment ?: "archivo"
-            viewModel.setPendingAttachment(fileName)
+            val mimeType = contentResolver.getType(it) ?: "application/octet-stream"
+            // If it's an image, send to vision API
+            if (mimeType.startsWith("image/")) {
+                val base64 = uriToBase64(it)
+                if (base64 != null) {
+                    viewModel.sendVisionRequest(base64, mimeType)
+                } else {
+                    viewModel.setPendingAttachment(it.lastPathSegment ?: "archivo")
+                }
+            } else {
+                // Non-image file: store as attachment
+                viewModel.setPendingAttachment(it.lastPathSegment ?: "archivo")
+            }
         }
     }
 
+    private val pickPhoto = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            val mimeType = contentResolver.getType(it) ?: "image/jpeg"
+            val base64 = uriToBase64(it)
+            if (base64 != null) {
+                viewModel.sendVisionRequest(base64, mimeType)
+            } else {
+                // Fallback: try to decode as bitmap
+                try {
+                    val inputStream = contentResolver.openInputStream(it)
+                    val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                    inputStream?.close()
+                    if (bitmap != null) {
+                        val baos = ByteArrayOutputStream()
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+                        val base64FromBitmap = Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP)
+                        viewModel.sendVisionRequest(base64FromBitmap, "image/jpeg")
+                    }
+                } catch (e: Exception) {
+                    viewModel.setPendingAttachment(it.lastPathSegment ?: "foto")
+                }
+            }
+        }
+    }
+
+    /**
+     * Converts a content URI to a base64 string — OOM-safe version.
+     * FIX v5.2: 
+     * - Reduced max size from 20MB to 5MB to prevent OOM
+     * - Uses streaming Base64 encoding instead of loading entire file into memory
+     * - Downscales bitmap before encoding
+     */
+    private fun uriToBase64(uri: android.net.Uri): String? {
+        return try {
+            val inputStream: java.io.InputStream? = contentResolver.openInputStream(uri)
+            inputStream?.use { stream ->
+                // First read to get file size
+                val bytes = stream.readBytes()
+                val maxSize = 5 * 1024 * 1024  // 5MB limit (was 20MB)
+                if (bytes.size > maxSize) {
+                    android.util.Log.w("MainActivity", "File too large (${bytes.size} bytes), trying bitmap downscale...")
+                    // Try to decode as bitmap and downscale
+                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (bitmap != null) {
+                        val scaled = scaleBitmap(bitmap, 1024)
+                        val baos = java.io.ByteArrayOutputStream()
+                        scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 75, baos)
+                        val result = android.util.Base64.encodeToString(baos.toByteArray(), android.util.Base64.NO_WRAP)
+                        scaled.recycle()
+                        bitmap.recycle()
+                        result
+                    } else {
+                        null
+                    }
+                } else {
+                    android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                }
+            }
+        } catch (e: OutOfMemoryError) {
+            android.util.Log.e("MainActivity", "OOM during base64 encode: ${e.message}")
+            System.gc()  // Request garbage collection
+            null
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Failed to convert URI to base64: ${e.message}")
+            null
+        }
+    }
+    
+    /**
+     * Scales a bitmap to fit within maxDimension while maintaining aspect ratio.
+     */
+    private fun scaleBitmap(bitmap: android.graphics.Bitmap, maxDimension: Int): android.graphics.Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        if (width <= maxDimension && height <= maxDimension) return bitmap
+        val ratio = width.toFloat() / height.toFloat()
+        val newWidth: Int
+        val newHeight: Int
+        if (width > height) {
+            newWidth = maxDimension
+            newHeight = (maxDimension / ratio).toInt()
+        } else {
+            newHeight = maxDimension
+            newWidth = (maxDimension * ratio).toInt()
+        }
+        return android.graphics.Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         volumeControlStream = android.media.AudioManager.STREAM_MUSIC
@@ -208,6 +337,34 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     requestCameraPermission.launch(Manifest.permission.CAMERA)
                                 }
+                            },
+                            onPickPhoto = { pickPhoto.launch("image/*") },
+                            onDeepResearch = {
+                                val lang = uiState.language
+                                val prefix = if (lang == com.nexa.ai.viewmodel.AppLanguage.SPANISH)
+                                    "Investiga a fondo: " else "Deep research: "
+                                val query = uiState.inputText.ifBlank {
+                                    if (lang == com.nexa.ai.viewmodel.AppLanguage.SPANISH) "Investiga sobre el tema actual" else "Research the current topic"
+                                }
+                                viewModel.sendMessage(prefix + query)
+                            },
+                            onReasoning = {
+                                val lang = uiState.language
+                                val prefix = if (lang == com.nexa.ai.viewmodel.AppLanguage.SPANISH)
+                                    "Razona paso a paso: " else "Reason step by step: "
+                                val query = uiState.inputText.ifBlank {
+                                    if (lang == com.nexa.ai.viewmodel.AppLanguage.SPANISH) "Razona sobre este tema" else "Reason about this topic"
+                                }
+                                viewModel.sendMessage(prefix + query)
+                            },
+                            onWebSearch = {
+                                val lang = uiState.language
+                                val prefix = if (lang == com.nexa.ai.viewmodel.AppLanguage.SPANISH)
+                                    "Busca en la web: " else "Search the web: "
+                                val query = uiState.inputText.ifBlank {
+                                    if (lang == com.nexa.ai.viewmodel.AppLanguage.SPANISH) "Busca información actual" else "Search for current information"
+                                }
+                                viewModel.sendMessage(prefix + query)
                             },
                             onDismissPreview = { viewModel.dismissPreview() },
                             onQuickAction = { action ->

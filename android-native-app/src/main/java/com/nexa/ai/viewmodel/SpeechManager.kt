@@ -1,4 +1,4 @@
-package com.nexa.ai.viewmodel
+package com.nexa.ai.voice
 
 import android.app.Application
 import android.content.BroadcastReceiver
@@ -25,6 +25,8 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import com.nexa.ai.viewmodel.AppLanguage
+import com.nexa.ai.viewmodel.VoiceType
 import java.util.Locale
 
 /**
@@ -67,6 +69,7 @@ class SpeechManager(private val application: Application) {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var isCurrentlyListening = false
+    private var recognizeFailCount = 0  // v5.2: prevent infinite recognizer recreation leak
 
     // ═══════════════════════════════════════════════════════════════
     //  v5.0 FIX: Hands-free cut-off prevention flags
@@ -202,7 +205,7 @@ class SpeechManager(private val application: Application) {
 
     // Volume boost — persistent preference for louder hands-free
     private var volumeBoostEnabled = true  // Default ON for louder hands-free
-    private var speechRate = 1.0f  // Configurable speech rate
+    private var speechRate = 0.85f  // v5.2: Slower default for natural speech (was 1.0)
 
     // Saved volume levels to restore after voice mode
     private var savedMusicVolume = -1
@@ -309,7 +312,7 @@ class SpeechManager(private val application: Application) {
             // + USAGE_VOICE_COMMUNICATION = consistent VoIP pipeline that Android won't duck.
             val attrs = if (audioSessionActive) {
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build()
             } else {
@@ -367,11 +370,7 @@ class SpeechManager(private val application: Application) {
                 hasAudioFocus = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
             } else {
                 @Suppress("DEPRECATION")
-                val streamType = if (audioSessionActive) {
-                    AudioManager.STREAM_VOICE_CALL  // VoIP pipeline
-                } else {
-                    AudioManager.STREAM_MUSIC
-                }
+                val streamType = AudioManager.STREAM_MUSIC
                 val result = audioManager.requestAudioFocus(
                     { focusChange ->
                         when (focusChange) {
@@ -717,20 +716,17 @@ class SpeechManager(private val application: Application) {
         }
 
         try {
-            // v4.0: Re-apply hands-free routing BEFORE requesting focus
-            // This ensures MODE_NORMAL is set before focus request with USAGE_MEDIA
-            if (audioSessionActive && !isNearEar && !isBluetoothScoConnected) {
-                reapplyHandsFreeRouting()
-            }
+            // v5.2: Hands-free routing applied only when needed (disabled reapply to save CPU)
+            // Routing is now set once in startVoiceAudioSession()
 
             // Request audio focus before speaking
             // v4.0: Focus request now uses USAGE_MEDIA for hands-free
             requestAudioFocus()
 
-            // ── VOLUME BOOST: Maximize volume before speaking ──
-            // v4.0: Only boost during voice mode to avoid aggressive volume changes
-            if (volumeBoostEnabled && audioSessionActive) {
-                boostVolumeForHandsFree()
+            // ── VOLUME BOOST: Disabled to prevent TTS engine death ──
+            // (Originally boosted volume aggressively)
+            if (false && volumeBoostEnabled && audioSessionActive) {
+                // boostVolumeForHandsFree() // disabled
             }
 
             isTtsActive = true
@@ -741,13 +737,9 @@ class SpeechManager(private val application: Application) {
             ttsStartedAt = System.currentTimeMillis()
             val utteranceId = messageId ?: "msg_${System.currentTimeMillis()}"
 
-            // Use STREAM_VOICE_CALL during active sessions to ensure proper Hardware AEC and VoIP routing.
-            // This prevents Samsung and other OEMs from ducking the volume to prevent echo.
-            val useStream = if (audioSessionActive) {
-                AudioManager.STREAM_VOICE_CALL
-            } else {
-                AudioManager.STREAM_MUSIC
-            }
+            // Use STREAM_MUSIC to ensure loud volume via media channel.
+            // Avoid STREAM_VOICE_CALL as it routes to earpiece on some OEM devices.
+            val useStream = AudioManager.STREAM_MUSIC
 
             val params = Bundle().apply {
                 putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
@@ -755,9 +747,11 @@ class SpeechManager(private val application: Application) {
                 // Volume: 1.0f = max volume for TTS output
                 putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
             }
-            val result = tts?.speak(cleaned, TextToSpeech.QUEUE_FLUSH, params, utteranceId)
+            // FIX v5.2: Use QUEUE_ADD to prevent cutting off ongoing speech
+            // Only use FLUSH when explicitly stopping (isPreparingToSpeak)
+            val queueMode = if (isPreparingToSpeak) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+            val result = tts?.speak(cleaned, queueMode, params, utteranceId)
             if (result == TextToSpeech.ERROR) {
-                // If the chosen stream failed, try the other one as fallback
                 val fallbackStream = if (useStream == AudioManager.STREAM_VOICE_CALL) {
                     AudioManager.STREAM_MUSIC
                 } else {
@@ -769,7 +763,7 @@ class SpeechManager(private val application: Application) {
                     putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, fallbackStream)
                     putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
                 }
-                val retryResult = tts?.speak(cleaned, TextToSpeech.QUEUE_FLUSH, fallbackParams, utteranceId)
+                val retryResult = tts?.speak(cleaned, queueMode, fallbackParams, utteranceId)
                 if (retryResult == TextToSpeech.ERROR) {
                     android.util.Log.e("SpeechManager", "TTS speak returned ERROR on both streams")
                     isTtsActive = false
@@ -833,17 +827,17 @@ class SpeechManager(private val application: Application) {
      */
     private fun boostVolumeForHandsFree() {
         try {
-            // Force audio mode to IN_COMMUNICATION for speaker output to maintain VoIP AEC
+            // Force audio mode to NORMAL for speaker output to maintain loud volume
             if (!isNearEar && !isBluetoothScoConnected && audioSessionActive) {
-                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+                audioManager.mode = AudioManager.MODE_NORMAL
                 setSpeakerphoneOn(true)
                 
-                // Actual volume boost for STREAM_VOICE_CALL to fix low volume in hands-free mode
+                // Actual volume boost for STREAM_MUSIC to fix low volume in hands-free mode
                 try {
-                    val maxVoiceCallVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
-                    audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVoiceCallVol, 0)
+                    val maxMusicVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxMusicVol, 0)
                 } catch (e: Exception) {
-                    android.util.Log.w("SpeechManager", "Failed to max voice call volume: ${e.message}")
+                    android.util.Log.w("SpeechManager", "Failed to max music volume: ${e.message}")
                 }
             }
 
@@ -859,24 +853,9 @@ class SpeechManager(private val application: Application) {
      * Lighter than boostVolumeForHandsFree() — only fixes routing, doesn't max volumes.
      */
     private fun reapplyHandsFreeRouting() {
-        try {
-            // Use MODE_IN_COMMUNICATION to match VoIP pipeline
-            if (audioSessionActive) {
-                try { audioManager.mode = AudioManager.MODE_IN_COMMUNICATION } catch (_: Exception) {}
-            }
-            // Force speaker ON
-            setSpeakerphoneOn(true)
-            
-            // Re-apply max volume here just in case OEM reset it
-            try {
-                if (!isNearEar && !isBluetoothScoConnected && audioSessionActive) {
-                    val maxVoiceCallVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
-                    audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVoiceCallVol, 0)
-                }
-            } catch (e: Exception) {}
-        } catch (e: Exception) {
-            android.util.Log.w("SpeechManager", "Re-apply routing failed: ${e.message}")
-        }
+        // DISABLED: Causaba muerte del motor TTS
+        android.util.Log.w("SpeechManager", "reapplyHandsFreeRouting disabled to prevent TTS engine death")
+        return
     }
 
     /**
@@ -903,18 +882,24 @@ class SpeechManager(private val application: Application) {
         var cleaned = text.replace(Regex("https?://\\S+"), "")
         
         // 2. Remove Markdown formatting
-        cleaned = cleaned.replace(Regex("#{1,6}\\s*"), "") // Headers
-        cleaned = cleaned.replace(Regex("\\*+"), "")     // Bold/Italic
-        cleaned = cleaned.replace(Regex("_+"), "")      // Italic
-        cleaned = cleaned.replace(Regex("`{1,3}[\\s\\S]*?`{1,3}"), "") // Code blocks
+        cleaned = cleaned.replace(Regex("#{1,6}\\s*"), "")
+        cleaned = cleaned.replace(Regex("[*_~`]+"), "")
+        cleaned = cleaned.replace(Regex("```[\\s\\S]*?```"), "")
         
-        // 3. Remove most symbols, but KEEP basic punctuation for natural prosody
-        // We keep letters, numbers, and .,?!:;
-        cleaned = cleaned.replace(Regex("[^\\p{L}\\p{N}\\s.,?!:;]"), " ")
+        // 3. Remove list markers
+        cleaned = cleaned.replace(Regex("^\\s*[-*+]\\s+", RegexOption.MULTILINE), "")
+        cleaned = cleaned.replace(Regex("^\\s*\\d+\\.\\s+", RegexOption.MULTILINE), "")
         
-        // 4. Cleanup white spaces
+        // 4. Replace newlines with period+space for natural TTS pausing
+        cleaned = cleaned.replace(Regex("\\n+"), ". ")
+        
+        // 5. Keep ALL Unicode letters (ñ, á, é, í, ó, ú, ¿, ¡, etc.)
+        // \p{L}=letters, \p{N}=numbers, \p{M}=marks/accents
+        cleaned = cleaned.replace(Regex("[^\\p{L}\\p{N}\\p{M}\\s.,?!;:¿¡'"()-]"), " ")
+        
+        // 6. Collapse whitespace
         cleaned = cleaned.replace(Regex("\\s{2,}"), " ").trim()
-
+        
         return cleaned
     }
 
@@ -991,6 +976,14 @@ class SpeechManager(private val application: Application) {
                             speechRecognizer?.destroy()
                         } catch (_: Exception) {}
                         speechRecognizer = null
+                        // FIX v5.2: Limit recreation to prevent memory leak
+                        recognizeFailCount++
+                        if (recognizeFailCount >= 3) {
+                            android.util.Log.w("SpeechManager", "SpeechRecognizer failed 3 times, waiting 5s before retry")
+                            Handler(Looper.getMainLooper()).postDelayed({ recognizeFailCount = 0 }, 5000)
+                        }
+                    } else {
+                        recognizeFailCount = 0
                     }
 
                     // These errors are "normal" — just retry
@@ -1097,8 +1090,8 @@ class SpeechManager(private val application: Application) {
             // Request audio focus for voice communication
             requestAudioFocus()
 
-            // Set communication mode — eliminates clicks between TTS/recording transitions
-            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+            // Set normal mode for media playback
+            audioManager.mode = AudioManager.MODE_NORMAL
 
             // No longer saving volumes as we no longer override them
 
@@ -1117,10 +1110,9 @@ class SpeechManager(private val application: Application) {
                 // Initial state: use speaker for hands-free (louder)
                 setSpeakerphoneOn(!isNearEar)
                 
-                // Use MODE_IN_COMMUNICATION at all times during the session!
-                // This ensures hardware AEC knows we are in a voice call, which prevents
-                // Samsung and other OEMs from drastically ducking the volume to prevent echo.
-                audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+                // Use MODE_NORMAL at all times during the session!
+                // This ensures loud media playback via speakerphone.
+                audioManager.mode = AudioManager.MODE_NORMAL
                 
                 try {
                     // Delayed re-apply to ensure routing sticks
@@ -1184,6 +1176,10 @@ class SpeechManager(private val application: Application) {
      * Enhanced with Voice Activity Detection (VAD) via zero-crossing rate.
      */
     fun startBargeInMonitor() {
+        // DISABLED: Causaba congelamientos
+        android.util.Log.w("SpeechManager", "Barge-in disabled to prevent freezes")
+        return
+        
         if (bargeInActive) return
         bargeInActive = true
 

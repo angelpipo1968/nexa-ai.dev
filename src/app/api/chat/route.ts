@@ -90,6 +90,13 @@ const PROVIDERS = {
 
 const FALLBACK_ORDER = ['openrouter', 'groq', 'zai', 'anthropic', 'gemini', 'deepseek', 'openai', 'ollama'];
 
+// ─── Default free models per provider (no API key needed for some) ───
+const FREE_MODELS: Record<string, { model: string; keyEnv: string }> = {
+    openrouter: { model: 'google/gemini-2.5-flash', keyEnv: 'OPENROUTER_API_KEY' },
+    groq: { model: 'llama-3.3-70b-versatile', keyEnv: 'GROQ_API_KEY' },
+    ollama: { model: 'llama3.1:8b', keyEnv: 'OLLAMA_API_KEY' },
+};
+
 // ─── Key Rotation: Soporte para múltiples keys separadas por coma ───
 function getKeyList(envValue: string | undefined, envKey?: string): string[] {
     // Collect keys from: KEY, KEY_2, KEY_3 (separate env vars in Vercel)
