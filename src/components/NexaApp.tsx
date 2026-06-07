@@ -371,16 +371,20 @@ export function NexaApp() {
     const loadConvs = async () => {
         setConvLoading(true);
         try {
-            const { data, error } = await sb.from('conversations').select('*').order('updated_at', { ascending: false });
-            if (!error && Array.isArray(data)) setConvs(data);
+            if (sb) {
+                const { data, error } = await sb.from('conversations').select('*').order('updated_at', { ascending: false });
+                if (!error && Array.isArray(data)) setConvs(data);
+            }
         } catch {} finally { setConvLoading(false); }
     };
 
     const createConv = async (title = 'Nueva conversación') => {
         const local: Conv = { id: `c-${Date.now()}`, title };
         try {
-            const { data, error } = await sb.from('conversations').insert({ title }).select().single();
-            if (!error && data) { local.id = data.id; local.title = data.title; }
+            if (sb) {
+                const { data, error } = await sb.from('conversations').insert({ title }).select().single();
+                if (!error && data) { local.id = data.id; local.title = data.title; }
+            }
         } catch {}
         setConvs(p => [local, ...(Array.isArray(p) ? p : [])]);
         setConvId(local.id);
@@ -389,7 +393,12 @@ export function NexaApp() {
     };
 
     const delConv = async (id: string) => {
-        try { await sb.from('messages').delete().eq('conversation_id', id); await sb.from('conversations').delete().eq('id', id); } catch {}
+        try { 
+            if (sb) {
+                await sb.from('messages').delete().eq('conversation_id', id); 
+                await sb.from('conversations').delete().eq('id', id); 
+            }
+        } catch {}
         setConvs(p => Array.isArray(p) ? p.filter(c => c.id !== id) : []);
         if (convId === id) { setConvId(null); setMsgs([]); }
     };
@@ -397,9 +406,11 @@ export function NexaApp() {
     const selConv = async (id: string) => {
         setConvId(id); setDrawer(false);
         try {
-            const { data, error } = await sb.from('messages').select('*').eq('conversation_id', id).order('created_at');
-            if (!error && Array.isArray(data)) {
-                setMsgs(data.map((m: any) => ({ id: m.id, role: m.role, content: m.content || '', ts: +new Date(m.created_at) })));
+            if (sb) {
+                const { data, error } = await sb.from('messages').select('*').eq('conversation_id', id).order('created_at');
+                if (!error && Array.isArray(data)) {
+                    setMsgs(data.map((m: any) => ({ id: m.id, role: m.role, content: m.content || '', ts: +new Date(m.created_at) })));
+                }
             }
         } catch {}
         setTimeout(() => scrollToBottom(false), 100);
@@ -474,7 +485,9 @@ export function NexaApp() {
             const fetchTimeout = setTimeout(() => controller.abort(), 55000); // < 60s server limit
             
         try {
-            await sb.from('messages').insert({ conversation_id: currentCid, role: 'user', content: finalContent });
+            if (sb) {
+                await sb.from('messages').insert({ conversation_id: currentCid, role: 'user', content: finalContent });
+            }
             
             const res = await fetch('/api/chat', {
                 method: 'POST',
@@ -538,7 +551,9 @@ export function NexaApp() {
                 const errMsg = serverError ? `❌ ${serverError.split('\n')[0]}` : '❌ No se recibió respuesta del servidor.';
                 setMsgs(p => p.map(m => m.id === aid ? { ...m, content: errMsg, streaming: false } : m));
             } else {
-                try { await sb.from('messages').insert({ conversation_id: currentCid, role: 'assistant', content: full }); } catch {}
+                if (sb) {
+                    try { await sb.from('messages').insert({ conversation_id: currentCid, role: 'assistant', content: full }); } catch {}
+                }
             }
 
             clearTimeout(fetchTimeout);
