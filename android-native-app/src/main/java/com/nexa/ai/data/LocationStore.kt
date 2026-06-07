@@ -9,17 +9,27 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
 import android.os.Bundle
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.doublePreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
+
+private val Context.locationDataStore: DataStore<Preferences> by preferencesDataStore(name = "nexa_location")
 
 /**
  * Provides device geolocation using FusedLocationProviderClient with
@@ -33,6 +43,8 @@ import kotlin.coroutines.resume
  * - Improved Geocoder with fallback coordinates when address resolution fails
  * - Added retry logic with exponential backoff
  * - Caches last known location for faster subsequent requests
+ * v5.3 improvements:
+ * - Persists location and timestamp to DataStore for cross-session availability
  */
 class LocationStore(private val context: Context) {
 
@@ -42,14 +54,34 @@ class LocationStore(private val context: Context) {
         val address: String = "",
         val city: String = "",
         val country: String = "",
+        val timestamp: Long = 0L,
         val isAvailable: Boolean = false
     )
+
+    private val KEY_LATITUDE = doublePreferencesKey("location_latitude")
+    private val KEY_LONGITUDE = doublePreferencesKey("location_longitude")
+    private val KEY_ADDRESS = stringPreferencesKey("location_address")
+    private val KEY_CITY = stringPreferencesKey("location_city")
+    private val KEY_COUNTRY = stringPreferencesKey("location_country")
+    private val KEY_TIMESTAMP = longPreferencesKey("location_timestamp")
 
     private var fusedClient: FusedLocationProviderClient? = null
     private var locationManager: LocationManager? = null
     private var cachedLocation: LocationData? = null
 
-    fun initialize() {
+    val locationData: Flow<LocationData> = context.locationDataStore.data.map { prefs ->
+        LocationData(
+            latitude = prefs[KEY_LATITUDE] ?: 0.0,
+            longitude = prefs[KEY_LONGITUDE] ?: 0.0,
+            address = prefs[KEY_ADDRESS] ?: "",
+            city = prefs[KEY_CITY] ?: "",
+            country = prefs[KEY_COUNTRY] ?: "",
+            timestamp = prefs[KEY_TIMESTAMP] ?: 0L,
+            isAvailable = prefs[KEY_LATITUDE] != null
+        )
+    }
+
+    suspend fun initialize() {
         try {
             fusedClient = LocationServices.getFusedLocationProviderClient(context)
         } catch (e: Exception) {
@@ -60,6 +92,8 @@ class LocationStore(private val context: Context) {
         } catch (e: Exception) {
             android.util.Log.e("LocationStore", "LocationManager init failed: ${e.message}", e)
         }
+        // Load cached location from DataStore
+        cachedLocation = locationData.first()
     }
 
     /**
@@ -90,13 +124,14 @@ class LocationStore(private val context: Context) {
      * Gets the current location with address.
      * Requires ACCESS_FINE_LOCATION or ACCESS_COARSE_LOCATION permission.
      * v4.0: Added timeout, retry logic, LocationManager fallback, and caching.
+     * v5.3: Persists location to DataStore for future use.
      */
     @SuppressLint("MissingPermission")
     suspend fun getCurrentLocation(): LocationData {
         // Check permissions first
         if (!hasLocationPermission()) {
             android.util.Log.w("LocationStore", "No location permission granted")
-            return LocationData(isAvailable = false)
+            return locationData.first()
         }
 
         // Try with timeout to prevent hanging
@@ -105,8 +140,10 @@ class LocationStore(private val context: Context) {
         }
 
         if (result != null && result.isAvailable) {
-            cachedLocation = result
-            return result
+            val locationWithTimestamp = result.copy(timestamp = System.currentTimeMillis())
+            cachedLocation = locationWithTimestamp
+            saveLocationToDataStore(locationWithTimestamp)
+            return locationWithTimestamp
         }
 
         // Return cached location if available
@@ -116,7 +153,18 @@ class LocationStore(private val context: Context) {
             return cached
         }
 
-        return LocationData(isAvailable = false)
+        return locationData.first()
+    }
+
+    private suspend fun saveLocationToDataStore(location: LocationData) {
+        context.locationDataStore.edit { prefs ->
+            prefs[KEY_LATITUDE] = location.latitude
+            prefs[KEY_LONGITUDE] = location.longitude
+            prefs[KEY_ADDRESS] = location.address
+            prefs[KEY_CITY] = location.city
+            prefs[KEY_COUNTRY] = location.country
+            prefs[KEY_TIMESTAMP] = location.timestamp
+        }
     }
 
     /**
