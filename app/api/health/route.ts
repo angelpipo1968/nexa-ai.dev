@@ -19,8 +19,7 @@ export async function HEAD() {
 
 export async function GET() {
   const checks: Record<string, boolean> = {}
-  
-  // Check OpenRouter
+
   try {
     const key = process.env.OPENROUTER_API_KEY
     if (!key) {
@@ -32,15 +31,18 @@ export async function GET() {
       })
       checks.openrouter = r.ok
     }
-  } catch { checks.openrouter = false }
+  } catch {
+    checks.openrouter = false
+  }
 
-  // Check Ollama
   try {
     const r = await fetch(`${getOllamaBaseUrl()}/api/tags`, {
       signal: AbortSignal.timeout(3000),
     })
     checks.ollama = r.ok
-  } catch { checks.ollama = false }
+  } catch {
+    checks.ollama = false
+  }
 
   return NextResponse.json({
     status: 'ok',
@@ -51,11 +53,6 @@ export async function GET() {
       openrouter: 'google/gemini-2.5-flash',
       ollama: process.env.OLLAMA_MODEL || 'qwen3.6:latest',
     },
-    features: [
-      'chat', 'vision', 'code_generation', 'web_search',
-      'flights', 'weather', 'lottery', 'movies', 'news',
-      'spotify', 'maps', 'finance', 'nasa', 'academic',
-      'translation', 'image_generation', 'voice_mode',
-    ],
   })
 }
+

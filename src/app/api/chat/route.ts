@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getIdentifier, checkRateLimit, RATE_LIMITS } from '@/lib/nexa-core/rate-limiter';
+import { createRateLimiter, getIdentifier, RATE_LIMITS } from '@/lib/rate-limiter';
 import { logger, generateRequestId } from '@/lib/nexa-core/logger';
 import { chatSchema } from '@/lib/validation';
 import { getSystemPrompt } from '@/lib/nexa-core/prompts';
@@ -34,7 +34,8 @@ import {
     getLearningInsights, getUserProfile, updateUserProfile, generatePersonalizationContext,
     extractKnowledge, getRelatedKnowledge, analyzeMessageAdvanced
 } from '@/lib/nexa-core/machine-learning';
-import { detectVisionCategory, getCategoryInstructions } from '@/lib/nexa-core/vision-plus';
+import { enqueueJob } from '@/lib/nexa-core/kernel/scheduler';
+import { consumeChunk } from '@/lib/nexa-core/kernel/event-bus';
 
 export const maxDuration = 120;
 export const runtime = 'nodejs';
@@ -45,57 +46,67 @@ const corsHeaders = {
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-const PROVIDERS = {
-    groq: {
-        url: 'https://api.groq.com/openai/v1/chat/completions',
-        model: 'llama-3.3-70b-versatile',
-        keyEnv: 'GROQ_API_KEY'
-    },
-    anthropic: {
-        url: 'https://api.anthropic.com/v1/messages',
-        model: 'claude-3-5-sonnet-20241022',
-        keyEnv: 'ANTHROPIC_API_KEY'
-    },
-    gemini: {
-        url: (model: string, key: string) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
-        model: 'gemini-1.5-flash',
-        keyEnv: 'GOOGLE_AI_API_KEY'
-    },
-    deepseek: {
-        url: 'https://api.deepseek.com/chat/completions',
-        model: 'deepseek-chat',
-        keyEnv: 'DEEPSEEK_API_KEY'
-    },
-    openai: {
-        url: 'https://api.openai.com/v1/chat/completions',
-        model: 'gpt-4o-mini',
-        keyEnv: 'OPENAI_API_KEY'
-    },
-    zai: {
-        url: 'https://api.z.ai/api/v4/chat/completions',
-        model: 'glm-4.7',
-        keyEnv: 'ZAI_API_KEY'
-    },
-    openrouter: {
-        url: 'https://openrouter.ai/api/v1/chat/completions',
-        model: 'anthropic/claude-3.5-sonnet',
-        keyEnv: 'OPENROUTER_API_KEY'
-    },
-    ollama: {
-        url: process.env.OLLAMA_URL || 'http://localhost:11434/v1/chat/completions',
-        model: process.env.OLLAMA_MODEL || 'llama3.3',
-        keyEnv: 'OLLAMA_API_KEY' // Ollama usually doesn't need a key, but keeping the structure
+const PRIMARY_AGENT_ENDPOINT =
+    process.env.NEXA_AGENT_GATEWAY_URL || 'http://127.0.0.1:5002/agent';
+
+function getAgentEndpointLabel(endpoint: string): string {
+    if (endpoint.includes(':5002/')) return 'agent-swarm-v4';
+    if (endpoint.includes(':5001/')) return 'agent-loop-v2';
+    if (endpoint.includes(':5000/')) return 'agent-loop-v1';
+    return 'agent-gateway';
+}
+
+function normalizeAgentResponse(data: any): string {
+    const text = data?.final || data?.response || data?.result || data?.content || '';
+    if (typeof text === 'string' && text.trim()) return text.trim();
+    return JSON.stringify(data);
+}
+
+async function callAgentGateway(endpoint: string, userId: string, userQuery: string) {
+    const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, message: userQuery }),
+    });
+
+    if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Gateway ${endpoint} devolvió ${res.status}: ${body || res.statusText}`);
     }
-};
 
-const FALLBACK_ORDER = ['openrouter', 'groq', 'zai', 'anthropic', 'gemini', 'deepseek', 'openai', 'ollama'];
+    const data = await res.json();
+    return {
+        text: normalizeAgentResponse(data),
+        provider: getAgentEndpointLabel(endpoint),
+    };
+}
 
-// ─── Default free models per provider (no API key needed for some) ───
-const FREE_MODELS: Record<string, { model: string; keyEnv: string }> = {
-    openrouter: { model: 'google/gemini-2.5-flash', keyEnv: 'OPENROUTER_API_KEY' },
-    groq: { model: 'llama-3.3-70b-versatile', keyEnv: 'GROQ_API_KEY' },
-    ollama: { model: 'llama3.1:8b', keyEnv: 'OLLAMA_API_KEY' },
-};
+function createGatewayStream(requestId: string, userId: string, userQuery: string) {
+    const encoder = new TextEncoder();
+    return new ReadableStream({
+        async start(controller) {
+            try {
+                logger.info(`Attempting primary agent gateway ${PRIMARY_AGENT_ENDPOINT}`, 'chat', { requestId });
+                const { text, provider } = await callAgentGateway(PRIMARY_AGENT_ENDPOINT, userId, userQuery);
+                const chunks = text.match(/\S+\s*/g) || [text];
+                for (const chunk of chunks) {
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk, provider })}\n\n`));
+                }
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse: text, provider })}\n\n`));
+                extractAndSaveSkills(userId, userQuery, text).catch(console.error);
+                controller.close();
+                return;
+            } catch (e: any) {
+                logger.warn(`Primary agent gateway failed ${PRIMARY_AGENT_ENDPOINT}: ${e.message}`, 'chat', { requestId });
+            }
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'El gateway principal del agente no respondió.' })}\n\n`));
+            controller.close();
+        }
+    });
+}
+
+const rateLimiter = createRateLimiter();
 
 // ─── Key Rotation: Soporte para múltiples keys separadas por coma ───
 function getKeyList(envValue: string | undefined, envKey?: string): string[] {
@@ -133,189 +144,6 @@ function getRandomKey(envValue: string | undefined, envKey?: string): string | u
 }
 
 
-function createStream(requestId: string, messages: any[], keys: Record<string, string | undefined>, userId: string, userQuery: string, toolContext?: string) {
-    const encoder = new TextEncoder();
-    return new ReadableStream({
-        async start(controller) {
-            let fullResponse = '';
-            
-            // Inject tool context into the conversation if available
-            if (toolContext) {
-                const toolMessage = {
-                    role: 'system',
-                    content: `[DATOS EN TIEMPO REAL - Usa estos datos para responder al usuario]\n\n${toolContext}\n\nResponde al usuario usando estos datos. Sé natural y conversacional. REGLA DE ORO PARA LA VOZ: NUNCA uses símbolos Markdown (*, #, -, \`, /, \). Tu respuesta será leída por un sintetizador de voz. NO hagas listas con viñetas, redacta todo en prosa fluida y continua. Escribe los números y precios de forma natural (ej. '400 dólares').`
-                };
-                // Insert tool message before the last user message
-                const lastUserIdx = messages.map(m => m.role).lastIndexOf('user');
-                if (lastUserIdx >= 0) {
-                    messages.splice(lastUserIdx, 0, toolMessage);
-                } else {
-                    messages.push(toolMessage);
-                }
-            }
-            
-            for (const providerKey of FALLBACK_ORDER) {
-                const config = (PROVIDERS as any)[providerKey];
-                const keyList = getKeyList(keys[config.keyEnv], config.keyEnv);
-                if (keyList.length === 0) continue;
-                
-                // Intentar cada key del proveedor antes de pasar al siguiente
-                for (let keyIdx = 0; keyIdx < keyList.length; keyIdx++) {
-                const key = keyList[keyIdx];
-                try {
-                    logger.info(`Attempting chat with ${providerKey}`, 'chat', { requestId });
-                    
-        // FIX: Timeout helper to prevent slow providers from blocking all fallbacks
-        const fetchWithTimeout = (url: string, options: any, timeoutMs = 20000): Promise<Response> => {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), timeoutMs);
-            return Promise.race([
-                fetch(url, { ...options, signal: controller.signal }),
-                new Promise<Response>((_, reject) => setTimeout(() => {
-                    clearTimeout(timeout);
-                    reject(new Error(`Timeout: ${timeoutMs}ms`));
-                }, timeoutMs))
-            ]).finally(() => clearTimeout(timeout));
-        };
-
-                    // OpenAI Compatible (Groq, DeepSeek, OpenAI, Z.ai, OpenRouter, Ollama)
-                    if (['groq', 'deepseek', 'openai', 'zai', 'openrouter', 'ollama'].includes(providerKey)) {
-                        const res = await fetchWithTimeout(config.url, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-                            body: JSON.stringify({ model: config.model, messages, stream: true, temperature: 0.7, max_tokens: 4096 }),
-                        });
-                        if (res.ok && res.body) {
-                            const reader = res.body.getReader();
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                const chunk = new TextDecoder().decode(value);
-                                for (const line of chunk.split('\n')) {
-                                    if (line.startsWith('data: ') && !line.includes('[DONE]')) {
-                                        try {
-                                            const content = JSON.parse(line.slice(6)).choices?.[0]?.delta?.content || '';
-                                            if (content) {
-                                                fullResponse += content;
-                                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: providerKey })}\n\n`));
-                                            }
-                                        } catch {}
-                                    }
-                                }
-                            }
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: providerKey })}\n\n`));
-                            extractAndSaveSkills(userId, userQuery, fullResponse).catch(console.error);
-                            controller.close();
-                            return;
-                        }
-                    } 
-                    // Anthropic Logic
-                    else if (providerKey === 'anthropic') {
-                        const systemMessage = messages.find(m => m.role === 'system')?.content;
-                        const userMessages = messages.filter(m => m.role !== 'system');
-                        const res = await fetchWithTimeout(config.url, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'x-api-key': key,
-                                'anthropic-version': '2023-06-01'
-                            },
-                            body: JSON.stringify({ 
-                                model: config.model, 
-                                system: systemMessage,
-                                messages: userMessages, 
-                                stream: true, 
-                                max_tokens: 4096 
-                            }),
-                        });
-                        if (res.ok && res.body) {
-                            const reader = res.body.getReader();
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                const chunk = new TextDecoder().decode(value);
-                                for (const line of chunk.split('\n')) {
-                                    if (line.startsWith('data: ')) {
-                                        try {
-                                            const data = JSON.parse(line.slice(6));
-                                            const content = data.delta?.text || '';
-                                            if (content) {
-                                                fullResponse += content;
-                                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'anthropic' })}\n\n`));
-                                            }
-                                        } catch {}
-                                    }
-                                }
-                            }
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'anthropic' })}\n\n`));
-                            extractAndSaveSkills(userId, userQuery, fullResponse).catch(console.error);
-                            controller.close();
-                            return;
-                        }
-                    }
-                    // Gemini Multimodal Logic
-                    else if (providerKey === 'gemini') {
-                        const contents = messages.filter(m => m.role !== 'system').map(m => {
-                            const parts = [];
-                            // Si el contenido tiene una imagen (asumimos formato [IMAGE:base64])
-                            const imageMatch = m.content.match(/\[IMAGE:(.*?)\]/);
-                            if (imageMatch) {
-                                const base64 = imageMatch[1];
-                                const textQuery = m.content.replace(/\[IMAGE:.*?\]/, '').trim();
-                                
-                                const category = detectVisionCategory(textQuery);
-                                const visionInstructions = getCategoryInstructions(category);
-                                
-                                parts.push({ inlineData: { mimeType: "image/jpeg", data: base64 } });
-                                parts.push({ text: (textQuery || "Describe esta imagen. Si hay texto, transcríbelo.") + `\n\n[SISTEMA DE VISIÓN]: ${visionInstructions}` });
-                            } else {
-                                parts.push({ text: m.content });
-                            }
-                            return { role: m.role === 'assistant' ? 'model' : 'user', parts };
-                        });
-
-                        const res = await fetchWithTimeout(config.url(config.model, key), {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ contents }),
-                        });
-                        if (res.ok && res.body) {
-                            const reader = res.body.getReader();
-                            // ... resto del stream
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                const chunk = new TextDecoder().decode(value);
-                                for (const line of chunk.split('\n')) {
-                                    if (line.startsWith('data: ')) {
-                                        try {
-                                            const content = JSON.parse(line.slice(6)).candidates?.[0]?.content?.parts?.[0]?.text || '';
-                                            if (content) {
-                                                fullResponse += content;
-                                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: content, provider: 'gemini' })}\n\n`));
-                                            }
-                                        } catch {}
-                                    }
-                                }
-                            }
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true, fullResponse, provider: 'gemini' })}\n\n`));
-                            extractAndSaveSkills(userId, userQuery, fullResponse).catch(console.error);
-                            controller.close();
-                            return;
-                        }
-                    }
-                } catch (e: any) {
-                    logger.warn(`Provider ${providerKey} key[${keyIdx}] failed: ${e.message}`, 'chat', { requestId });
-                    continue; // Try next key for same provider
-                }
-                } // end key rotation loop
-            }
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Todos los proveedores fallaron.' })}\n\n`));
-            controller.close();
-        }
-    });
-}
-
 export async function OPTIONS() { return new Response(null, { headers: corsHeaders }); }
 
 export async function POST(req: NextRequest) {
@@ -323,7 +151,7 @@ export async function POST(req: NextRequest) {
 
     // --- Rate Limiting ---
     const identifier = getIdentifier(req);
-    const rateLimitResult = checkRateLimit(identifier, RATE_LIMITS.chat);
+    const rateLimitResult = await rateLimiter.check(identifier, RATE_LIMITS.chat);
     if (!rateLimitResult.allowed) {
         return NextResponse.json(
             { error: 'Demasiadas solicitudes. Intentá de nuevo en unos segundos.', retryAfterMs: rateLimitResult.retryAfterMs },
@@ -340,6 +168,19 @@ export async function POST(req: NextRequest) {
         
         // --- NEXA INTELLIGENCE HUB (V3 - HIGH PRIORITY) ---
         const userQuery = messages[messages.length - 1].content;
+        const userId = identifier;
+        const preferAgentGateway = process.env.NEXA_AGENT_GATEWAY_MODE !== 'off';
+        if (preferAgentGateway) {
+            return new Response(createGatewayStream(requestId, userId, userQuery), {
+                headers: {
+                    ...corsHeaders,
+                    'Content-Type': 'text/event-stream; charset=utf-8',
+                    'Cache-Control': 'no-cache, no-transform',
+                    'Connection': 'keep-alive',
+                    'X-Accel-Buffering': 'no',
+                },
+            });
+        }
         const lowerQuery = userQuery.toLowerCase();
         let toolContext = "";
 
@@ -351,6 +192,7 @@ export async function POST(req: NextRequest) {
         let userCountry = country || '';
         let userLat = latitude;
         let userLon = longitude;
+        let userTimezone: string | undefined;
         
         // Get client IP for geolocation and user identification
         const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
@@ -358,38 +200,32 @@ export async function POST(req: NextRequest) {
             || undefined;
         
         // If client didn't send GPS data, fall back to IP geolocation
-        if (!userLat || !userLon) {
+        if (userLat == null || userLon == null) {
             const ipLocation = await getUserLocation(clientIp);
             if (ipLocation) {
                 if (!userCity) userCity = ipLocation.city;
                 if (!userCountry) userCountry = ipLocation.country;
-                if (!userLat) userLat = ipLocation.lat;
-                if (!userLon) userLon = ipLocation.lon;
+                if (userLat == null) userLat = ipLocation.lat;
+                if (userLon == null) userLon = ipLocation.lon;
+                userTimezone = ipLocation.timezone || undefined;
             }
         }
         
-        // Get timezone from coordinates or default to UTC
+        // Use the reliable timezone provided by IP geolocation when available.
         let timeStr = '';
         try {
-            // Try to determine timezone from coordinates
-            const tzResponse = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?lat=${userLat}&lon=${userLon}&format=json&zoom=5`,
-                { headers: { 'User-Agent': 'NexaAssistant/1.0' } }
-            ).catch(() => null);
-            const tzData = tzResponse ? await tzResponse.json().catch(() => null) : null;
-            timeStr = await getLocalTime(tzData?.timezone || undefined);
+            timeStr = await getLocalTime(userTimezone);
         } catch {
             timeStr = await getLocalTime();
         }
         
         toolContext += `[CONTEXTO ACTUAL DEL USUARIO]:
-Ubicación: ${userCity || 'Desconocida'}, ${userCountry || 'Desconocida'}${userLat && userLon ? ` (${userLat}, ${userLon})` : ''}
+Ubicación: ${userCity || 'Desconocida'}, ${userCountry || 'Desconocida'}${userLat != null && userLon != null ? ` (${userLat}, ${userLon})` : ''}
 Hora Local: ${timeStr}
 --------------------------------------------------\n\n`;
 
         // --- NEXA ML ENGINE V1 (Machine Learning) ---
         // Derive userId from client IP or custom header (no auth system yet).
-        const userId = identifier;
         
         // 1. Emotion Analysis
         const emotion = analyzeEmotion(userQuery);
@@ -858,11 +694,51 @@ Interacciones totales: ${userProfile.interaction_count}
             const count = getKeyList(v, k).length;
             if (count > 0) logger.info(`${k}: ${count} key(s) available`, 'keys');
         }
-        const stream = createStream(requestId, messages, keys, userId, userQuery);
+        
+        // KERNEL V1.2: Encolar el trabajo
+        const jobId = await enqueueJob(userId, messages, 'chat', 1);
+        
+        // Transparent Gateway: Nos suscribimos al Event Bus aquí mismo para no romper el Frontend
+        const encoder = new TextEncoder();
+        const stream = new ReadableStream({
+            async start(controller) {
+                let done = false;
+                let retries = 0;
+                while (!done) {
+                    try {
+                        const chunk = await consumeChunk(jobId);
+                        if (chunk) {
+                            retries = 0;
+                            if (chunk === '[DONE]') {
+                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ done: true })}\n\n`));
+                                done = true;
+                            } else if (chunk.startsWith('[ERROR]')) {
+                                const errorMsg = chunk.replace('[ERROR] ', '');
+                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: errorMsg })}\n\n`));
+                                done = true;
+                            } else {
+                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: chunk, provider: 'kernel_v1' })}\n\n`));
+                            }
+                        } else {
+                            retries++;
+                            if (retries > 600) { // 1 min aprox sin respuesta
+                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: 'Timeout esperando al Worker' })}\n\n`));
+                                done = true;
+                                break;
+                            }
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                        }
+                    } catch (err) {
+                        done = true;
+                    }
+                }
+                controller.close();
+            }
+        });
+
         return new Response(stream, { headers: { ...corsHeaders, 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' } });
     } catch (e: any) {
         logger.error(`Chat crash: ${e.message}`, 'chat', { requestId });
         return NextResponse.json({ error: 'Error interno' }, { status: 500, headers: corsHeaders });
     }
 }
-

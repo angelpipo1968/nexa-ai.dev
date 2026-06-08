@@ -51,8 +51,29 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-const OLLAMA_URL = 'http://127.0.0.1:11434/api/generate';
-const MODEL = 'llama3.2:3b'; // Cambiado temporalmente porque nexa-os:latest no existe en tu sistema
+const AGENT_ENDPOINT = process.env.NEXA_AGENT_GATEWAY_URL || 'http://127.0.0.1:5002/agent';
+
+function normalizeAgentResponse(data) {
+    return data?.final || data?.response || data?.result || data?.content || JSON.stringify(data);
+}
+
+async function callAgentGateway(userId, message) {
+    try {
+        const res = await fetch(AGENT_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, message }),
+        });
+        if (!res.ok) {
+            throw new Error(`Gateway ${AGENT_ENDPOINT} devolvió HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        return normalizeAgentResponse(data);
+    } catch (error) {
+        console.warn(`[GATEWAY] Falló ${AGENT_ENDPOINT}: ${error.message}`);
+        throw error;
+    }
+}
 
 async function fetchUrlContent(url) {
     try {
@@ -75,7 +96,7 @@ app.post('/api/chat', async (req, res) => {
     try {
         const userMessage = req.body.message;
         let enhancedPrompt = userMessage;
-        let systemContext = "Eres Hermes, un asistente de IA local para Nexa OS. Eres experto en programación y muy servicial.";
+        let systemContext = "Eres Nexas, una asistente de IA local para Nexa OS. Eres experta en programación y muy servicial.";
 
         // Detectar si hay una URL
         const urlMatch = userMessage.match(/https?:\/\/[^\s]+/);
@@ -91,9 +112,7 @@ app.post('/api/chat', async (req, res) => {
         if (msgLower.includes('commit') || msgLower.includes('push') || msgLower.includes('guarda los cambios') || msgLower.includes('sube los cambios')) {
             console.log(`[REQ-${reqId}] Ejecutando Git Commit y Push...`);
             try {
-                // Determine a commit message
-                let commitMsg = "Automated commit via Hermes";
-                // run git commands
+                let commitMsg = "Automated commit via Nexas";
                 await execPromise('git add .');
                 await execPromise(`git commit -m "${commitMsg}"`);
                 await execPromise('git push');
@@ -104,37 +123,17 @@ app.post('/api/chat', async (req, res) => {
             }
         }
 
-        // Llamar a Ollama
-        console.log(`[REQ-${reqId}] Enviando a Ollama (Modelo: ${MODEL})...`);
-        const ollamaRes = await fetch(OLLAMA_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: MODEL,
-                prompt: enhancedPrompt,
-                system: systemContext,
-                stream: false
-            })
-        });
-
-        if (!ollamaRes.ok) {
-            if (ollamaRes.status === 404) {
-                throw new Error(`El modelo '${MODEL}' no se encontró en Ollama. Asegúrate de haberlo descargado con 'ollama run ${MODEL}'.`);
-            }
-            throw new Error(`Ollama devolvió estado HTTP ${ollamaRes.status}: ${ollamaRes.statusText}`);
-        }
-
-        const data = await ollamaRes.json();
+        console.log(`[REQ-${reqId}] Enviando al Agent Gateway oficial...`);
+        const responseText = await callAgentGateway(req.ip || 'default', `${systemContext}\n\n${enhancedPrompt}`);
         
         console.log(`[REQ-${reqId}] Respuesta procesada con éxito y enviada.`);
-        res.json({ response: data.response });
+        res.json({ response: responseText });
 
     } catch (error) {
         console.error(`[REQ-${reqId}] ERROR:`, error.message);
         
-        // Manejo específico para errores de conexión
         if (error.cause && error.cause.code === 'ECONNREFUSED') {
-            return res.status(503).json({ error: "No se pudo conectar a Ollama. Asegúrate de que Ollama esté en ejecución (http://127.0.0.1:11434)." });
+            return res.status(503).json({ error: "No se pudo conectar al Agent Gateway oficial. Revisa 5002." });
         }
         
         res.status(500).json({ error: error.message });
@@ -143,6 +142,6 @@ app.post('/api/chat', async (req, res) => {
 
 const PORT = 3001;
 app.listen(PORT, () => {
-    console.log(`Hermes Backend corriendo en http://localhost:${PORT}`);
+    console.log(`Nexas Backend corriendo en http://localhost:${PORT}`);
     console.log(`Asegúrate de ejecutar esto desde la raíz del proyecto para que los comandos git funcionen.`);
 });
