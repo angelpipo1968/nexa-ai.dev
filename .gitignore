@@ -28,6 +28,8 @@ keystore.properties
 # Node (Vercel backend)
 node_modules/
 .vercel/
+.continue/
+.nexas/
 
 # Next.js build
 .next/
@@ -42,9 +44,14 @@ screenshot.jpg
 temp/
 __pycache__/
 *.pyc
+.kotlin/
+.android-studio-local/
+Trae-linux-x64.deb
+vllm_crash*.log
 app-debug.zip
 app-debug.apk
 android-native-app/build/
+video-notes/**/.deps/
 
 # Zig Cache and Build outputs
 nexa-inference-zig/.zig-cache/

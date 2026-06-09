@@ -1,0 +1,267 @@
+I build this AI chatbot running
+completely locally on my computer. All
+your data remains private using a
+powerful open source tool called Nexa
+XDK. Run any AI model on any back end.
+That is a bold statement. But here you
+see the result. Nexa SDK supporting
+neural processing unit MLX full
+multimodal support crossplatform
+one line to run open AAI compatible API.
+So when compared with Olama, Olama
+doesn't support MLX yet. It doesn't
+support NPU and doesn't support full
+modality such as audio nexa infer and
+the model name to run any model locally
+on your computer. just few lines of code
+to build your AI chatbot with a built-in
+server and currently it is popular and
+I'm going to take you through step by
+step how you can install this locally on
+your computer download the available
+models create a chatbot and integrate
+this model with this application using
+Nexa SDK I'll provide all the code in
+the description below for you to try
+that out and that's exactly what we're
+going to see today let's get started
+[music]
+and thanks to Nexa AI for sponsoring
+this video. Nexa SDK run the latest LMS
+and VLMs across GPU, NPU, CPU, and
+mobile. Run AI models 100% local for
+free. And this is the developer toolkit
+for running any AI model locally across
+NPUs, GPUs, and CPUs. Powered by Nexa ML
+engine, entirely built from scratch by
+Nexa team. It supports GGUF and MLX
+which most of the other SDK doesn't
+support. Even the latest Quen 3 VL 4B
+and 8B can be run using this. Now just
+going to run one line of command and
+download Quen 3 the latest model in GGF
+format and then clicking enter that will
+automatically download the model and
+load it for me. This is a visual
+language model. So I can drag any image
+here and ask what is this and that can
+read the image and in that image it says
+visual studio code AI test automation.
+Let's verify that. So this is the image
+I uploaded and that is correct.
+Similarly you got various models for
+various tasks including speech
+recognition.
+Download Nexus CLI with one click. So
+I'm using Mac OS ARM 64. So going to
+click that. It also supports Windows or
+Linux. So you can download accordingly.
+So for now I'm going to click ARM 64. It
+got downloaded. Now I'm just opening it.
+Clicking continue to install. Now it's
+installing. And that is all done. Now
+step number two. Open your terminal from
+your computer. There I'm going to type
+Nexa info and then the model name like
+this. And then click enter. This will
+automatically download this model. Now
+it's similar to O Lama and you can ask
+any question how are you and it's going
+to give me the answer. Similarly I've
+got various options here in the CLI such
+as loading the conversation saving the
+conversation audio for transcription if
+I'm using audio model such as whisper
+which you can try that here and I've got
+clear and exit option. So for now I'm
+going to exit from here. So the test
+worked. Step number three I need to
+start the server. To start the server is
+simple. Nexa serve and then click enter.
+And here you can see local hosting on
+this URL. Now the server is on. So I'm
+just going to open this URL. And here is
+that URL. The server is running with all
+these endpoints. Which means now we can
+build application and talk to this AI
+model directly from our application. You
+can even create multiple AI agents to
+interact with this. For now we are going
+to create one chatbot with one agent.
+So I'm going to keep this terminal
+running and going to open a new terminal
+by clicking this plus icon. Next step I
+need to install the required package. So
+pip install, open AI and chain lit.
+OpenAI is the main package which we are
+going to use to create the application
+to talk to Nexa AI and chain lit is for
+creating the user interface. After this
+click enter and it got installed now.
+Now I'm going to create a file called
+app.py and then open it. inside the file
+from open AAI import open AAI next
+client equals open AAI and this is the
+URL which we got before and the API key
+just a random API key next client chat
+completions create with the model name
+which we have just downloaded with a
+system message you are helpful assistant
+and the user message give me a meal plan
+for me today so this is the task which
+I'm going to give to this AI model and
+you can give any other task task similar
+to this. So after this I'm going to
+print the response and that's it. Just
+few lines of code and you have created a
+chatbot using Python. Now I'm going to
+run this code. Going back to a terminal
+I'm going to type python app. py and
+then click enter. It's going to give me
+the meal plan. And here is the answer.
+General meal plan for a day, breakfast,
+lunch, dinner, and snacks. So that's all
+done. Now the response appeared at once.
+So it waited for around 10 seconds and
+everything came at once. But the user
+friendly way is to display in a
+streaming way as and when it gets
+generated. So I'm going to modify this
+code slightly. So here I'm going to
+mention stream equals true then printing
+the response one by one in this loop. So
+this automatically prints step by step.
+So this is the overall code and that's
+it. Now I'm going to run this. Coming
+back to my terminal. Same like that
+python stream. py that's where I've
+stored my code. Now you can see it's
+slowly getting printed out in a user
+friendly way and that is really nice.
+Next I need to create a user interface
+for this chatbot because currently it's
+running in the terminal. Again I'm going
+to slightly modify this code. This time
+I'm using chainlit. import chain lit as
+cl with the base URL as the same. The
+model name. So here two decorator you
+need to remember. One is on chat start.
+When the chat starts, you're going to
+tell the AI model or you can even use
+this to save your message history. So
+that's whenever you load the page. So
+whenever you type a message, so that's
+when on message. So that message will be
+sent to client chat completions.create.
+So before we hardcoded our question here
+but now we are passing it dynamically
+and printing out the response same as
+before step by step and saving the
+message history so it knows the context.
+That's it only few lines of code and our
+user interface is ready. Now I'm going
+to run this code. Coming back to my
+terminal I'm going to type chainlit run
+ui. py and then click enter. Now I can
+see the app is running in this URL. So
+going to open this URL and here is the
+URL. This is how it looks. So here I'm
+going to type give me a meal plan for me
+today. And now it's generating me the
+response and this is really nice. And
+now we have successfully built a chatbot
+running completely local on your
+computer using Nexa SDK and all your
+data remains private. Even you can
+upload a data and ask question based on
+that. As simple as that.
+Implementing rag retrieval augmented
+generation using Nexa. Rag involves two
+different steps. First step when you
+upload a data or any private document or
+PDF automatically it'll get divided into
+chunks. Then it's converted to
+embeddings and stored that in the
+database. Embeddings are nothing but
+numbers which is used to understand the
+similarity. And the step number two when
+the user ask question relevant
+information is searched in the database
+semantically and sent to the large
+language model that is our AI chatbot
+and it is going to respond more
+accurately considering it has the
+context or the information about the
+private data. So this is exactly what
+we're going to do for database we are
+going to use vector database that is
+chromb to store these vectors. For
+embeddings, we are using all mini LM. So
+I've just modified the code, just added
+the embedding model to convert to
+embeddings and imported chromb to store
+the vector data and PDF reader to
+convert the PDF into text. For each
+function such as for embedding, I
+created a function get embedding. For
+dividing that text into chunks, I
+created a function called chunk text. If
+you want to know more about chunking
+strategy, I'll put the link in the
+description below. As we see here, when
+the user uploads the data, it need to
+divide it into chunks. So that's what we
+see here in the UI, we are uploading a
+file. That file gets converted to text
+using the PDF reader. Next, it's divided
+to chunks same like as shown in the
+image. Next, it's going to get stored in
+the Chroma database. So here is Chroma
+DB. So to add each chunk I'm adding that
+like this going through chunk one by one
+adding collection add to add each chunk
+and that is the first step. So that is
+when you start the chat. So step number
+two on message that is when the user is
+going to ask a question. So that
+question will be searched from the
+vector database. So it's querying the
+vector database to find the top three
+results. Then that information is passed
+as context with the chat history to the
+AI model using chat.comp
+completions.create same as the previous
+step and we are going to get more
+accurate answer. So that's all it is
+just two different steps and now I'm
+going to run this code. So coming back
+to my terminal, additionally I need to
+install pi PDF to convert PDF to text
+then chromb as a vector database
+sentence transformers that's for using
+the embedding model and then click
+enter. Now it all got installed. Change
+it to run rag. py and then click enter.
+rag. py is the file where I've stored my
+content. First it's loading the
+embedding model. Then I can access the
+application in this URL. So I'm going to
+open this URL and here is the
+application. So I can open a file. It's
+a file about agentic AI and it got
+uploaded indexed 12 chunks. You can now
+ask questions. I'm going to ask tell me
+what is written in this IBM file. Now it
+started processing at the back end. You
+can see automatically all those chunks
+getting converted to embeddings and
+getting stored to vector database. And
+the answer is here summary of the text
+provided. And that is really nice. This
+is the rack chatbot. I recently came
+across this Nexa SDK and I'm really
+impressed with that. Do try and let me
+know in the comments below what you
+think about this. I hope you like this
+video. Do like, share, and subscribe.
+And thanks

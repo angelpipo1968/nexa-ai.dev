@@ -1,0 +1,17 @@
+{
+  "ui": "http://localhost:3000/studio",
+  "orchestrator": "http://localhost:5006/studio/run",
+  "engines": {
+    "image": "http://localhost:5003/generate",
+    "video": "http://localhost:5004/generate-video",
+    "voice": "http://localhost:5005/speak"
+  },
+  "output_example": {
+    "job_id": "1234-abc",
+    "image": "/outputs/img.png",
+    "video": "/outputs/video.mp4",
+    "voice": "/outputs/audio.wav",
+    "status": "completed"
+  }
+}
+

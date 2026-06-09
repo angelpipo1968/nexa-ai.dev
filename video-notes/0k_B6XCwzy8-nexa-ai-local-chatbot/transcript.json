@@ -1,0 +1,1337 @@
+[
+  {
+    "text": "I build this AI chatbot running",
+    "start": 0.24,
+    "duration": 3.92
+  },
+  {
+    "text": "completely locally on my computer. All",
+    "start": 2.159,
+    "duration": 4.321
+  },
+  {
+    "text": "your data remains private using a",
+    "start": 4.16,
+    "duration": 4.72
+  },
+  {
+    "text": "powerful open source tool called Nexa",
+    "start": 6.48,
+    "duration": 6.0
+  },
+  {
+    "text": "XDK. Run any AI model on any back end.",
+    "start": 8.88,
+    "duration": 5.919
+  },
+  {
+    "text": "That is a bold statement. But here you",
+    "start": 12.48,
+    "duration": 5.76
+  },
+  {
+    "text": "see the result. Nexa SDK supporting",
+    "start": 14.799,
+    "duration": 6.24
+  },
+  {
+    "text": "neural processing unit MLX full",
+    "start": 18.24,
+    "duration": 5.84
+  },
+  {
+    "text": "multimodal support crossplatform",
+    "start": 21.039,
+    "duration": 6.801
+  },
+  {
+    "text": "one line to run open AAI compatible API.",
+    "start": 24.08,
+    "duration": 6.56
+  },
+  {
+    "text": "So when compared with Olama, Olama",
+    "start": 27.84,
+    "duration": 5.6
+  },
+  {
+    "text": "doesn't support MLX yet. It doesn't",
+    "start": 30.64,
+    "duration": 5.759
+  },
+  {
+    "text": "support NPU and doesn't support full",
+    "start": 33.44,
+    "duration": 6.959
+  },
+  {
+    "text": "modality such as audio nexa infer and",
+    "start": 36.399,
+    "duration": 6.801
+  },
+  {
+    "text": "the model name to run any model locally",
+    "start": 40.399,
+    "duration": 5.121
+  },
+  {
+    "text": "on your computer. just few lines of code",
+    "start": 43.2,
+    "duration": 5.039
+  },
+  {
+    "text": "to build your AI chatbot with a built-in",
+    "start": 45.52,
+    "duration": 5.68
+  },
+  {
+    "text": "server and currently it is popular and",
+    "start": 48.239,
+    "duration": 4.16
+  },
+  {
+    "text": "I'm going to take you through step by",
+    "start": 51.2,
+    "duration": 3.199
+  },
+  {
+    "text": "step how you can install this locally on",
+    "start": 52.399,
+    "duration": 3.921
+  },
+  {
+    "text": "your computer download the available",
+    "start": 54.399,
+    "duration": 4.96
+  },
+  {
+    "text": "models create a chatbot and integrate",
+    "start": 56.32,
+    "duration": 5.6
+  },
+  {
+    "text": "this model with this application using",
+    "start": 59.359,
+    "duration": 5.12
+  },
+  {
+    "text": "Nexa SDK I'll provide all the code in",
+    "start": 61.92,
+    "duration": 4.08
+  },
+  {
+    "text": "the description below for you to try",
+    "start": 64.479,
+    "duration": 3.201
+  },
+  {
+    "text": "that out and that's exactly what we're",
+    "start": 66.0,
+    "duration": 4.74
+  },
+  {
+    "text": "going to see today let's get started",
+    "start": 67.68,
+    "duration": 4.56
+  },
+  {
+    "text": "[music]",
+    "start": 70.74,
+    "duration": 3.82
+  },
+  {
+    "text": "and thanks to Nexa AI for sponsoring",
+    "start": 72.24,
+    "duration": 6.32
+  },
+  {
+    "text": "this video. Nexa SDK run the latest LMS",
+    "start": 74.56,
+    "duration": 8.0
+  },
+  {
+    "text": "and VLMs across GPU, NPU, CPU, and",
+    "start": 78.56,
+    "duration": 7.919
+  },
+  {
+    "text": "mobile. Run AI models 100% local for",
+    "start": 82.56,
+    "duration": 6.239
+  },
+  {
+    "text": "free. And this is the developer toolkit",
+    "start": 86.479,
+    "duration": 5.041
+  },
+  {
+    "text": "for running any AI model locally across",
+    "start": 88.799,
+    "duration": 6.32
+  },
+  {
+    "text": "NPUs, GPUs, and CPUs. Powered by Nexa ML",
+    "start": 91.52,
+    "duration": 6.16
+  },
+  {
+    "text": "engine, entirely built from scratch by",
+    "start": 95.119,
+    "duration": 5.921
+  },
+  {
+    "text": "Nexa team. It supports GGUF and MLX",
+    "start": 97.68,
+    "duration": 6.0
+  },
+  {
+    "text": "which most of the other SDK doesn't",
+    "start": 101.04,
+    "duration": 5.92
+  },
+  {
+    "text": "support. Even the latest Quen 3 VL 4B",
+    "start": 103.68,
+    "duration": 6.64
+  },
+  {
+    "text": "and 8B can be run using this. Now just",
+    "start": 106.96,
+    "duration": 5.76
+  },
+  {
+    "text": "going to run one line of command and",
+    "start": 110.32,
+    "duration": 6.32
+  },
+  {
+    "text": "download Quen 3 the latest model in GGF",
+    "start": 112.72,
+    "duration": 6.24
+  },
+  {
+    "text": "format and then clicking enter that will",
+    "start": 116.64,
+    "duration": 4.159
+  },
+  {
+    "text": "automatically download the model and",
+    "start": 118.96,
+    "duration": 3.6
+  },
+  {
+    "text": "load it for me. This is a visual",
+    "start": 120.799,
+    "duration": 4.161
+  },
+  {
+    "text": "language model. So I can drag any image",
+    "start": 122.56,
+    "duration": 5.919
+  },
+  {
+    "text": "here and ask what is this and that can",
+    "start": 124.96,
+    "duration": 6.56
+  },
+  {
+    "text": "read the image and in that image it says",
+    "start": 128.479,
+    "duration": 5.84
+  },
+  {
+    "text": "visual studio code AI test automation.",
+    "start": 131.52,
+    "duration": 4.96
+  },
+  {
+    "text": "Let's verify that. So this is the image",
+    "start": 134.319,
+    "duration": 4.961
+  },
+  {
+    "text": "I uploaded and that is correct.",
+    "start": 136.48,
+    "duration": 5.28
+  },
+  {
+    "text": "Similarly you got various models for",
+    "start": 139.28,
+    "duration": 4.64
+  },
+  {
+    "text": "various tasks including speech",
+    "start": 141.76,
+    "duration": 5.16
+  },
+  {
+    "text": "recognition.",
+    "start": 143.92,
+    "duration": 3.0
+  },
+  {
+    "text": "Download Nexus CLI with one click. So",
+    "start": 147.599,
+    "duration": 5.441
+  },
+  {
+    "text": "I'm using Mac OS ARM 64. So going to",
+    "start": 150.319,
+    "duration": 4.801
+  },
+  {
+    "text": "click that. It also supports Windows or",
+    "start": 153.04,
+    "duration": 5.04
+  },
+  {
+    "text": "Linux. So you can download accordingly.",
+    "start": 155.12,
+    "duration": 5.92
+  },
+  {
+    "text": "So for now I'm going to click ARM 64. It",
+    "start": 158.08,
+    "duration": 5.439
+  },
+  {
+    "text": "got downloaded. Now I'm just opening it.",
+    "start": 161.04,
+    "duration": 4.72
+  },
+  {
+    "text": "Clicking continue to install. Now it's",
+    "start": 163.519,
+    "duration": 4.481
+  },
+  {
+    "text": "installing. And that is all done. Now",
+    "start": 165.76,
+    "duration": 4.479
+  },
+  {
+    "text": "step number two. Open your terminal from",
+    "start": 168.0,
+    "duration": 4.48
+  },
+  {
+    "text": "your computer. There I'm going to type",
+    "start": 170.239,
+    "duration": 5.041
+  },
+  {
+    "text": "Nexa info and then the model name like",
+    "start": 172.48,
+    "duration": 4.72
+  },
+  {
+    "text": "this. And then click enter. This will",
+    "start": 175.28,
+    "duration": 4.48
+  },
+  {
+    "text": "automatically download this model. Now",
+    "start": 177.2,
+    "duration": 4.88
+  },
+  {
+    "text": "it's similar to O Lama and you can ask",
+    "start": 179.76,
+    "duration": 4.479
+  },
+  {
+    "text": "any question how are you and it's going",
+    "start": 182.08,
+    "duration": 4.0
+  },
+  {
+    "text": "to give me the answer. Similarly I've",
+    "start": 184.239,
+    "duration": 4.161
+  },
+  {
+    "text": "got various options here in the CLI such",
+    "start": 186.08,
+    "duration": 4.4
+  },
+  {
+    "text": "as loading the conversation saving the",
+    "start": 188.4,
+    "duration": 4.8
+  },
+  {
+    "text": "conversation audio for transcription if",
+    "start": 190.48,
+    "duration": 5.28
+  },
+  {
+    "text": "I'm using audio model such as whisper",
+    "start": 193.2,
+    "duration": 4.48
+  },
+  {
+    "text": "which you can try that here and I've got",
+    "start": 195.76,
+    "duration": 4.16
+  },
+  {
+    "text": "clear and exit option. So for now I'm",
+    "start": 197.68,
+    "duration": 4.559
+  },
+  {
+    "text": "going to exit from here. So the test",
+    "start": 199.92,
+    "duration": 4.16
+  },
+  {
+    "text": "worked. Step number three I need to",
+    "start": 202.239,
+    "duration": 4.64
+  },
+  {
+    "text": "start the server. To start the server is",
+    "start": 204.08,
+    "duration": 5.92
+  },
+  {
+    "text": "simple. Nexa serve and then click enter.",
+    "start": 206.879,
+    "duration": 5.761
+  },
+  {
+    "text": "And here you can see local hosting on",
+    "start": 210.0,
+    "duration": 5.28
+  },
+  {
+    "text": "this URL. Now the server is on. So I'm",
+    "start": 212.64,
+    "duration": 5.12
+  },
+  {
+    "text": "just going to open this URL. And here is",
+    "start": 215.28,
+    "duration": 4.72
+  },
+  {
+    "text": "that URL. The server is running with all",
+    "start": 217.76,
+    "duration": 5.039
+  },
+  {
+    "text": "these endpoints. Which means now we can",
+    "start": 220.0,
+    "duration": 5.599
+  },
+  {
+    "text": "build application and talk to this AI",
+    "start": 222.799,
+    "duration": 5.041
+  },
+  {
+    "text": "model directly from our application. You",
+    "start": 225.599,
+    "duration": 4.801
+  },
+  {
+    "text": "can even create multiple AI agents to",
+    "start": 227.84,
+    "duration": 4.56
+  },
+  {
+    "text": "interact with this. For now we are going",
+    "start": 230.4,
+    "duration": 6.6
+  },
+  {
+    "text": "to create one chatbot with one agent.",
+    "start": 232.4,
+    "duration": 4.6
+  },
+  {
+    "text": "So I'm going to keep this terminal",
+    "start": 237.04,
+    "duration": 3.919
+  },
+  {
+    "text": "running and going to open a new terminal",
+    "start": 239.12,
+    "duration": 4.56
+  },
+  {
+    "text": "by clicking this plus icon. Next step I",
+    "start": 240.959,
+    "duration": 5.28
+  },
+  {
+    "text": "need to install the required package. So",
+    "start": 243.68,
+    "duration": 5.44
+  },
+  {
+    "text": "pip install, open AI and chain lit.",
+    "start": 246.239,
+    "duration": 4.72
+  },
+  {
+    "text": "OpenAI is the main package which we are",
+    "start": 249.12,
+    "duration": 3.839
+  },
+  {
+    "text": "going to use to create the application",
+    "start": 250.959,
+    "duration": 5.361
+  },
+  {
+    "text": "to talk to Nexa AI and chain lit is for",
+    "start": 252.959,
+    "duration": 5.201
+  },
+  {
+    "text": "creating the user interface. After this",
+    "start": 256.32,
+    "duration": 4.159
+  },
+  {
+    "text": "click enter and it got installed now.",
+    "start": 258.16,
+    "duration": 3.599
+  },
+  {
+    "text": "Now I'm going to create a file called",
+    "start": 260.479,
+    "duration": 4.321
+  },
+  {
+    "text": "app.py and then open it. inside the file",
+    "start": 261.759,
+    "duration": 6.801
+  },
+  {
+    "text": "from open AAI import open AAI next",
+    "start": 264.8,
+    "duration": 6.24
+  },
+  {
+    "text": "client equals open AAI and this is the",
+    "start": 268.56,
+    "duration": 5.44
+  },
+  {
+    "text": "URL which we got before and the API key",
+    "start": 271.04,
+    "duration": 5.76
+  },
+  {
+    "text": "just a random API key next client chat",
+    "start": 274.0,
+    "duration": 5.04
+  },
+  {
+    "text": "completions create with the model name",
+    "start": 276.8,
+    "duration": 4.399
+  },
+  {
+    "text": "which we have just downloaded with a",
+    "start": 279.04,
+    "duration": 4.8
+  },
+  {
+    "text": "system message you are helpful assistant",
+    "start": 281.199,
+    "duration": 5.121
+  },
+  {
+    "text": "and the user message give me a meal plan",
+    "start": 283.84,
+    "duration": 4.88
+  },
+  {
+    "text": "for me today so this is the task which",
+    "start": 286.32,
+    "duration": 5.439
+  },
+  {
+    "text": "I'm going to give to this AI model and",
+    "start": 288.72,
+    "duration": 5.28
+  },
+  {
+    "text": "you can give any other task task similar",
+    "start": 291.759,
+    "duration": 3.681
+  },
+  {
+    "text": "to this. So after this I'm going to",
+    "start": 294.0,
+    "duration": 3.84
+  },
+  {
+    "text": "print the response and that's it. Just",
+    "start": 295.44,
+    "duration": 5.12
+  },
+  {
+    "text": "few lines of code and you have created a",
+    "start": 297.84,
+    "duration": 5.68
+  },
+  {
+    "text": "chatbot using Python. Now I'm going to",
+    "start": 300.56,
+    "duration": 5.199
+  },
+  {
+    "text": "run this code. Going back to a terminal",
+    "start": 303.52,
+    "duration": 4.72
+  },
+  {
+    "text": "I'm going to type python app. py and",
+    "start": 305.759,
+    "duration": 4.081
+  },
+  {
+    "text": "then click enter. It's going to give me",
+    "start": 308.24,
+    "duration": 4.0
+  },
+  {
+    "text": "the meal plan. And here is the answer.",
+    "start": 309.84,
+    "duration": 5.44
+  },
+  {
+    "text": "General meal plan for a day, breakfast,",
+    "start": 312.24,
+    "duration": 6.32
+  },
+  {
+    "text": "lunch, dinner, and snacks. So that's all",
+    "start": 315.28,
+    "duration": 6.16
+  },
+  {
+    "text": "done. Now the response appeared at once.",
+    "start": 318.56,
+    "duration": 5.52
+  },
+  {
+    "text": "So it waited for around 10 seconds and",
+    "start": 321.44,
+    "duration": 5.36
+  },
+  {
+    "text": "everything came at once. But the user",
+    "start": 324.08,
+    "duration": 6.0
+  },
+  {
+    "text": "friendly way is to display in a",
+    "start": 326.8,
+    "duration": 5.76
+  },
+  {
+    "text": "streaming way as and when it gets",
+    "start": 330.08,
+    "duration": 4.399
+  },
+  {
+    "text": "generated. So I'm going to modify this",
+    "start": 332.56,
+    "duration": 4.0
+  },
+  {
+    "text": "code slightly. So here I'm going to",
+    "start": 334.479,
+    "duration": 5.121
+  },
+  {
+    "text": "mention stream equals true then printing",
+    "start": 336.56,
+    "duration": 6.16
+  },
+  {
+    "text": "the response one by one in this loop. So",
+    "start": 339.6,
+    "duration": 5.36
+  },
+  {
+    "text": "this automatically prints step by step.",
+    "start": 342.72,
+    "duration": 4.56
+  },
+  {
+    "text": "So this is the overall code and that's",
+    "start": 344.96,
+    "duration": 4.72
+  },
+  {
+    "text": "it. Now I'm going to run this. Coming",
+    "start": 347.28,
+    "duration": 4.24
+  },
+  {
+    "text": "back to my terminal. Same like that",
+    "start": 349.68,
+    "duration": 4.079
+  },
+  {
+    "text": "python stream. py that's where I've",
+    "start": 351.52,
+    "duration": 4.56
+  },
+  {
+    "text": "stored my code. Now you can see it's",
+    "start": 353.759,
+    "duration": 4.72
+  },
+  {
+    "text": "slowly getting printed out in a user",
+    "start": 356.08,
+    "duration": 4.559
+  },
+  {
+    "text": "friendly way and that is really nice.",
+    "start": 358.479,
+    "duration": 4.241
+  },
+  {
+    "text": "Next I need to create a user interface",
+    "start": 360.639,
+    "duration": 4.721
+  },
+  {
+    "text": "for this chatbot because currently it's",
+    "start": 362.72,
+    "duration": 4.319
+  },
+  {
+    "text": "running in the terminal. Again I'm going",
+    "start": 365.36,
+    "duration": 3.76
+  },
+  {
+    "text": "to slightly modify this code. This time",
+    "start": 367.039,
+    "duration": 4.801
+  },
+  {
+    "text": "I'm using chainlit. import chain lit as",
+    "start": 369.12,
+    "duration": 5.519
+  },
+  {
+    "text": "cl with the base URL as the same. The",
+    "start": 371.84,
+    "duration": 6.079
+  },
+  {
+    "text": "model name. So here two decorator you",
+    "start": 374.639,
+    "duration": 6.321
+  },
+  {
+    "text": "need to remember. One is on chat start.",
+    "start": 377.919,
+    "duration": 5.201
+  },
+  {
+    "text": "When the chat starts, you're going to",
+    "start": 380.96,
+    "duration": 4.959
+  },
+  {
+    "text": "tell the AI model or you can even use",
+    "start": 383.12,
+    "duration": 5.359
+  },
+  {
+    "text": "this to save your message history. So",
+    "start": 385.919,
+    "duration": 4.72
+  },
+  {
+    "text": "that's whenever you load the page. So",
+    "start": 388.479,
+    "duration": 5.121
+  },
+  {
+    "text": "whenever you type a message, so that's",
+    "start": 390.639,
+    "duration": 6.56
+  },
+  {
+    "text": "when on message. So that message will be",
+    "start": 393.6,
+    "duration": 7.12
+  },
+  {
+    "text": "sent to client chat completions.create.",
+    "start": 397.199,
+    "duration": 7.44
+  },
+  {
+    "text": "So before we hardcoded our question here",
+    "start": 400.72,
+    "duration": 6.8
+  },
+  {
+    "text": "but now we are passing it dynamically",
+    "start": 404.639,
+    "duration": 4.56
+  },
+  {
+    "text": "and printing out the response same as",
+    "start": 407.52,
+    "duration": 3.76
+  },
+  {
+    "text": "before step by step and saving the",
+    "start": 409.199,
+    "duration": 4.401
+  },
+  {
+    "text": "message history so it knows the context.",
+    "start": 411.28,
+    "duration": 5.84
+  },
+  {
+    "text": "That's it only few lines of code and our",
+    "start": 413.6,
+    "duration": 5.76
+  },
+  {
+    "text": "user interface is ready. Now I'm going",
+    "start": 417.12,
+    "duration": 3.84
+  },
+  {
+    "text": "to run this code. Coming back to my",
+    "start": 419.36,
+    "duration": 4.0
+  },
+  {
+    "text": "terminal I'm going to type chainlit run",
+    "start": 420.96,
+    "duration": 4.72
+  },
+  {
+    "text": "ui. py and then click enter. Now I can",
+    "start": 423.36,
+    "duration": 4.399
+  },
+  {
+    "text": "see the app is running in this URL. So",
+    "start": 425.68,
+    "duration": 4.56
+  },
+  {
+    "text": "going to open this URL and here is the",
+    "start": 427.759,
+    "duration": 4.961
+  },
+  {
+    "text": "URL. This is how it looks. So here I'm",
+    "start": 430.24,
+    "duration": 4.64
+  },
+  {
+    "text": "going to type give me a meal plan for me",
+    "start": 432.72,
+    "duration": 4.16
+  },
+  {
+    "text": "today. And now it's generating me the",
+    "start": 434.88,
+    "duration": 4.08
+  },
+  {
+    "text": "response and this is really nice. And",
+    "start": 436.88,
+    "duration": 4.64
+  },
+  {
+    "text": "now we have successfully built a chatbot",
+    "start": 438.96,
+    "duration": 4.239
+  },
+  {
+    "text": "running completely local on your",
+    "start": 441.52,
+    "duration": 4.959
+  },
+  {
+    "text": "computer using Nexa SDK and all your",
+    "start": 443.199,
+    "duration": 5.12
+  },
+  {
+    "text": "data remains private. Even you can",
+    "start": 446.479,
+    "duration": 4.241
+  },
+  {
+    "text": "upload a data and ask question based on",
+    "start": 448.319,
+    "duration": 6.44
+  },
+  {
+    "text": "that. As simple as that.",
+    "start": 450.72,
+    "duration": 4.039
+  },
+  {
+    "text": "Implementing rag retrieval augmented",
+    "start": 455.68,
+    "duration": 6.0
+  },
+  {
+    "text": "generation using Nexa. Rag involves two",
+    "start": 458.479,
+    "duration": 5.28
+  },
+  {
+    "text": "different steps. First step when you",
+    "start": 461.68,
+    "duration": 5.2
+  },
+  {
+    "text": "upload a data or any private document or",
+    "start": 463.759,
+    "duration": 6.321
+  },
+  {
+    "text": "PDF automatically it'll get divided into",
+    "start": 466.88,
+    "duration": 5.12
+  },
+  {
+    "text": "chunks. Then it's converted to",
+    "start": 470.08,
+    "duration": 4.399
+  },
+  {
+    "text": "embeddings and stored that in the",
+    "start": 472.0,
+    "duration": 4.16
+  },
+  {
+    "text": "database. Embeddings are nothing but",
+    "start": 474.479,
+    "duration": 4.16
+  },
+  {
+    "text": "numbers which is used to understand the",
+    "start": 476.16,
+    "duration": 5.039
+  },
+  {
+    "text": "similarity. And the step number two when",
+    "start": 478.639,
+    "duration": 5.12
+  },
+  {
+    "text": "the user ask question relevant",
+    "start": 481.199,
+    "duration": 5.84
+  },
+  {
+    "text": "information is searched in the database",
+    "start": 483.759,
+    "duration": 5.601
+  },
+  {
+    "text": "semantically and sent to the large",
+    "start": 487.039,
+    "duration": 4.72
+  },
+  {
+    "text": "language model that is our AI chatbot",
+    "start": 489.36,
+    "duration": 4.08
+  },
+  {
+    "text": "and it is going to respond more",
+    "start": 491.759,
+    "duration": 4.081
+  },
+  {
+    "text": "accurately considering it has the",
+    "start": 493.44,
+    "duration": 4.159
+  },
+  {
+    "text": "context or the information about the",
+    "start": 495.84,
+    "duration": 3.52
+  },
+  {
+    "text": "private data. So this is exactly what",
+    "start": 497.599,
+    "duration": 3.921
+  },
+  {
+    "text": "we're going to do for database we are",
+    "start": 499.36,
+    "duration": 4.08
+  },
+  {
+    "text": "going to use vector database that is",
+    "start": 501.52,
+    "duration": 5.44
+  },
+  {
+    "text": "chromb to store these vectors. For",
+    "start": 503.44,
+    "duration": 6.879
+  },
+  {
+    "text": "embeddings, we are using all mini LM. So",
+    "start": 506.96,
+    "duration": 5.439
+  },
+  {
+    "text": "I've just modified the code, just added",
+    "start": 510.319,
+    "duration": 3.84
+  },
+  {
+    "text": "the embedding model to convert to",
+    "start": 512.399,
+    "duration": 5.2
+  },
+  {
+    "text": "embeddings and imported chromb to store",
+    "start": 514.159,
+    "duration": 6.721
+  },
+  {
+    "text": "the vector data and PDF reader to",
+    "start": 517.599,
+    "duration": 6.32
+  },
+  {
+    "text": "convert the PDF into text. For each",
+    "start": 520.88,
+    "duration": 4.88
+  },
+  {
+    "text": "function such as for embedding, I",
+    "start": 523.919,
+    "duration": 4.561
+  },
+  {
+    "text": "created a function get embedding. For",
+    "start": 525.76,
+    "duration": 5.04
+  },
+  {
+    "text": "dividing that text into chunks, I",
+    "start": 528.48,
+    "duration": 4.72
+  },
+  {
+    "text": "created a function called chunk text. If",
+    "start": 530.8,
+    "duration": 3.84
+  },
+  {
+    "text": "you want to know more about chunking",
+    "start": 533.2,
+    "duration": 2.72
+  },
+  {
+    "text": "strategy, I'll put the link in the",
+    "start": 534.64,
+    "duration": 3.199
+  },
+  {
+    "text": "description below. As we see here, when",
+    "start": 535.92,
+    "duration": 4.8
+  },
+  {
+    "text": "the user uploads the data, it need to",
+    "start": 537.839,
+    "duration": 5.041
+  },
+  {
+    "text": "divide it into chunks. So that's what we",
+    "start": 540.72,
+    "duration": 5.36
+  },
+  {
+    "text": "see here in the UI, we are uploading a",
+    "start": 542.88,
+    "duration": 6.0
+  },
+  {
+    "text": "file. That file gets converted to text",
+    "start": 546.08,
+    "duration": 5.68
+  },
+  {
+    "text": "using the PDF reader. Next, it's divided",
+    "start": 548.88,
+    "duration": 5.76
+  },
+  {
+    "text": "to chunks same like as shown in the",
+    "start": 551.76,
+    "duration": 5.28
+  },
+  {
+    "text": "image. Next, it's going to get stored in",
+    "start": 554.64,
+    "duration": 5.04
+  },
+  {
+    "text": "the Chroma database. So here is Chroma",
+    "start": 557.04,
+    "duration": 6.239
+  },
+  {
+    "text": "DB. So to add each chunk I'm adding that",
+    "start": 559.68,
+    "duration": 6.32
+  },
+  {
+    "text": "like this going through chunk one by one",
+    "start": 563.279,
+    "duration": 5.761
+  },
+  {
+    "text": "adding collection add to add each chunk",
+    "start": 566.0,
+    "duration": 5.12
+  },
+  {
+    "text": "and that is the first step. So that is",
+    "start": 569.04,
+    "duration": 4.4
+  },
+  {
+    "text": "when you start the chat. So step number",
+    "start": 571.12,
+    "duration": 5.92
+  },
+  {
+    "text": "two on message that is when the user is",
+    "start": 573.44,
+    "duration": 5.76
+  },
+  {
+    "text": "going to ask a question. So that",
+    "start": 577.04,
+    "duration": 4.799
+  },
+  {
+    "text": "question will be searched from the",
+    "start": 579.2,
+    "duration": 4.639
+  },
+  {
+    "text": "vector database. So it's querying the",
+    "start": 581.839,
+    "duration": 4.161
+  },
+  {
+    "text": "vector database to find the top three",
+    "start": 583.839,
+    "duration": 4.961
+  },
+  {
+    "text": "results. Then that information is passed",
+    "start": 586.0,
+    "duration": 5.839
+  },
+  {
+    "text": "as context with the chat history to the",
+    "start": 588.8,
+    "duration": 5.039
+  },
+  {
+    "text": "AI model using chat.comp",
+    "start": 591.839,
+    "duration": 4.161
+  },
+  {
+    "text": "completions.create same as the previous",
+    "start": 593.839,
+    "duration": 4.161
+  },
+  {
+    "text": "step and we are going to get more",
+    "start": 596.0,
+    "duration": 4.88
+  },
+  {
+    "text": "accurate answer. So that's all it is",
+    "start": 598.0,
+    "duration": 5.76
+  },
+  {
+    "text": "just two different steps and now I'm",
+    "start": 600.88,
+    "duration": 4.399
+  },
+  {
+    "text": "going to run this code. So coming back",
+    "start": 603.76,
+    "duration": 3.519
+  },
+  {
+    "text": "to my terminal, additionally I need to",
+    "start": 605.279,
+    "duration": 5.601
+  },
+  {
+    "text": "install pi PDF to convert PDF to text",
+    "start": 607.279,
+    "duration": 6.0
+  },
+  {
+    "text": "then chromb as a vector database",
+    "start": 610.88,
+    "duration": 4.72
+  },
+  {
+    "text": "sentence transformers that's for using",
+    "start": 613.279,
+    "duration": 4.081
+  },
+  {
+    "text": "the embedding model and then click",
+    "start": 615.6,
+    "duration": 4.16
+  },
+  {
+    "text": "enter. Now it all got installed. Change",
+    "start": 617.36,
+    "duration": 4.8
+  },
+  {
+    "text": "it to run rag. py and then click enter.",
+    "start": 619.76,
+    "duration": 5.12
+  },
+  {
+    "text": "rag. py is the file where I've stored my",
+    "start": 622.16,
+    "duration": 4.72
+  },
+  {
+    "text": "content. First it's loading the",
+    "start": 624.88,
+    "duration": 4.24
+  },
+  {
+    "text": "embedding model. Then I can access the",
+    "start": 626.88,
+    "duration": 4.32
+  },
+  {
+    "text": "application in this URL. So I'm going to",
+    "start": 629.12,
+    "duration": 4.08
+  },
+  {
+    "text": "open this URL and here is the",
+    "start": 631.2,
+    "duration": 5.12
+  },
+  {
+    "text": "application. So I can open a file. It's",
+    "start": 633.2,
+    "duration": 6.48
+  },
+  {
+    "text": "a file about agentic AI and it got",
+    "start": 636.32,
+    "duration": 6.56
+  },
+  {
+    "text": "uploaded indexed 12 chunks. You can now",
+    "start": 639.68,
+    "duration": 5.839
+  },
+  {
+    "text": "ask questions. I'm going to ask tell me",
+    "start": 642.88,
+    "duration": 6.16
+  },
+  {
+    "text": "what is written in this IBM file. Now it",
+    "start": 645.519,
+    "duration": 5.44
+  },
+  {
+    "text": "started processing at the back end. You",
+    "start": 649.04,
+    "duration": 4.64
+  },
+  {
+    "text": "can see automatically all those chunks",
+    "start": 650.959,
+    "duration": 4.88
+  },
+  {
+    "text": "getting converted to embeddings and",
+    "start": 653.68,
+    "duration": 4.64
+  },
+  {
+    "text": "getting stored to vector database. And",
+    "start": 655.839,
+    "duration": 4.641
+  },
+  {
+    "text": "the answer is here summary of the text",
+    "start": 658.32,
+    "duration": 4.959
+  },
+  {
+    "text": "provided. And that is really nice. This",
+    "start": 660.48,
+    "duration": 5.039
+  },
+  {
+    "text": "is the rack chatbot. I recently came",
+    "start": 663.279,
+    "duration": 5.361
+  },
+  {
+    "text": "across this Nexa SDK and I'm really",
+    "start": 665.519,
+    "duration": 4.721
+  },
+  {
+    "text": "impressed with that. Do try and let me",
+    "start": 668.64,
+    "duration": 2.48
+  },
+  {
+    "text": "know in the comments below what you",
+    "start": 670.24,
+    "duration": 2.4
+  },
+  {
+    "text": "think about this. I hope you like this",
+    "start": 671.12,
+    "duration": 3.36
+  },
+  {
+    "text": "video. Do like, share, and subscribe.",
+    "start": 672.64,
+    "duration": 4.16
+  },
+  {
+    "text": "And thanks",
+    "start": 674.48,
+    "duration": 2.32
+  }
+]
