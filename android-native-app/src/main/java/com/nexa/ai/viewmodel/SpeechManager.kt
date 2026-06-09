@@ -1,4 +1,4 @@
-package com.nexa.ai.voice
+package com.nexa.ai.viewmodel
 
 import android.app.Application
 import android.content.BroadcastReceiver
@@ -895,7 +895,7 @@ class SpeechManager(private val application: Application) {
         
         // 5. Keep ALL Unicode letters (ñ, á, é, í, ó, ú, ¿, ¡, etc.)
         // \p{L}=letters, \p{N}=numbers, \p{M}=marks/accents
-        cleaned = cleaned.replace(Regex("[^\\p{L}\\p{N}\\p{M}\\s.,?!;:¿¡'"()-]"), " ")
+        cleaned = cleaned.replace(Regex("[^\\p{L}\\p{N}\\p{M}\\s.,?!;:¿¡'\"()-]"), " ")
         
         // 6. Collapse whitespace
         cleaned = cleaned.replace(Regex("\\s{2,}"), " ").trim()

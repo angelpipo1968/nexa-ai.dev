@@ -147,6 +147,7 @@ function getRandomKey(envValue: string | undefined, envKey?: string): string | u
 export async function OPTIONS() { return new Response(null, { headers: corsHeaders }); }
 
 export async function POST(req: NextRequest) {
+    console.log('[DEBUG] HIT API CHAT');
     const requestId = generateRequestId();
 
     // --- Rate Limiting ---
@@ -171,6 +172,7 @@ export async function POST(req: NextRequest) {
         const userId = identifier;
         const preferAgentGateway = process.env.NEXA_AGENT_GATEWAY_MODE !== 'off';
         if (preferAgentGateway) {
+            console.log('[DEBUG] Usando Agent Gateway');
             return new Response(createGatewayStream(requestId, userId, userQuery), {
                 headers: {
                     ...corsHeaders,
