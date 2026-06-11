@@ -4,6 +4,7 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { callNexaLLM } from './cognitive';
 
 // Lazy-initialize Redis to prevent crashes when REDIS_URL is not set.
 let _redis: Redis | null = null;
@@ -47,28 +48,9 @@ export async function getMemories(userId: string): Promise<string[]> {
 }
 
 export async function extractAndSaveFacts(userId: string, userMessage: string): Promise<void> {
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) return;
-
     try {
-        // Usamos una IA rápida (Groq) para extraer hechos
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                    { 
-                        role: 'system', 
-                        content: 'Extrae hechos clave sobre el usuario, sus preferencias o su entorno en oraciones cortas. Si no hay nada relevante, responde "NONE". Ejemplo: "Al usuario le gusta el cine", "El usuario tiene una API de NASA".' 
-                    },
-                    { role: 'user', content: userMessage }
-                ],
-            }),
-        });
-
-        const data = await res.json();
-        const fact = data.choices[0].message.content;
+        const systemPrompt = 'Extrae hechos clave sobre el usuario, sus preferencias o su entorno en oraciones cortas. Si no hay nada relevante, responde "NONE". Ejemplo: "Al usuario le gusta el cine", "El usuario tiene una API de NASA".';
+        const fact = await callNexaLLM(systemPrompt, userMessage);
 
         if (fact && fact !== "NONE" && !fact.includes("NONE")) {
             await saveFact(userId, fact);

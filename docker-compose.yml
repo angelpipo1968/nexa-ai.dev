@@ -1,0 +1,212 @@
+version: "3.9"
+
+networks:
+  nexa_net:
+    driver: bridge
+
+volumes:
+  pg_data:
+  grafana_data:
+  prometheus_data:
+  ollama_data:
+  qdrant_data:
+
+services:
+
+  # =========================
+  # 🌐 REVERSE PROXY (TRAEFIK)
+  # =========================
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    restart: unless-stopped
+    networks:
+      - nexa_net
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # =========================
+  # 🧠 POSTGRES (MEMORY / LOGS / VECTORS)
+  # =========================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: postgres
+    restart: unless-stopped
+    networks:
+      - nexa_net
+    environment:
+      POSTGRES_USER: nexa
+      POSTGRES_PASSWORD: nexa_pass
+      POSTGRES_DB: nexa_db
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # =========================
+  # 🧠 GPU INFERENCE (vLLM)
+  # =========================
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm
+    restart: unless-stopped
+    networks:
+      - nexa_net
+    ports:
+      - "8002:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: >
+      --model Qwen/Qwen2.5-7B-Instruct-AWQ
+      --host 0.0.0.0
+      --port 8000
+
+  # =========================
+  # 🧩 CPU FALLBACK (OLLAMA)
+  # =========================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    networks:
+      - nexa_net
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  # =========================
+  # 🧠 VECTOR DB (QDRANT)
+  # =========================
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    networks:
+      - nexa_net
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  # =========================
+  # 🧠 LITELLM ROUTER
+  # =========================
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: litellm
+    restart: unless-stopped
+    networks:
+      - nexa_net
+    ports:
+      - "4000:4000"
+    depends_on:
+      - vllm
+      - ollama
+      - postgres
+    environment:
+      - LITELLM_MASTER_KEY=sk-nexa-master-3090
+      - DATABASE_URL=postgresql://nexa:nexa_pass@postgres:5432/nexa_db
+      - STORE_MODEL_IN_DB=True
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./litellm_config.yaml:/app/config.yaml
+    command: ["--config", "/app/config.yaml"]
+
+  # =========================
+  # ⚡ REDIS QUEUE
+  # =========================
+  redis:
+    image: redis:7-alpine
+    container_name: nexa_redis
+    restart: unless-stopped
+    networks:
+      - nexa_net
+
+  # =========================
+  # 🤖 SWARM API (PLANNER/CODER/CRITIC)
+  # =========================
+  swarm:
+    build:
+      context: ./swarm
+    container_name: swarm
+    restart: unless-stopped
+    networks:
+      - nexa_net
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis
+      - litellm
+    environment:
+      - REDIS_URL=redis://nexa_redis:6379/0
+      - LITELLM_BASE_URL=http://litellm:4000/v1
+      - LITELLM_API_KEY=sk-nexa-master-3090
+      - WORKSPACE_DIR=/workspace
+      - QDRANT_URL=http://qdrant:6333
+    volumes:
+      - ./:/workspace
+
+  swarm-worker:
+    build:
+      context: ./swarm
+    container_name: swarm_worker
+    restart: unless-stopped
+    networks:
+      - nexa_net
+    depends_on:
+      - redis
+      - qdrant
+      - litellm
+    environment:
+      - REDIS_URL=redis://nexa_redis:6379/0
+      - LITELLM_BASE_URL=http://litellm:4000/v1
+      - LITELLM_API_KEY=sk-nexa-master-3090
+      - WORKSPACE_DIR=/workspace
+      - QDRANT_URL=http://qdrant:6333
+    volumes:
+      - ./:/workspace
+    command: ["python", "worker.py"]
+
+  # =========================
+  # 📊 PROMETHEUS
+  # =========================
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    restart: unless-stopped
+    networks:
+      - nexa_net
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+  # =========================
+  # 📊 GRAFANA
+  # =========================
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    restart: unless-stopped
+    networks:
+      - nexa_net
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning

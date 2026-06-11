@@ -10,7 +10,7 @@ python -m vllm.entrypoints.openai.api_server \
   --model Qwen/Qwen2.5-32B-Instruct-AWQ \
   --gpu-memory-utilization 0.65 \
   --kv-cache-dtype fp8 \
-  --max-model-len 4096 \
+  --max-model-len 8192 \
   --max-num-seqs 8 \
   --max-num-batched-tokens 8192 \
   --enable-prefix-caching \

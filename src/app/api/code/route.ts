@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSystemPrompt } from '@/lib/nexa-core/prompts';
 import { createRateLimiter, getIdentifier } from '@/lib/rate-limiter';
 import { codeGenSchema } from '@/lib/validation';
+import { callNexaLLM } from '@/lib/nexa-core/cognitive';
 
 const limiter = createRateLimiter();
 
@@ -32,42 +33,23 @@ export async function POST(req: NextRequest) {
 
         const systemPrompt = getSystemPrompt('code') + `\n\nGenera código${language ? ` en ${language}` : ''}${framework ? ` usando ${framework}` : ''}. Responde SOLO con el código, sin explicaciones adicionales a menos que se pidan. El código debe ser completo, funcional y listo para usar.`;
 
-        const groqKey = process.env.GROQ_API_KEY;
         const googleKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
-        const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
-        // Try Groq
-        if (groqKey) {
-            try {
-                const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${groqKey}`,
-                    },
-                    body: JSON.stringify({
-                        model: 'llama-3.3-70b-versatile',
-                        messages: [
-                            { role: 'system', content: systemPrompt },
-                            { role: 'user', content: prompt }
-                        ],
-                        temperature: 0.3,
-                        max_tokens: 8192,
-                    }),
+        // 1. Try callNexaLLM (tries Groq, then local LiteLLM/vLLM/Ollama fallback)
+        try {
+            const code = await callNexaLLM(systemPrompt, prompt);
+            if (code) {
+                return NextResponse.json({
+                    code,
+                    provider: 'nexa-brain',
+                    language: language || 'auto',
                 });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    return NextResponse.json({
-                        code: data.choices[0]?.message?.content || '',
-                        provider: 'groq',
-                        language: language || 'auto',
-                    });
-                }
-            } catch (e) {}
+            }
+        } catch (e) {
+            // Failed, continue to Gemini
         }
 
-        // Try Gemini
+        // 2. Try Gemini
         if (googleKey) {
             try {
                 const res = await fetch(

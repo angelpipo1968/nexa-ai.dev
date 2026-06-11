@@ -5,6 +5,7 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { callNexaLLM } from './cognitive';
 
 // Lazy-initialize Redis para evitar caídas si no hay URL configurada
 let _redis: Redis | null = null;
@@ -94,9 +95,6 @@ export async function extractAndSaveSkills(
     userMessage: string, 
     assistantMessage: string
 ): Promise<void> {
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) return;
-
     // Triggers comunes que sugieren enseñanza o corrección de reglas
     const lowerUser = userMessage.toLowerCase();
     const teachingIndicators = [
@@ -109,7 +107,7 @@ export async function extractAndSaveSkills(
     if (!seemsLikeTeaching) return;
 
     try {
-        // Usamos Groq (Llama-3.3-70b) para estructurar la nueva habilidad
+        // Usamos la IA centralizada (con soporte JSON)
         const prompt = `Analiza la conversación y determina si el usuario está enseñando una nueva regla, instrucción, flujo de trabajo, o corrigiendo al asistente sobre cómo realizar una tarea específica.
 Si el usuario está enseñando algo reutilizable, extrae y estructura una nueva "Skill" en formato JSON.
 Si no hay ningún procedimiento o regla reutilizable en el mensaje del usuario, responde únicamente con la palabra "NONE".
@@ -121,24 +119,11 @@ Formato JSON de salida (solo responde con el JSON puro, sin markdown ni explicac
   "instructions": "Instrucciones paso a paso, comandos exactos o reglas de comportamiento que el asistente debe seguir."
 }`;
 
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                    { role: 'system', content: prompt },
-                    { role: 'user', content: `[MENSAJE DEL USUARIO]: ${userMessage}\n\n[RESPUESTA DEL ASISTENTE]: ${assistantMessage}` }
-                ],
-                temperature: 0.1
-            }),
-        });
-
-        const data = await res.json();
-        const output = data.choices[0].message.content.trim();
+        const userContent = `[MENSAJE DEL USUARIO]: ${userMessage}\n\n[RESPUESTA DEL ASISTENTE]: ${assistantMessage}`;
+        const output = await callNexaLLM(prompt, userContent, true);
 
         if (output && output !== "NONE" && !output.includes("NONE")) {
-            // Limpiamos posible markdown de Groq
+            // Limpiamos posible markdown
             const cleanJson = output.replace(/```json|```/g, '').trim();
             const parsedSkill = JSON.parse(cleanJson);
             

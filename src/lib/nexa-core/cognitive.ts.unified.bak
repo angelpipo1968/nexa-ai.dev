@@ -1,0 +1,78 @@
+import { logger } from './logger';
+
+const LITELLM_URL = process.env.AGENT_GATEWAY_V3_LITELLM_URL || 'http://127.0.0.1:4001/v1/chat/completions';
+const LITELLM_KEY = process.env.AGENT_GATEWAY_V3_LITELLM_KEY || 'sk-local';
+const MODEL = process.env.AGENT_GATEWAY_V3_MODEL || 'qwen-32b';
+const REQUEST_TIMEOUT_MS = parseInt(process.env.AGENT_GATEWAY_V3_TIMEOUT_S || '90', 10) * 1000;
+
+const BASE_BEHAVIOR =
+    "Eres un agente determinista de Nexa. " +
+    "Responde siempre en español, de forma breve y clara, salvo que el usuario pida otro idioma. " +
+    "Si el usuario pide una salida literal corta, por ejemplo 'di ok', devuelve exactamente esa salida y nada más.";
+
+async function callLLM(systemPrompt: string, userContent: string): Promise<string> {
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+        const response = await fetch(LITELLM_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${LITELLM_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: MODEL,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userContent }
+                ]
+            }),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(`Litellm devolvió HTTP ${response.status}: ${body}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content?.trim() || "";
+    } catch (e: any) {
+        logger.error(`Error en callLLM: ${e.message}`, 'cognitive');
+        throw e;
+    }
+}
+
+export async function* runCognitiveLoop(message: string, context: string = ""): AsyncGenerator<string, { plan: string, response: string }, unknown> {
+    yield JSON.stringify({ type: 'status', text: '🧠 Analizando la tarea (Planner)...', provider: 'nexa-brain' });
+    
+    // 1. Planner
+    const plannerPrompt = `${BASE_BEHAVIOR} Actúas como planner. Devuelve solo pasos breves. Si la petición es trivial o pide una salida literal corta, indica responder directamente.`;
+    const plan = await callLLM(plannerPrompt, message);
+
+    yield JSON.stringify({ type: 'status', text: '⚡ Ejecutando plan (Executor)...', provider: 'nexa-brain' });
+
+    // 2. Executor
+    const executorPrompt = `${BASE_BEHAVIOR} Actúas como executor. Sigue el plan y responde con precisión, sin relleno. Usa el contexto proporcionado si es útil.`;
+    const executorContent = `PLAN:\n${plan}\n\nCONTEXTO:\n${context}\n\nINPUT:\n${message}`;
+    const result = await callLLM(executorPrompt, executorContent);
+
+    yield JSON.stringify({ type: 'status', text: '🔍 Refinando respuesta (Critic)...', provider: 'nexa-brain' });
+
+    // 3. Critic
+    const criticPrompt = `${BASE_BEHAVIOR} Actúas como critic. Mejora la respuesta manteniéndola breve, correcta y coherente.`;
+    const finalResponse = await callLLM(criticPrompt, result);
+
+    // Stream final response words to mimic streaming
+    const words = finalResponse.split(/(\s+)/);
+    for (const word of words) {
+        if (word.length > 0) {
+            yield JSON.stringify({ text: word, provider: 'nexa-brain' });
+        }
+    }
+
+    return { plan, response: finalResponse };
+}

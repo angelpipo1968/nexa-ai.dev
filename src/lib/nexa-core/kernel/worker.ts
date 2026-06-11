@@ -3,7 +3,8 @@ import { AgentJob } from './types';
 import { publishChunk, publishDone, publishError } from './event-bus';
 import { logEvent } from './observability';
 
-const LITELLM_URL = 'http://127.0.0.1:4001/v1/chat/completions';
+const LITELLM_URL = process.env.AGENT_GATEWAY_V3_LITELLM_URL || 'http://127.0.0.1:4000/v1/chat/completions';
+const LITELLM_KEY = process.env.AGENT_GATEWAY_V3_LITELLM_KEY || 'sk-nexa-master-3090';
 const MAX_CONCURRENT_WORKERS = 1; // 1 Worker exclusivo para la RTX 3090 (Aislamiento Total)
 let isProcessing = false;
 
@@ -44,7 +45,7 @@ async function processNextJob() {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer sk-local'
+            'Authorization': `Bearer ${LITELLM_KEY}`
         },
         body: JSON.stringify({
             model: job.model,

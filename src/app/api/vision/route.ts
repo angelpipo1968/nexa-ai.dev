@@ -84,6 +84,60 @@ export async function POST(req: NextRequest) {
         const userQuestion = question || DEFAULT_QUESTION;
 
         // ═══════════════════════════════════════════════
+        //  Provider 0: Ollama LOCAL (sin API key, gratis)
+        //  Modelos soportados: llava, llama3.2-vision, minicpm-v
+        // ═══════════════════════════════════════════════
+        const ollamaUrl = process.env.OLLAMA_HOST_URL || 'http://127.0.0.1:11434';
+        const ollamaVisionModel = process.env.OLLAMA_VISION_MODEL || 'llava';
+        try {
+            // Verificar si hay modelos de visión disponibles en Ollama
+            const tagsRes = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+            if (tagsRes.ok) {
+                const tagsData = await tagsRes.json();
+                const visionModels = ['llava', 'llama3.2-vision', 'minicpm-v', 'bakllava', 'moondream'];
+                const availableModel = tagsData.models?.find((m: { name: string }) =>
+                    visionModels.some(vm => m.name.toLowerCase().includes(vm))
+                );
+                if (availableModel) {
+                    const modelToUse = availableModel.name;
+                    const imageDataUrl = `data:${mimeType || 'image/jpeg'};base64,${image}`;
+                    const ollamaRes = await fetch(`${ollamaUrl}/api/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            model: modelToUse,
+                            messages: [{
+                                role: 'user',
+                                content: userQuestion,
+                                images: [image], // Ollama acepta base64 puro
+                            }],
+                            stream: false,
+                        }),
+                        signal: AbortSignal.timeout(60000),
+                    });
+                    if (ollamaRes.ok) {
+                        const ollamaData = await ollamaRes.json();
+                        const text = ollamaData.message?.content?.trim() || '';
+                        if (text) {
+                            logger.info(`Vision analysis completed via Ollama (${modelToUse})`, 'vision', { requestId, category });
+                            return NextResponse.json({
+                                response: text,
+                                provider: 'ollama-local',
+                                model: modelToUse,
+                                category,
+                            });
+                        }
+                    } else {
+                        logger.warn(`Ollama vision failed (${ollamaRes.status})`, 'vision', { requestId });
+                    }
+                }
+            }
+        } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            logger.warn(`Ollama vision not available: ${msg}`, 'vision', { requestId });
+        }
+
+        // ═══════════════════════════════════════════════
         //  Provider 1: GLM-4.6V via HuggingFace (FREE, MIT)
         //  128K context, multimodal tool calling, MoE
         // ═══════════════════════════════════════════════

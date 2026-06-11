@@ -69,3 +69,6 @@ android/app/nexa-release.keystore
 *.keystore
 src/app.orig/
 out/
+.venv/
+tmp/
+backups/

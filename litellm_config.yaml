@@ -1,15 +1,46 @@
 model_list:
-  - model_name: qwen2.5:32b
+  - model_name: fast
     litellm_params:
-      model: openai/Qwen2.5-32B-Instruct-AWQ
-      api_base: "http://127.0.0.1:8002/v1"
-      api_key: "sk-local-vllm"
-  - model_name: llama3.1:8b
+      model: openai/Qwen/Qwen2.5-7B-Instruct-AWQ
+      api_base: http://vllm:8000/v1
+      api_key: sk-local
+
+  - model_name: fallback
     litellm_params:
-      model: openai/llama3.1:8b
-      api_base: "http://127.0.0.1:11434/v1"
-      api_key: "sk-local-ollama"
+      model: ollama/llama3
+      api_base: http://ollama:11434
+      api_key: ollama
+
+  - model_name: qwen
+    litellm_params:
+      model: openai/Qwen/Qwen2.5-7B-Instruct-AWQ
+      api_base: http://vllm:8000/v1
+      api_key: sk-local
+
+  - model_name: qwen-fallback
+    litellm_params:
+      model: ollama/qwen2.5-32b-instruct-nexa
+      api_base: http://ollama:11434
+      api_key: ollama
+
+  - model_name: vision
+    litellm_params:
+      model: ollama/llava:latest
+      api_base: http://ollama:11434
+      api_key: ollama
+
+router_settings:
+  enable_pre_call_checks: true
+  routing_strategy: simple-shuffle
+  fallbacks:
+    - {"fast": ["fallback"]}
+    - {"qwen": ["qwen-fallback"]}
+  timeout: 120
+  num_retries: 2
 
 litellm_settings:
   drop_params: true
   success_callback: ["prometheus"]
+
+general_settings:
+  master_key: "sk-nexa-master-3090"

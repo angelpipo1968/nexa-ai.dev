@@ -1,3 +1,7 @@
+import nextEnv from '@next/env';
+const { loadEnvConfig } = nextEnv;
+loadEnvConfig(process.cwd());
+
 import { startWorkerPool } from './worker';
 import { logGPU } from './observability';
 import { startWatchdog } from './health';

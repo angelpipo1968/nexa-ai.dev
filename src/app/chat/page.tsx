@@ -7,6 +7,8 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   image?: string
+  documentName?: string
+  documentContent?: string
   provider?: string
   timestamp: number
 }
@@ -18,9 +20,12 @@ export default function ChatPage() {
   const [provider, setProvider] = useState('')
   const [model, setModel] = useState('google/gemini-2.5-flash')
   const [image, setImage] = useState<string | null>(null)
+  const [documentName, setDocumentName] = useState<string | null>(null)
+  const [documentContent, setDocumentContent] = useState<string | null>(null)
   const [error, setError] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const docRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -36,11 +41,15 @@ export default function ChatPage() {
       role: 'user',
       content: input,
       image: image || undefined,
+      documentName: documentName || undefined,
+      documentContent: documentContent || undefined,
       timestamp: Date.now(),
     }
     setMessages(prev => [...prev, userMsg])
     setInput('')
-    setCurrentImage(null)
+    setImage(null)
+    setDocumentName(null)
+    setDocumentContent(null)
 
     try {
       const res = await fetch('/api/chat', {
@@ -51,6 +60,8 @@ export default function ChatPage() {
             role: m.role,
             content: m.content,
             image: m.image,
+            documentName: m.documentName,
+            documentContent: m.documentContent
           })),
           model,
         }),
@@ -123,6 +134,38 @@ export default function ChatPage() {
     reader.readAsDataURL(file)
   }
 
+  const handleDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 25 * 1024 * 1024) {
+      setError('Document too large (max 25MB)')
+      return
+    }
+    setError('')
+    setDocumentName(file.name)
+
+    // Handle PDF
+    if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+      const formData = new FormData()
+      formData.append('file', file)
+      try {
+        const res = await fetch('/api/parse-pdf', { method: 'POST', body: formData })
+        if (!res.ok) throw new Error('Error parsing PDF')
+        const data = await res.json()
+        if (data.text) setDocumentContent(data.text)
+        else throw new Error('No text extracted')
+      } catch (err: any) {
+        setError(err.message)
+        setDocumentName(null)
+      }
+    } else {
+      // Handle Text, Markdown, CSV directly in browser
+      const reader = new FileReader()
+      reader.onload = () => setDocumentContent(reader.result as string)
+      reader.readAsText(file)
+    }
+  }
+
   return (
     <div style={{display:'flex',flexDirection:'column',height:'100vh',background:'#0a0a0f',color:'#e2e8f0',fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
       {/* HEADER */}
@@ -170,6 +213,11 @@ export default function ChatPage() {
             </div>
             <div style={{background:msg.role==='user'?'#8b5cf6':'#1e293b',padding:'12px 16px',borderRadius:12,borderTopRightRadius:msg.role==='user'?4:12,borderTopLeftRadius:msg.role==='user'?12:4,lineHeight:1.6,fontSize:14,whiteSpace:'pre-wrap',wordBreak:'break-word'}}>
               {msg.image && <img src={msg.image} alt="" style={{maxWidth:200,borderRadius:8,marginBottom:8}}/>}
+              {msg.documentName && (
+                <div style={{display:'flex',alignItems:'center',gap:6,background:'rgba(0,0,0,0.2)',padding:'6px 12px',borderRadius:6,marginBottom:8,fontSize:12}}>
+                  📄 <b>{msg.documentName}</b> adjunto
+                </div>
+              )}
               {msg.content}
             </div>
           </div>
@@ -205,19 +253,32 @@ export default function ChatPage() {
             <button onClick={()=>setImage(null)} style={{position:'absolute',top:-6,right:-6,width:20,height:20,borderRadius:'50%',background:'#ef4444',color:'#fff',border:'none',cursor:'pointer',fontSize:12}}>×</button>
           </div>
         )}
+        {documentName && (
+          <div style={{marginBottom:8,display:'inline-flex',alignItems:'center',gap:8,background:'#1e293b',padding:'6px 12px',borderRadius:8,fontSize:13,border:'1px solid #2a2a4a'}}>
+            📄 {documentName} {documentContent ? '✓' : '(Procesando...)'}
+            <button onClick={()=>{setDocumentName(null);setDocumentContent(null)}} style={{background:'none',border:'none',color:'#ef4444',cursor:'pointer',fontSize:14,padding:0,marginLeft:4}}>×</button>
+          </div>
+        )}
         <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
+          <button onClick={()=>docRef.current?.click()}
+            style={{width:40,height:40,borderRadius:10,background:'#1e293b',border:'1px solid #2a2a4a',color:'#94a3b8',cursor:'pointer',fontSize:18,flexShrink:0}} title="Adjuntar documento">
+            📎
+          </button>
+          <input ref={docRef} type="file" accept=".pdf,.txt,.md,.csv" onChange={handleDocument} style={{display:'none'}}/>
+          
           <button onClick={()=>fileRef.current?.click()}
-            style={{width:40,height:40,borderRadius:10,background:'#1e293b',border:'1px solid #2a2a4a',color:'#94a3b8',cursor:'pointer',fontSize:18,flexShrink:0}}>
+            style={{width:40,height:40,borderRadius:10,background:'#1e293b',border:'1px solid #2a2a4a',color:'#94a3b8',cursor:'pointer',fontSize:18,flexShrink:0}} title="Adjuntar imagen">
             📷
           </button>
           <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} style={{display:'none'}}/>
+          
           <textarea value={input} onChange={e=>setInput(e.target.value)}
             onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage()}}}
             placeholder="Ask anything... (Enter to send, Shift+Enter for new line)"
             rows={1}
             style={{flex:1,background:'#0a0a0f',border:'1px solid #2a2a4a',borderRadius:10,padding:'10px 14px',color:'#e2e8f0',fontSize:14,resize:'none',outline:'none',minHeight:40,maxHeight:120,fontFamily:'inherit'}}
           />
-          <button onClick={sendMessage} disabled={loading || (!input.trim() && !image)}
+          <button onClick={sendMessage} disabled={loading || (!input.trim() && !image && !documentContent)}
             style={{width:40,height:40,borderRadius:10,background:loading?'#1e293b':'linear-gradient(135deg,#8b5cf6,#6d28d9)',border:'none',color:'#fff',cursor:loading?'not-allowed':'pointer',fontSize:18,flexShrink:0,opacity:loading?.5:1}}>
             ➤
           </button>

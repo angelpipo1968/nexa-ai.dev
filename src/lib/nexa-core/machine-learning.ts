@@ -12,6 +12,7 @@
  */
 
 import { Redis } from '@upstash/redis';
+import { callNexaLLM } from './cognitive';
 
 // Lazy-initialize Redis to prevent crashes when REDIS_URL is not set.
 // All functions that use redis call getRedis() and gracefully degrade if null.
@@ -140,26 +141,10 @@ export async function analyzeEmotionAdvanced(text: string): Promise<UserEmotion>
         return quickResult;
     }
     
-    // For ambiguous cases, use LLM for deeper analysis
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) return quickResult;
-    
     try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
-            body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
-                messages: [{
-                    role: 'system',
-                    content: 'Analyze the emotional tone of this message. Respond ONLY with JSON: {"primary":"joy|sadness|anger|fear|surprise|disgust|love|neutral","intensity":0.0-1.0,"secondary":"emotion or null","confidence":0.0-1.0}'
-                }, { role: 'user', content: text }],
-                response_format: { type: 'json_object' },
-                max_tokens: 80
-            }),
-        });
-        const data = await res.json();
-        return JSON.parse(data.choices[0].message.content);
+        const systemPrompt = 'Analyze the emotional tone of this message. Respond ONLY with JSON: {"primary":"joy|sadness|anger|fear|surprise|disgust|love|neutral","intensity":0.0-1.0,"secondary":"emotion or null","confidence":0.0-1.0}';
+        const content = await callNexaLLM(systemPrompt, text, true);
+        return JSON.parse(content);
     } catch {
         return quickResult;
     }
@@ -529,25 +514,10 @@ export async function addKnowledgeNode(
  * Extract knowledge from user message using LLM
  */
 export async function extractKnowledge(userId: string, userMessage: string): Promise<void> {
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) return;
-    
     try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
-            body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
-                messages: [{
-                    role: 'system',
-                    content: `Extract entities and relationships from this message as JSON array. Each item: {"entity": "name", "type": "person|place|concept|event|preference|fact", "relations": [{"target": "other entity", "relation": "relationship type", "strength": 0.5}]}. If nothing relevant, return [].`
-                }, { role: 'user', content: userMessage }],
-                response_format: { type: 'json_object' },
-                max_tokens: 200
-            }),
-        });
-        const data = await res.json();
-        const nodes = JSON.parse(data.choices[0].message.content);
+        const systemPrompt = `Extract entities and relationships from this message as JSON array. Each item: {"entity": "name", "type": "person|place|concept|event|preference|fact", "relations": [{"target": "other entity", "relation": "relationship type", "strength": 0.5}]}. If nothing relevant, return [].`;
+        const content = await callNexaLLM(systemPrompt, userMessage, true);
+        const nodes = JSON.parse(content);
         
         if (Array.isArray(nodes)) {
             for (const node of nodes) {
@@ -724,26 +694,10 @@ export async function analyzeMessageAdvanced(userMessage: string): Promise<NLPRe
         return quickResult;
     }
     
-    // Enhance with LLM for complex queries
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) return quickResult;
-    
     try {
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
-            body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
-                messages: [{
-                    role: 'system',
-                    content: `Analyze this message and return JSON: {"entities":[{"name":"value","type":"person|place|organization|date|product|concept","value":"extracted value"}],"intent":"greeting|question|command|tool_request|emotion_expression|general_conversation|entertainment","topics":["topic1"],"complexity":"simple|moderate|complex"}. Only JSON.`
-                }, { role: 'user', content: userMessage }],
-                response_format: { type: 'json_object' },
-                max_tokens: 200
-            }),
-        });
-        const data = await res.json();
-        const enhanced = JSON.parse(data.choices[0].message.content);
+        const systemPrompt = `Analyze this message and return JSON: {"entities":[{"name":"value","type":"person|place|organization|date|product|concept","value":"extracted value"}],"intent":"greeting|question|command|tool_request|emotion_expression|general_conversation|entertainment","topics":["topic1"],"complexity":"simple|moderate|complex"}. Only JSON.`;
+        const content = await callNexaLLM(systemPrompt, userMessage, true);
+        const enhanced = JSON.parse(content);
         
         return {
             ...quickResult,

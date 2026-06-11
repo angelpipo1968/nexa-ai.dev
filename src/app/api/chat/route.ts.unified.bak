@@ -169,10 +169,7 @@ export async function POST(req: NextRequest) {
         let { messages, mode = 'default', latitude, longitude, city, country } = parsed.data;
         
         // --- NEXA INTELLIGENCE HUB (V3 - UNIFICADO) ---
-        const lastMsg = messages[messages.length - 1];
-        const userQuery = lastMsg.content;
-        const documentName = lastMsg.documentName;
-        const documentContent = lastMsg.documentContent;
+        const userQuery = messages[messages.length - 1].content;
         const userId = identifier;
         
         const lowerQuery = userQuery.toLowerCase();
@@ -217,17 +214,6 @@ export async function POST(req: NextRequest) {
 Ubicación: ${userCity || 'Desconocida'}, ${userCountry || 'Desconocida'}${userLat != null && userLon != null ? ` (${userLat}, ${userLon})` : ''}
 Hora Local: ${timeStr}
 --------------------------------------------------\n\n`;
-
-        // 0.5 CONTEXTO DE DOCUMENTO ADJUNTO (RAG Directo)
-        if (documentContent) {
-            toolContext += `[DOCUMENTO ADJUNTO: ${documentName || 'Desconocido'}]:
-El usuario ha subido este documento. Usa esta información como fuente principal de verdad para responder a su petición actual si tiene relación.
-Contenido del documento:
-"""
-${documentContent}
-"""
---------------------------------------------------\n\n`;
-        }
 
         // --- NEXA ML ENGINE V1 (Machine Learning) ---
         // Derive userId from client IP or custom header (no auth system yet).

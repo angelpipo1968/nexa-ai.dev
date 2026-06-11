@@ -10,6 +10,7 @@ import { getStockPrice, getCryptoPrice } from './finance';
 import { searchFlights } from './aviation';
 import { getLotteryResults } from './lottery';
 import { getWeather } from './weather';
+import { callNexaLLM } from './cognitive';
 
 // Herramientas de Búsqueda Web Profunda
 async function deepSearch(query: string): Promise<string> {
@@ -36,40 +37,24 @@ export interface AgentTask {
 }
 
 export async function runAutonomousLoop(userQuery: string): Promise<string> {
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) return "Error: Falta GROQ_API_KEY para el orquestador.";
-
     try {
         // 1. PLANIFICACIÓN (Thinking)
-        // Le pedimos a Groq que cree un plan de ejecución basado en las herramientas disponibles
-        const planRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                    { 
-                        role: 'system', 
-                        content: `Eres el Orquestador de NEXA. Tu trabajo es crear un plan de 1 a 3 pasos para responder al usuario usando estas herramientas:
-                        - 'wolfram': Datos científicos, matemáticos, hechos.
-                        - 'movies': Cine, series, actores.
-                        - 'nasa': Espacio, Marte, fotos astronómicas.
-                        - 'finance': Bolsa (símbolos tipo AAPL) y Cripto.
-                        - 'flights': Estado de vuelos (IATA).
-                        - 'lottery': Resultados de sorteos.
-                        - 'weather': Clima por ciudad.
-                        - 'web_search': Búsqueda general en internet para cualquier otra cosa.
-                        
-                        Responde EXCLUSIVAMENTE en formato JSON: {"plan": [{"step": "desc", "tool": "name", "params": {"key": "val"}}]} ` 
-                    },
-                    { role: 'user', content: userQuery }
-                ],
-                response_format: { type: "json_object" }
-            }),
-        });
+        // Le pedimos a la LLM que cree un plan de ejecución basado en las herramientas disponibles
+        const systemPrompt = `Eres el Orquestador de NEXA. Tu trabajo es crear un plan de 1 a 3 pasos para responder al usuario usando estas herramientas:
+- 'wolfram': Datos científicos, matemáticos, hechos.
+- 'movies': Cine, series, actores.
+- 'nasa': Espacio, Marte, fotos astronómicas.
+- 'finance': Bolsa (símbolos tipo AAPL) y Cripto.
+- 'flights': Estado de vuelos (IATA).
+- 'lottery': Resultados de sorteos.
+- 'weather': Clima por ciudad.
+- 'web_search': Búsqueda general en internet para cualquier otra cosa.
 
-        const planData = await planRes.json();
-        const plan: AgentTask[] = planData.choices[0].message.content ? JSON.parse(planData.choices[0].message.content).plan : [];
+Responde EXCLUSIVAMENTE en formato JSON: {"plan": [{"step": "desc", "tool": "name", "params": {"key": "val"}}]} `;
+        
+        const planContent = await callNexaLLM(systemPrompt, userQuery, true);
+        const planObj = JSON.parse(planContent);
+        const plan: AgentTask[] = planObj.plan || [];
 
         if (!plan || plan.length === 0) return "NEXA no detectó tareas especiales para este pedido.";
 
@@ -91,20 +76,10 @@ export async function runAutonomousLoop(userQuery: string): Promise<string> {
         }
 
         // 3. SÍNTESIS FINAL
-        const finalRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqKey}` },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [
-                    { role: 'system', content: 'Eres NEXA, una IA súper inteligente. Responde al usuario de forma épica y profesional usando los datos obtenidos por tus agentes.' },
-                    { role: 'user', content: `Usuario: ${userQuery}\n\nContexto obtenido:\n${totalContext}\n\nResponde ahora.` }
-                ],
-            }),
-        });
-
-        const finalData = await finalRes.json();
-        return finalData.choices[0].message.content;
+        const synthesisPrompt = 'Eres NEXA, una IA súper inteligente. Responde al usuario de forma épica y profesional usando los datos obtenidos por tus agentes.';
+        const userContent = `Usuario: ${userQuery}\n\nContexto obtenido:\n${totalContext}\n\nResponde ahora.`;
+        
+        return await callNexaLLM(synthesisPrompt, userContent);
 
     } catch (error: any) {
         return `Error en el orquestador autónomo: ${error.message}`;
