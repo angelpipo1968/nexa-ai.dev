@@ -18,8 +18,7 @@ android {
         versionName = "5.2"
         buildConfigField("String", "API_BASE_URL", "\"https://www.nexa-ai.dev\"")
         
-        // Enable multidex for Android < 14 compatibility
-        multiDexEnabled = true
+        // multidex not needed — minSdk=31 (Android 12+) has native multidex
     }
 
     signingConfigs {
@@ -77,11 +76,8 @@ android {
         }
     }
     
-    // FIX: Limit dex files to prevent Android 16 packaging error
-    dexOptions {
-        preDexLibraries = false
-        maxProcessCount = 4
-    }
+    // dexOptions removed — not supported in AGP 8.x+
+    // AGP 8.x handles DEX optimization automatically
 }
 
 dependencies {
@@ -93,8 +89,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.12.0")
-    // Multidex for large method count
-    implementation("androidx.multidex:multidex:2.0.1")
+    // multidex removed — not needed with minSdk=31
 
     // Compose — updated BOM for API 36
     implementation(platform("androidx.compose:compose-bom:2025.04.00"))
@@ -155,8 +150,7 @@ dependencies {
     // Android Auto
     implementation("androidx.car.app:app:1.4.0")
 
-    // Nexa SDK
-    implementation("ai.nexa:core:0.0.24")
+    // Nexa SDK — removed: custom Maven repo unreachable, dependency not used
 
     // ML Kit
     implementation("com.google.mlkit:language-id:17.0.0")

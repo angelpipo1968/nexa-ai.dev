@@ -27,7 +27,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.settings import (
     HOST, PORT, WORKERS, TEMPERATURE, MAX_TOKENS,
     LOCAL_MODEL_URL, LITELLM_URL, LITELLM_API_KEY,
-    ENABLE_IMAGE_GEN, ENABLE_CODE_EXECUTION, ENABLE_WEB_SEARCH,
+    ENABLE_IMAGE_GEN, ENABLE_VIDEO_GEN, ENABLE_CODE_EXECUTION, ENABLE_WEB_SEARCH,
     MAX_ITERATIONS
 )
 
@@ -82,6 +82,14 @@ class ImageRequest(BaseModel):
     width: int = 1024
     height: int = 1024
     steps: int = 30
+
+class VideoRequest(BaseModel):
+    """Video generation request."""
+    prompt: str
+    negative_prompt: str = ""
+    num_frames: int = 16
+    steps: int = 25
+    fps: int = 8
 
 
 # ─── Health Endpoints ───────────────────────────────────────────────
@@ -401,6 +409,27 @@ async def generate_image_api(request: ImageRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ─── Video Generation Endpoint ──────────────────────────────────────
+@app.post("/generate/video")
+async def generate_video_api(request: VideoRequest):
+    """Generate a short video using AnimateDiff on RTX 3090."""
+    if not ENABLE_VIDEO_GEN:
+        raise HTTPException(status_code=403, detail="Video generation is disabled")
+    
+    try:
+        from tools.tools import generate_video
+        result = await generate_video.ainvoke({
+            "prompt": request.prompt,
+            "negative_prompt": request.negative_prompt,
+            "num_frames": request.num_frames,
+            "steps": request.steps,
+            "fps": request.fps,
+        })
+        return {"status": "generated", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ─── OpenAI-Compatible Endpoints ────────────────────────────────────
 @app.get("/v1/models")
 async def list_models():
@@ -508,6 +537,7 @@ async def startup():
     print(f"  Local LLM:  {LOCAL_MODEL_URL}")
     print(f"  LiteLLM:    {LITELLM_URL}")
     print(f"  Image Gen:  {'Enabled' if ENABLE_IMAGE_GEN else 'Disabled'}")
+    print(f"  Video Gen:  {'Enabled' if ENABLE_VIDEO_GEN else 'Disabled'}")
     print(f"  Code Exec:  {'Enabled' if ENABLE_CODE_EXECUTION else 'Disabled'}")
     print(f"  Web Search: {'Enabled' if ENABLE_WEB_SEARCH else 'Disabled'}")
     print("=" * 60)

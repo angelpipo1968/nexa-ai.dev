@@ -14,8 +14,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven { url = uri("https://nexa-sdk.s3.amazonaws.com/android/repo") }
-        maven { url = uri("https://raw.githubusercontent.com/NexaAI/core/main") }
+        // Custom Maven repos removed — ai.nexa:core dependency not used
     }
 }
 

@@ -369,6 +369,97 @@ async def recall_memory(query: str, num_results: int = 3) -> str:
         return f"Memory recall error: {str(e)}"
 
 
+# ─── Video Generation (AnimateDiff on RTX 3090) ─────────────────────
+@tool
+async def generate_video(prompt: str, negative_prompt: str = "", num_frames: int = 16, steps: int = 25, fps: int = 8) -> str:
+    """Generate a short video using AnimateDiff + Stable Diffusion on the RTX 3090. Use this when the user wants to create, generate, or animate a video/clip/animation.
+    
+    Args:
+        prompt: Description of the video to generate (be detailed for best results)
+        negative_prompt: What to avoid in the video (optional)
+        num_frames: Number of frames (4-32, default 16)
+        steps: Number of inference steps (default 25)
+        fps: Frames per second (default 8)
+    """
+    try:
+        import torch
+        from diffusers import AnimateDiffPipeline, DDIMScheduler, MotionAdapter
+        from config.settings import UPLOAD_DIR, GPU_DEVICE
+        import time as _time
+        
+        num_frames = max(4, min(num_frames, 32))
+        
+        print(f"[Video] Loading AnimateDiff + SD 1.5...")
+        
+        adapter = MotionAdapter.from_pretrained(
+            "guoyww/animatediff-motion-adapter-v1-5-2",
+            torch_dtype=torch.float16,
+        )
+        
+        pipe = AnimateDiffPipeline.from_pretrained(
+            "runwayml/stable-diffusion-v1-5",
+            motion_adapter=adapter,
+            torch_dtype=torch.float16,
+        )
+        
+        scheduler = DDIMScheduler.from_pretrained(
+            "runwayml/stable-diffusion-v1-5",
+            subfolder="scheduler",
+            clip_sample=False,
+            timestep_spacing="linspace",
+            steps_offset=1,
+        )
+        pipe.scheduler = scheduler
+        
+        pipe.enable_vae_slicing()
+        pipe.enable_model_cpu_offload()
+        pipe = pipe.to(GPU_DEVICE)
+        
+        print(f"[Video] Generating {num_frames} frames: {prompt[:60]}...")
+        start = _time.time()
+        
+        video_frames = pipe(
+            prompt=prompt,
+            negative_prompt=negative_prompt or "low quality, blurry, distorted, watermark",
+            num_frames=num_frames,
+            num_inference_steps=steps,
+            guidance_scale=7.5,
+        ).frames[0]
+        
+        elapsed = _time.time() - start
+        
+        # Save as GIF
+        filename = f"video_{int(_time.time())}.gif"
+        filepath = UPLOAD_DIR / filename
+        
+        video_frames[0].save(
+            str(filepath),
+            save_all=True,
+            append_images=video_frames[1:],
+            duration=1000 // fps,
+            loop=0,
+        )
+        
+        # Clean up GPU memory
+        del pipe
+        del adapter
+        torch.cuda.empty_cache()
+        
+        duration = num_frames / fps
+        return (
+            f"🎬 Video generated successfully!\n"
+            f"   Saved to: /uploads/{filename}\n"
+            f"   Prompt: {prompt}\n"
+            f"   Frames: {num_frames} @ {fps}fps = {duration:.1f}s\n"
+            f"   Generation time: {elapsed:.1f}s"
+        )
+    
+    except ImportError as e:
+        return f"Video generation not available. Missing: {str(e)}\nInstall: pip install diffusers transformers accelerate torch"
+    except Exception as e:
+        return f"Video generation error: {str(e)}"
+
+
 # ─── Tool Collection ────────────────────────────────────────────────
 ALL_TOOLS = [
     web_search,
@@ -378,6 +469,7 @@ ALL_TOOLS = [
     list_directory,
     gpu_status,
     generate_image,
+    generate_video,
     run_shell_command,
     search_wikipedia,
     recall_memory,
@@ -388,7 +480,7 @@ def get_enabled_tools() -> list:
     """Return only enabled tools based on configuration."""
     from config.settings import (
         ENABLE_CODE_EXECUTION, ENABLE_FILE_OPS, ENABLE_WEB_SEARCH,
-        ENABLE_IMAGE_GEN, ENABLE_SHELL
+        ENABLE_IMAGE_GEN, ENABLE_VIDEO_GEN, ENABLE_SHELL
     )
     
     enabled = []
@@ -400,6 +492,7 @@ def get_enabled_tools() -> list:
         "list_directory": (list_directory, ENABLE_FILE_OPS),
         "gpu_status": (gpu_status, True),
         "generate_image": (generate_image, ENABLE_IMAGE_GEN),
+        "generate_video": (generate_video, ENABLE_VIDEO_GEN),
         "run_shell_command": (run_shell_command, ENABLE_SHELL),
         "search_wikipedia": (search_wikipedia, ENABLE_WEB_SEARCH),
         "recall_memory": (recall_memory, True),
