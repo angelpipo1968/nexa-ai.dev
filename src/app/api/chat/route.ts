@@ -184,13 +184,20 @@ export async function POST(req: NextRequest) {
     // 1. FASTAPI LOCAL — RTX 3090 (puerto 8000)
     //    Timeout: 12s para evitar colgados
     // ============================================
-    const fastapiEndpoints = [
+    // ─── NEXA AGENT (LangGraph) — Primary route ─────────────
+    // New LangGraph agent with tools, memory, and reasoning
+    const agentEndpoints = [
       { url: 'http://127.0.0.1:8000/v1/chat/completions', format: 'openai' },
+      { url: 'http://127.0.0.1:8000/chat', format: 'agent' },
+      { url: 'http://127.0.0.1:8000/deliberate', format: 'agent' },
+    ];
+
+    const fastapiEndpoints = [
+      // LangGraph Agent endpoints (new)
+      ...agentEndpoints,
+      // Legacy FastAPI endpoints
       { url: 'http://127.0.0.1:8000/v1/chat', format: 'openai' },
       { url: 'http://127.0.0.1:8000/api/chat', format: 'custom' },
-      { url: 'http://127.0.0.1:8000/chat', format: 'custom' },
-      // /deliberate ULTIMO porque causa agent loops
-      { url: 'http://127.0.0.1:8000/deliberate', format: 'deliberate' },
     ];
 
     const FASTAPI_TIMEOUT = 12000;
@@ -200,8 +207,13 @@ export async function POST(req: NextRequest) {
         let bodyStr: string;
         if (endpoint.format === 'openai') {
           bodyStr = JSON.stringify({ model: model || 'default', messages: openaiMessages, temperature: 0.7, max_tokens: 2048 });
-        } else if (endpoint.format === 'deliberate') {
-          bodyStr = JSON.stringify({ message, model: model || 'default', history, skip_judge: skipJudge, direct_mode: true, no_tools: true, max_iterations: 1 });
+        } else if (endpoint.format === 'agent') {
+          // LangGraph agent format - supports tools and memory
+          bodyStr = JSON.stringify({
+            message,
+            task_type: intent === 'reasoning' ? 'reasoning' : intent === 'coding' ? 'code_generation' : 'simple_chat',
+            use_memory: true,
+          });
         } else {
           bodyStr = JSON.stringify({ message, model, history, skip_judge: skipJudge, direct_mode: true });
         }

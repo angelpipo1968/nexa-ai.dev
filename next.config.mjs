@@ -2,12 +2,14 @@
 const nextConfig = {
     reactStrictMode: true,
     output: undefined,
-    eslint: { ignoreDuringBuilds: true },
     typescript: { ignoreBuildErrors: true },
     images: {
         unoptimized: true,
     },
     compress: true,
+    turbopack: {
+        root: '..',
+    },
 }
 
 export default nextConfig;
