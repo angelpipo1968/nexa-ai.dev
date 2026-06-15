@@ -17,8 +17,20 @@ function cleanAgenticResponse(raw: string): string {
   c = c.replace(/\[❌[^\]]*\]/g, '');
   c = c.replace(/\[Nexa Kernel:[^\]]*\]/g, '');
   c = c.replace(/⚡/g, '');
+  c = c.replace(/^\s*Ejecutando\s+\w+.*$/gm, '');
+  c = c.replace(/^\s*completado\s*$/gm, '');
+  c = c.replace(/^\s*Max iterations reached\s*$/gm, '');
   c = c.replace(/\n{3,}/g, '\n\n');
-  return c.trim();
+  c = c.trim();
+  if (!c) {
+    const lines = raw.split('\n');
+    const meaningful = lines.filter(l => {
+      const t = l.trim();
+      return t && !t.startsWith('[') && !t.startsWith('⚡') && !t.includes('python_worker') && !t.includes('Ejecutando') && !t.includes('completado') && !t.includes('Max iterations');
+    });
+    if (meaningful.length > 0) c = meaningful.join('\n').trim();
+  }
+  return c;
 }
 
 function extractResponse(data: any): string {
@@ -62,7 +74,6 @@ export async function POST(req: NextRequest) {
     };
     const intent = classifyIntent(message);
 
-    // Build messages for OpenAI-compatible APIs
     const buildMessages = (systemPrompt: string) => {
       const msgs: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
         { role: 'system', content: systemPrompt }
@@ -90,8 +101,11 @@ export async function POST(req: NextRequest) {
       { url: 'http://127.0.0.1:8000/v1/chat', format: 'openai' },
       { url: 'http://127.0.0.1:8000/api/chat', format: 'custom' },
       { url: 'http://127.0.0.1:8000/chat', format: 'custom' },
+      // /deliberate ULTIMO porque causa agent loops
       { url: 'http://127.0.0.1:8000/deliberate', format: 'deliberate' },
     ];
+
+    const FASTAPI_TIMEOUT = 12000;
 
     for (const endpoint of fastapiEndpoints) {
       try {
@@ -99,7 +113,7 @@ export async function POST(req: NextRequest) {
         if (endpoint.format === 'openai') {
           bodyStr = JSON.stringify({ model: model || 'default', messages: openaiMessages, temperature: 0.7, max_tokens: 2048 });
         } else if (endpoint.format === 'deliberate') {
-          bodyStr = JSON.stringify({ message, model: model || 'default', history, skip_judge: skipJudge, direct_mode: true, max_iterations: 1 });
+          bodyStr = JSON.stringify({ message, model: model || 'default', history, skip_judge: skipJudge, direct_mode: true, no_tools: true, max_iterations: 1 });
         } else {
           bodyStr = JSON.stringify({ message, model, history, skip_judge: skipJudge, direct_mode: true });
         }
@@ -108,7 +122,7 @@ export async function POST(req: NextRequest) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: bodyStr,
-          signal: AbortSignal.timeout(12000)
+          signal: AbortSignal.timeout(FASTAPI_TIMEOUT)
         });
 
         if (res.ok) {
@@ -145,6 +159,7 @@ export async function POST(req: NextRequest) {
 
     // ============================================
     // 2. LITELLM GATEWAY (puerto 4000)
+    //    API Key: sk-nexa-master-3090
     // ============================================
     const litellmEndpoints = [
       'http://127.0.0.1:4000/v1/chat/completions',
@@ -180,7 +195,7 @@ export async function POST(req: NextRequest) {
               routing: {
                 intent: skipJudge ? 'forced' : intent,
                 confidence: skipJudge ? 1.0 : 0.8,
-                engine: 'litellm',
+                engine: model || 'litellm',
                 reasoning: skipJudge ? 'Judge bypassed — LiteLLM' : `Intent "${intent}", LiteLLM gateway (port 4000)`
               },
               datacenter: false

@@ -6,6 +6,8 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -13,6 +15,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background: #0a0a0f;
   color: #e2e8f0;
+  overflow: hidden;
+  /* Prevent overscroll bounce on iOS */
+  overscroll-behavior: none;
 }
 
 a {
@@ -41,8 +46,8 @@ input:focus, textarea:focus, select:focus {
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -108,9 +113,82 @@ textarea {
   box-shadow: 0 0 20px rgba(168, 85, 247, 0.3), 0 0 60px rgba(168, 85, 247, 0.1);
 }
 
-/* Responsive */
-@media (max-width: 640px) {
-  nav {
-    padding: 12px 16px !important;
+/* Speaking wave animation */
+@keyframes speaking-wave {
+  0%, 100% { height: 4px; }
+  50% { height: 14px; }
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE RESPONSIVE STYLES
+   ═══════════════════════════════════════════ */
+
+/* Touch-friendly targets on mobile */
+@media (max-width: 768px) {
+  button {
+    min-height: 36px;
+    min-width: 36px;
+  }
+
+  /* Prevent text selection on touch elements */
+  button, a {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Larger input area for mobile */
+  textarea {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+  }
+
+  /* Smaller scrollbar on mobile */
+  ::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  /* Hide collapse toggle on mobile (sidebar is a drawer) */
+  .sidebar-collapse-toggle {
+    display: none !important;
+  }
+}
+
+/* Small phones */
+@media (max-width: 380px) {
+  .nexa-gradient {
+    font-size: 14px;
+  }
+}
+
+/* Landscape mobile */
+@media (max-height: 500px) and (orientation: landscape) {
+  .chat-welcome {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+}
+
+/* Safe area insets for notched phones */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .chat-input-area {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* PWA standalone mode */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+  button:hover {
+    opacity: 1;
+  }
+
+  button:active {
+    transform: scale(0.96);
+    opacity: 0.8;
   }
 }

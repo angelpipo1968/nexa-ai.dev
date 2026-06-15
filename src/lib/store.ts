@@ -57,12 +57,17 @@ export interface Notification {
 export type ThemeMode = 'dark' | 'light'
 
 interface NexaState {
+  // Theme
   theme: ThemeMode
   toggleTheme: () => void
+
+  // Channels
   channels: Channel[]
   activeChannel: string
   setActiveChannel: (id: string) => void
   markChannelRead: (id: string) => void
+
+  // Conversations
   conversations: Conversation[]
   activeConversation: string | null
   setActiveConversation: (id: string | null) => void
@@ -70,6 +75,8 @@ interface NexaState {
   addMessage: (conversationId: string, message: Message) => void
   deleteConversation: (id: string) => void
   getActiveConversation: () => Conversation | undefined
+
+  // Datacenter
   datacenterStatus: 'online' | 'offline' | 'checking'
   setDatacenterStatus: (status: 'online' | 'offline' | 'checking') => void
   showReasoningTrace: boolean
@@ -80,6 +87,8 @@ interface NexaState {
   setPingLatency: (ms: number | null) => void
   lastPingTime: number | null
   setLastPingTime: (time: number | null) => void
+
+  // Stats
   totalMessages: number
   incrementMessages: () => void
   engineUsage: Record<string, number>
@@ -91,18 +100,26 @@ interface NexaState {
   responseTimes: number[]
   addResponseTime: (ms: number) => void
   uptimeStart: number
+
+  // Model override
   skipJudge: boolean
   toggleSkipJudge: () => void
+
+  // Notifications
   notifications: Notification[]
   addNotification: (title: string, message: string, type?: Notification['type']) => void
   markNotificationRead: (id: string) => void
   markAllNotificationsRead: () => void
   clearNotifications: () => void
   unreadNotificationCount: () => number
+
+  // Settings
   selectedModel: string
   setSelectedModel: (model: string) => void
   sidebarCollapsed: boolean
   setSidebarCollapsed: (collapsed: boolean) => void
+  mobileSidebarOpen: boolean
+  setMobileSidebarOpen: (open: boolean) => void
   showSettings: boolean
   setShowSettings: (show: boolean) => void
   showSearch: boolean
@@ -113,6 +130,16 @@ interface NexaState {
   setShowNotifications: (show: boolean) => void
   userName: string
   setUserName: (name: string) => void
+
+  // TTS / Hands-Free
+  ttsEnabled: boolean
+  toggleTts: () => void
+  ttsSpeaking: boolean
+  setTtsSpeaking: (speaking: boolean) => void
+  ttsAutoSpeak: boolean
+  toggleTtsAutoSpeak: () => void
+  ttsVoiceIndex: number
+  setTtsVoiceIndex: (index: number) => void
 }
 
 const defaultChannels: Channel[] = [
@@ -128,14 +155,19 @@ const defaultChannels: Channel[] = [
 export const useNexaStore = create<NexaState>()(
   persist(
     (set, get) => ({
+      // Theme
       theme: 'dark',
       toggleTheme: () => set((s) => ({ theme: s.theme === 'dark' ? 'light' : 'dark' })),
+
+      // Channels
       channels: defaultChannels,
       activeChannel: '1',
       setActiveChannel: (id) => set({ activeChannel: id }),
       markChannelRead: (id) => set((s) => ({
         channels: s.channels.map(c => c.id === id ? { ...c, unread: 0 } : c)
       })),
+
+      // Conversations
       conversations: [],
       activeConversation: null,
       setActiveConversation: (id) => set({ activeConversation: id }),
@@ -166,6 +198,8 @@ export const useNexaStore = create<NexaState>()(
         const s = get()
         return s.conversations.find(c => c.id === s.activeConversation)
       },
+
+      // Datacenter
       datacenterStatus: 'checking',
       setDatacenterStatus: (status) => set({ datacenterStatus: status }),
       showReasoningTrace: true,
@@ -176,6 +210,8 @@ export const useNexaStore = create<NexaState>()(
       setPingLatency: (ms) => set({ pingLatency: ms }),
       lastPingTime: null,
       setLastPingTime: (time) => set({ lastPingTime: time }),
+
+      // Stats
       totalMessages: 0,
       incrementMessages: () => set((s) => ({ totalMessages: s.totalMessages + 1 })),
       engineUsage: {},
@@ -187,8 +223,12 @@ export const useNexaStore = create<NexaState>()(
       responseTimes: [],
       addResponseTime: (ms) => set((s) => ({ responseTimes: [...s.responseTimes.slice(-49), ms] })),
       uptimeStart: Date.now(),
+
+      // Model override
       skipJudge: false,
       toggleSkipJudge: () => set((s) => ({ skipJudge: !s.skipJudge })),
+
+      // Notifications
       notifications: [],
       addNotification: (title, message, type = 'info') => set((s) => ({
         notifications: [{ id: Date.now().toString(), title, message, time: Date.now(), read: false, type }, ...s.notifications].slice(0, 50)
@@ -201,10 +241,14 @@ export const useNexaStore = create<NexaState>()(
       })),
       clearNotifications: () => set({ notifications: [] }),
       unreadNotificationCount: () => get().notifications.filter(n => !n.read).length,
+
+      // Settings
       selectedModel: 'nexa-pro',
       setSelectedModel: (model) => set({ selectedModel: model }),
       sidebarCollapsed: false,
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+      mobileSidebarOpen: false,
+      setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
       showSettings: false,
       setShowSettings: (show) => set({ showSettings: show }),
       showSearch: false,
@@ -215,6 +259,16 @@ export const useNexaStore = create<NexaState>()(
       setShowNotifications: (show) => set({ showNotifications: show }),
       userName: 'Usuario Nexa',
       setUserName: (name) => set({ userName: name }),
+
+      // TTS / Hands-Free
+      ttsEnabled: false,
+      toggleTts: () => set((s) => ({ ttsEnabled: !s.ttsEnabled })),
+      ttsSpeaking: false,
+      setTtsSpeaking: (speaking) => set({ ttsSpeaking: speaking }),
+      ttsAutoSpeak: true,
+      toggleTtsAutoSpeak: () => set((s) => ({ ttsAutoSpeak: !s.ttsAutoSpeak })),
+      ttsVoiceIndex: 0,
+      setTtsVoiceIndex: (index) => set({ ttsVoiceIndex: index }),
     }),
     {
       name: 'nexa-store',
@@ -233,6 +287,9 @@ export const useNexaStore = create<NexaState>()(
         responseTimes: state.responseTimes,
         uptimeStart: state.uptimeStart,
         notifications: state.notifications,
+        ttsEnabled: state.ttsEnabled,
+        ttsAutoSpeak: state.ttsAutoSpeak,
+        ttsVoiceIndex: state.ttsVoiceIndex,
       })
     }
   )
