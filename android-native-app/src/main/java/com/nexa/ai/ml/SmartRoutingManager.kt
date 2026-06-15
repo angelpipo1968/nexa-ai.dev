@@ -198,6 +198,40 @@ class SmartRoutingManager(context: Context) {
 
     fun getOnDeviceManager(): OnDeviceInferenceManager = onDeviceManager
 
+    /** Set the current inference mode. */
+    fun setMode(mode: InferenceMode) {
+        _currentMode.value = mode
+        Log.i(TAG, "Mode set to: $mode")
+    }
+
+    /** Route a vision request.
+     *  Determines whether on-device or cloud should handle image analysis.
+     */
+    fun routeVision(): RoutingDecision {
+        val online = _isOnline.value
+        val onDeviceReady = onDeviceManager.isReady
+        val hasVisionModel = onDeviceManager.currentModel == OnDeviceInferenceManager.MODEL_VISION
+
+        return when {
+            hasVisionModel && onDeviceReady -> RoutingDecision(
+                useOnDevice = true,
+                reason = "On-device vision model available",
+                confidence = 0.7f,
+            )
+            online -> RoutingDecision(
+                useOnDevice = false,
+                reason = "Cloud VLM (GLM-4.6V/Gemini) for vision",
+                confidence = 0.9f,
+            )
+            else -> RoutingDecision(
+                useOnDevice = false,
+                reason = "No vision capability available",
+                confidence = 0f,
+                fallbackMessage = "No hay conexión y no hay modelo de visión local disponible.",
+            )
+        }
+    }
+
     fun shutdown() {
         onDeviceManager.shutdown()
     }

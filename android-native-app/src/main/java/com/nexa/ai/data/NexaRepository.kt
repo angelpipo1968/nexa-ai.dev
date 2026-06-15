@@ -161,6 +161,45 @@ class NexaRepository @Inject constructor() {
             eventSource.cancel()
         }
     }.flowOn(Dispatchers.IO)
+
+    /**
+     * Send a vision/image analysis request to the cloud API.
+     * @param baseUrl The API base URL
+     * @param base64Image Base64-encoded image data
+     * @param mimeType MIME type of the image
+     * @param question Question about the image
+     * @return Analysis result string, or null on failure
+     */
+    suspend fun sendVisionRequest(
+        baseUrl: String,
+        base64Image: String,
+        mimeType: String = "image/jpeg",
+        question: String = "Describe this image."
+    ): String? {
+        return try {
+            val requestBody = gson.toJsonTree(mapOf(
+                "image" to base64Image,
+                "mimeType" to mimeType,
+                "question" to question
+            )).toString().toRequestBody("application/json".toMediaType())
+
+            val httpRequest = Request.Builder()
+                .url("$baseUrl/api/vision")
+                .post(requestBody)
+                .build()
+
+            val response = client.newCall(httpRequest).execute()
+            if (response.isSuccessful) {
+                response.body?.string()
+            } else {
+                Log.e(TAG, "Vision request failed: ${response.code}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Vision request error: ${e.message}", e)
+            null
+        }
+    }
 }
 
 sealed class StreamEvent {

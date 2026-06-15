@@ -77,7 +77,11 @@ fun NexaChatScreen(
     onPreviewVoice: () -> Unit = {},
     onSetAccentColor: (Color) -> Unit = {},
     onExportSettings: () -> Unit = {},
-    onImportSettings: () -> Unit = {}
+    onImportSettings: () -> Unit = {},
+    onPickPhoto: () -> Unit = {},
+    onDeepResearch: () -> Unit = {},
+    onReasoning: () -> Unit = {},
+    onWebSearch: () -> Unit = {}
 ) {
     // Access adaptive info from CompositionLocal
     val adaptiveInfo = LocalWindowAdaptiveInfo.current

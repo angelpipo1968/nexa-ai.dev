@@ -29,7 +29,7 @@ import com.nexa.ai.ui.NexaStrings
 import com.nexa.ai.voice.NaturalConversationEngine
 import com.nexa.ai.voice.VoiceEnhancer
 import com.nexa.ai.voice.NexaSpeechService
-import com.nexa.ai.voice.SpeechManager
+import com.nexa.ai.viewmodel.SpeechManager
 import com.nexa.ai.web.WebResultProcessor
 import com.nexa.ai.web.WebSearchManager
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -274,15 +274,15 @@ class NexaViewModel @Inject constructor(
                 // Append new assistant message when available
                 if (chatState.messages.isNotEmpty()) {
                     val last = chatState.messages.last()
-                    if (last.ai != lastSyncedAssistantMessage) {
-                        lastSyncedAssistantMessage = last.ai
+                    if (last.content != lastSyncedAssistantMessage) {
+                        lastSyncedAssistantMessage = last.content
                         val assistantMsg = Message(
                             id = "a-${System.currentTimeMillis()}-${java.util.UUID.randomUUID()}",
                             role = "assistant",
-                            content = last.ai
+                            content = last.content
                         )
                         updateActiveSession { session ->
-                            val alreadyContains = session.messages.any { it.content == last.ai && it.role == "assistant" }
+                            val alreadyContains = session.messages.any { it.content == last.content && it.role == "assistant" }
                             if (!alreadyContains) {
                                 session.copy(messages = session.messages + assistantMsg)
                             } else {
@@ -292,7 +292,7 @@ class NexaViewModel @Inject constructor(
 
                         // ✅ SPEECH SYNTHESIS: Speak if hands-free/voiceMode is enabled!
                         if (_uiState.value.voiceMode && _uiState.value.autoSpeak) {
-                            speak(last.ai, assistantMsg.id)
+                            speak(last.content, assistantMsg.id)
                         }
                     }
                 }
@@ -1563,5 +1563,10 @@ class NexaViewModel @Inject constructor(
             .take(3)
             .map { it.key }
         return keywords.joinToString(" ")
+    }
+
+    /** Handle errors from UI (camera, etc.) */
+    fun onError(message: String) {
+        _uiState.update { it.copy(error = message) }
     }
 }

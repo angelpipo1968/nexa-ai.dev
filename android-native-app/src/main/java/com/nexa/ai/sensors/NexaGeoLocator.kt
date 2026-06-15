@@ -231,7 +231,7 @@ class NexaGeoLocator(private val context: Context) {
             // Rough distance estimation based on RSSI
             // Using free WiFi positioning via Mozilla Location Service
             val bssidList = scanResults.take(5).map { it.BSSID }.toTypedArray()
-            val rssiList = scanResults.take(5).map { it.level }.toFloatArray()
+            val rssiList = scanResults.take(5).map { it.level.toFloat() }.toFloatArray()
 
             // Approximate: -30 dBm = ~1m, -70 dBm = ~50m, -90 dBm = ~200m
             val approxDistanceMeters = Math.pow(10.0, (-30.0 - rssi) / 20.0).toFloat()
@@ -263,9 +263,7 @@ class NexaGeoLocator(private val context: Context) {
     private suspend fun getIPGeolocation(): NexaLocation? = withContext(Dispatchers.IO) {
         try {
             // ip-api.com — free, 45 req/min, no key needed
-            val res = ktor.client.get("http://ip-api.com/json/?fields=lat,lon,country,city,status") {
-                timeout { requestTimeoutMillis = 5000 }
-            }
+            // Using URLConnection instead of ktor (not in dependencies)
             // Simple HTTP client — using URLConnection for zero-dependency
             val url = java.net.URL("http://ip-api.com/json/?fields=lat,lon,country,city,status")
             val conn = url.openConnection() as java.net.HttpURLConnection

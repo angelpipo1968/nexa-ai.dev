@@ -1,21 +1,9 @@
 package com.nexa.ai.viewmodel
 
 import android.content.Context
+import com.nexa.ai.iot.IoTManager
+import com.nexa.ai.media.VideoGenerator
 import com.nexa.ai.ui.NexaStrings
-
-// ═══════════════════════════════════════
-//  STUBS FOR MISSING CLASSES
-// ═══════════════════════════════════════
-
-/** Stub for IoTManager while it is being implemented. */
-class IoTManager {
-    fun isIoTCommand(cmd: String): Boolean = false
-}
-
-/** Stub for VideoGenerator while it is being implemented. */
-class VideoGenerator {
-    enum class VideoStyles { ANIME, CINEMATIC, REALISTIC, ABSTRACT, VINTAGE, SCI_FI, NATURE }
-}
 
 /** Represents the result of processing a voice command. */
 sealed class VoiceCommandResult {

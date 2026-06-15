@@ -2,7 +2,9 @@ package com.nexa.ai.di
 
 import android.app.Application
 import android.content.Context
+import com.nexa.ai.data.LocationStore
 import com.nexa.ai.data.NexaRepository
+import com.nexa.ai.data.SessionStore
 import com.nexa.ai.data.SettingsStore
 import com.nexa.ai.data.UpdateChecker
 import com.nexa.ai.viewmodel.AuthManager
@@ -37,4 +39,12 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSpeechManager(application: Application): SpeechManager = SpeechManager(application)
+
+    @Provides
+    @Singleton
+    fun provideLocationStore(@ApplicationContext context: Context): LocationStore = LocationStore(context)
+
+    @Provides
+    @Singleton
+    fun provideSessionStore(@ApplicationContext context: Context): SessionStore = SessionStore(context)
 }

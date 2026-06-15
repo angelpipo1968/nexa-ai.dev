@@ -109,6 +109,17 @@ data class NexaUiState(
     val accentColor: Long = 0L,  // ARGB color value, 0 means default
     // Connectivity
     val isOnline: Boolean = true,
+    // AI Model / Smart Router
+    val npuAvailable: Boolean = false,
+    val hasDownloadedModels: Boolean = false,
+    val inferenceMode: String = "HYBRID",
+    val isDownloadingModel: Boolean = false,
+    val modelDownloadProgress: Float = 0f,
+    // Advanced Settings
+    val groqApiKey: String = "",
+    val useLocalLLM: Boolean = false,
+    val allowSync: Boolean = false,
+    val maxTokens: Int = 4096,
     // Update
     val updateInfo: UpdateInfo? = null,
     val showUpdateDialog: Boolean = false
