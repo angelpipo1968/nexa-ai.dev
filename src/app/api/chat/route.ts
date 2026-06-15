@@ -65,14 +65,102 @@ export async function POST(req: NextRequest) {
     // Intent classification
     const classifyIntent = (msg: string) => {
       const lower = msg.toLowerCase();
+      if (/video|clip|animaci|pel.cula|movi|film|cinem/i.test(lower)) return 'video';
+      if (/image|picture|draw|design|visual|creat|generat.*art|foto|fotograf|ilustr/i.test(lower)) return 'image';
       if (/code|program|function|bug|debug|implement|develop|build|api|class|method/i.test(lower)) return 'coding';
       if (/analy|data|statistic|chart|report|number|metric/i.test(lower)) return 'data';
       if (/reason|think|explain|why|how|compare|evaluate/i.test(lower)) return 'reasoning';
-      if (/image|picture|draw|design|visual|creat|generat.*art/i.test(lower)) return 'image';
       if (/story|write|poem|creative|imagin/i.test(lower)) return 'creative';
       return 'casual';
     };
     const intent = classifyIntent(message);
+
+    // ═══════════════════════════════════════
+    // IMAGE GENERATION — Direct generation
+    // ═══════════════════════════════════════
+    if (intent === 'image') {
+      try {
+        const ZAI = await import('z-ai-web-dev-sdk').then(m => m.default);
+        const zai = await ZAI.create();
+        const imgResponse = await zai.images.generations.create({
+          prompt: message,
+          size: '1024x1024',
+        });
+        if (imgResponse?.data?.[0]?.base64) {
+          const base64 = imgResponse.data[0].base64;
+          return NextResponse.json({
+            response: `🎨 **Imagen generada exitosamente**\n\nHe creado una imagen basada en: _"${message.substring(0, 100)}"_\n\n![Imagen generada](data:image/png;base64,${base64.substring(0, 50)}...)`,
+            imageBase64: base64,
+            imageUrl: `data:image/png;base64,${base64}`,
+            model: 'z-ai-image-gen',
+            routing: { intent: 'image', confidence: 0.99, engine: 'z-ai-sdk-image', reasoning: 'Image intent detected → direct generation' },
+            datacenter: false,
+          }, { headers: corsHeaders });
+        }
+      } catch (imgError: any) {
+        console.log(`[Nexa] Image SDK failed: ${imgError.message}, trying Pollinations...`);
+      }
+      // Pollinations fallback
+      try {
+        const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(message)}?width=1024&height=1024&nologo=true&enhance=true`;
+        const pollRes = await fetch(pollUrl, { signal: AbortSignal.timeout(60000) });
+        if (pollRes.ok) {
+          const buf = await pollRes.arrayBuffer();
+          const base64 = Buffer.from(buf).toString('base64');
+          return NextResponse.json({
+            response: `🎨 **Imagen generada exitosamente**\n\nHe creado una imagen basada en: _"${message.substring(0, 100)}"_`,
+            imageBase64: base64,
+            imageUrl: `data:image/png;base64,${base64}`,
+            model: 'pollinations-image',
+            routing: { intent: 'image', confidence: 0.9, engine: 'pollinations', reasoning: 'Image intent → Pollinations.ai fallback' },
+            datacenter: false,
+          }, { headers: corsHeaders });
+        }
+      } catch (pollErr: any) {
+        console.log(`[Nexa] Pollinations image failed: ${pollErr.message}`);
+      }
+      // If image gen fails, continue to chat as fallback
+      console.log('[Nexa] Image generation failed, falling back to chat response');
+    }
+
+    // ═══════════════════════════════════════
+    // VIDEO GENERATION — Direct generation
+    // ═══════════════════════════════════════
+    if (intent === 'video') {
+      try {
+        const ZAI = await import('z-ai-web-dev-sdk').then(m => m.default);
+        const zai = await ZAI.create();
+        const vidResponse = await zai.videos.generations.create({
+          prompt: message,
+          size: '1344x768',
+          fps: 24,
+          duration: 5,
+        });
+        if (vidResponse?.data?.[0]?.url) {
+          return NextResponse.json({
+            response: `🎬 **Video generado exitosamente**\n\nHe creado un video basado en: _"${message.substring(0, 100)}"_\n\n[Ver video](${vidResponse.data[0].url})`,
+            videoUrl: vidResponse.data[0].url,
+            videoBase64: vidResponse.data[0].base64 || '',
+            model: 'z-ai-video-gen',
+            routing: { intent: 'video', confidence: 0.99, engine: 'z-ai-sdk-video', reasoning: 'Video intent detected → direct generation' },
+            datacenter: false,
+          }, { headers: corsHeaders });
+        }
+        if (vidResponse?.data?.[0]?.taskId) {
+          return NextResponse.json({
+            response: `🎬 **Video en proceso de generación**\n\nTu video basado en: _"${message.substring(0, 100)}"_ se está generando. Esto puede tardar unos segundos...`,
+            taskId: vidResponse.data[0].taskId,
+            model: 'z-ai-video-gen',
+            routing: { intent: 'video', confidence: 0.99, engine: 'z-ai-sdk-video-async', reasoning: 'Video intent → async generation' },
+            datacenter: false,
+          }, { headers: corsHeaders });
+        }
+      } catch (vidError: any) {
+        console.log(`[Nexa] Video SDK failed: ${vidError.message}`);
+      }
+      // If video gen fails, continue to chat as fallback
+      console.log('[Nexa] Video generation failed, falling back to chat response');
+    }
 
     const buildMessages = (systemPrompt: string) => {
       const msgs: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
