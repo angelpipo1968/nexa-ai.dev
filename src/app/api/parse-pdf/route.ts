@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+// @ts-expect-error pdf-parse has no default export in its types, but works at runtime
 import pdfParse from 'pdf-parse';
 import { logger } from '@/lib/nexa-core/logger';
 

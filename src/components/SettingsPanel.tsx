@@ -96,7 +96,7 @@ export function SettingsPanel({
     const sb = getSupabase();
 
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && sb) {
             sb.auth.getUser().then(({ data }: any) => setUser(data.user));
             setPage('main');
         }
@@ -107,6 +107,7 @@ export function SettingsPanel({
         setALoad(true);
         setAErr('');
         setAOk('');
+        if (!sb) { setAErr('Supabase no está configurado'); setALoad(false); return; }
         try {
             const fn = aMode === 'login' ? sb.auth.signInWithPassword : sb.auth.signUp;
             const { error } = await fn({ email: aEmail, password: aPass });
@@ -128,6 +129,7 @@ export function SettingsPanel({
     };
 
     const logout = async () => {
+        if (!sb) return;
         await sb.auth.signOut();
         setUser(null);
         setPage('main');

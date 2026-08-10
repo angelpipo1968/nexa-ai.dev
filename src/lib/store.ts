@@ -71,6 +71,8 @@ interface NexaState {
   conversations: Conversation[]
   activeConversation: string | null
   setActiveConversation: (id: string | null) => void
+  clearConversations: () => void
+  updateConversation: (id: string, updatedConv: Partial<Conversation>) => void
   createConversation: (channelId: string, model: string) => string
   addMessage: (conversationId: string, message: Message) => void
   deleteConversation: (id: string) => void
@@ -171,6 +173,10 @@ export const useNexaStore = create<NexaState>()(
       conversations: [],
       activeConversation: null,
       setActiveConversation: (id) => set({ activeConversation: id }),
+      clearConversations: () => set({ conversations: [] }),
+      updateConversation: (id, updatedConv) => set((s) => ({
+        conversations: s.conversations.map(c => c.id === id ? { ...c, ...updatedConv } : c)
+      })),
       createConversation: (channelId, model) => {
         const id = Date.now().toString()
         const conv: Conversation = {

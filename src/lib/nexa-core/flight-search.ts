@@ -14,7 +14,7 @@ export interface FlightResult {
   stops: number
   price: number
   currency: string
-  source: 'bing' | 'skyscanner' | 'google'
+  source: 'bing' | 'skyscanner' | 'google' | 'amadeus' | 'kiwi'
   stars: number  // 1-5 rating based on price
   deepLink: string
 }
@@ -81,7 +81,7 @@ const CITY_TO_IATA: Record<string, string> = {
   // South America
   'buenos aros': 'EZE', 'rio de janeiro': 'GIG', 'sao paulo': 'GRU',
   'lima': 'LIM', 'bogota': 'BOG', 'santiago': 'SCL', 'caracas': 'CCS',
-  'quito': 'UIO', 'guayaquil': 'GYE', 'la paz': 'LPB', 'asuncion': 'ASU',
+  'quito': 'UIO', 'guayaquil': 'GYE', 'la paz bolivia': 'LPB', 'asuncion': 'ASU',
   'montevideo': 'MVD', 'brasilia': 'BSB', 'salvador': 'SSA', 'recife': 'REC',
   'fortaleza': 'FOR', 'belo horizonte': 'CNF', 'curitiba': 'CWB',
   'porto alegra': 'POA', 'manaus': 'MAO', 'goiania': 'GYN',
@@ -96,12 +96,12 @@ const CITY_TO_IATA: Record<string, string> = {
   'toronto': 'YYZ', 'vancouver': 'YVR', 'montreal': 'YUL', 'calgary': 'YYC',
   'edmonton': 'YEG', 'ottawa': 'YOW', 'winnipeg': 'YWG', 'quebec': 'YQB',
   // Other
-  'moscow': 'SVO', 'dubai': 'DXB', 'cairo': 'CAI', 'johannesburg': 'JNB',
+  'moscow': 'SVO', 'cairo': 'CAI', 'johannesburg': 'JNB',
   'nairobi': 'NBO', 'casablanca': 'CMN', 'tunis': 'TUN', 'algiers': 'ALG',
   'accra': 'ACC', 'addis ababa': 'ABE', 'dar es salaam': 'DAR', 'kampala': 'LAE',
   'auckland': 'AKL', 'sydney': 'SYD', 'melbourne': 'MEL', 'brisbane': 'BNE',
   'perth': 'PER', 'adelaide': 'ADL', 'christchurch': 'CHC', 'fiji': 'NAN',
-  'tahiti': 'PPT', 'hawaii': 'HNL', 'honolulu': 'HNL',
+  'tahiti': 'PPT', 'hawaii': 'HNL',
 }
 
 function cityToIATA(city: string): string {

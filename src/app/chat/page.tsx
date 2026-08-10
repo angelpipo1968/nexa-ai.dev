@@ -419,7 +419,7 @@ export default function ChatWorkspace() {
     let updatedConv = activeConv
     if (msgs[msgs.length - 1]?.role === 'assistant') {
       updatedConv = { ...activeConv, messages: msgs.slice(0, -1) }
-      store.setState({ conversations: store.conversations.map(c => c.id === convId ? updatedConv : c) })
+      store.updateConversation(convId, updatedConv)
     }
     setInputValue(lastUserMsg.content)
     setIsLoading(true)
@@ -490,7 +490,7 @@ export default function ChatWorkspace() {
     { id: 'model-pro', label: 'Switch to Nexa Pro', icon: <Sparkles className="w-4 h-4" />, action: () => store.setSelectedModel('nexa-pro') },
     { id: 'model-fast', label: 'Switch to Nexa Fast', icon: <Zap className="w-4 h-4" />, action: () => store.setSelectedModel('nexa-fast') },
     { id: 'model-qwen', label: 'Switch to Qwen Local', icon: <Cpu className="w-4 h-4" />, action: () => store.setSelectedModel('qwen') },
-    { id: 'clear-history', label: 'Clear All History', icon: <Trash2 className="w-4 h-4" />, action: () => { store.setState({ conversations: [] }); store.setActiveConversation(null) } },
+    { id: 'clear-history', label: 'Clear All History', icon: <Trash2 className="w-4 h-4" />, action: () => { store.clearConversations(); store.setActiveConversation(null) } },
     { id: 'focus-chat', label: 'Focus Chat Input', icon: <MessageSquare className="w-4 h-4" />, action: () => inputRef.current?.focus() },
     ...store.conversations.slice(0, 10).map(conv => ({
       id: `conv-${conv.id}`, label: conv.title, icon: <MessageCircle className="w-4 h-4" />,
@@ -1299,7 +1299,7 @@ export default function ChatWorkspace() {
                   </div>
                   {/* Clear History */}
                   <div className={`pt-2 border-t ${isDark ? 'border-gray-800' : 'border-gray-200'}`}>
-                    <button onClick={() => { store.setState({ conversations: [] }); store.setActiveConversation(null) }}
+                    <button onClick={() => { store.clearConversations(); store.setActiveConversation(null) }}
                       className="w-full px-3 py-2 rounded-lg text-sm bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all">
                       <Trash2 className="w-4 h-4 inline mr-2" />Clear All Conversations
                     </button>

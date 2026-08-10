@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
           };
           const videoSize = sizeMap[ratio] || '1344x768';
 
-          const response = await zai.videos.generations.create({
+          const response = await zai.video.generations.create({
             prompt: enhancedPrompt,
             size: videoSize as any,
             fps: 24,
@@ -91,8 +91,8 @@ export async function POST(req: NextRequest) {
           });
 
           // Check if response has task ID (async) or direct result
-          if (response?.data?.[0]?.taskId) {
-            const taskId = response.data[0].taskId;
+          if (response?.id) {
+            const taskId = response.id;
             taskStore.set(taskId, {
               prompt: enhancedPrompt,
               provider: 'z-ai-sdk',
@@ -103,10 +103,8 @@ export async function POST(req: NextRequest) {
             // Poll for result
             try {
               const result = await zai.async.result.query(taskId);
-              if (result?.data?.[0]?.url || result?.data?.[0]?.base64) {
-                const videoUrl = result.data[0].url || '';
-                const videoBase64 = result.data[0].base64 || '';
-                
+              const videoUrl = result?.video_result?.[0]?.url || result?.video_url || result?.url || '';
+              if (videoUrl) {
                 console.log(`[Nexa Video] ✅ Video generated via z-ai SDK`);
                 return NextResponse.json({
                   success: true,
@@ -116,7 +114,7 @@ export async function POST(req: NextRequest) {
                   aspectRatio: ratio,
                   style: videoStyle,
                   videoUrl,
-                  videoBase64,
+                  videoBase64: '',
                   status: 'completed',
                 }, { headers: corsHeaders });
               }
@@ -134,11 +132,9 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Direct result
-          if (response?.data?.[0]?.url || response?.data?.[0]?.base64) {
-            const videoUrl = response.data[0].url || '';
-            const videoBase64 = response.data[0].base64 || '';
-            
+          // Direct result fallback
+          const directUrl = (response as any)?.video_result?.[0]?.url || (response as any)?.video_url || (response as any)?.url || '';
+          if (directUrl) {
             console.log(`[Nexa Video] ✅ Video generated via z-ai SDK (direct)`);
             return NextResponse.json({
               success: true,
@@ -147,8 +143,8 @@ export async function POST(req: NextRequest) {
               duration: videoDuration,
               aspectRatio: ratio,
               style: videoStyle,
-              videoUrl,
-              videoBase64,
+              videoUrl: directUrl,
+              videoBase64: '',
               status: 'completed',
             }, { headers: corsHeaders });
           }

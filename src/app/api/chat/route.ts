@@ -130,26 +130,16 @@ export async function POST(req: NextRequest) {
       try {
         const ZAI = await import('z-ai-web-dev-sdk').then(m => m.default);
         const zai = await ZAI.create();
-        const vidResponse = await zai.videos.generations.create({
+        const vidResponse = await zai.video.generations.create({
           prompt: message,
           size: '1344x768',
           fps: 24,
           duration: 5,
         });
-        if (vidResponse?.data?.[0]?.url) {
-          return NextResponse.json({
-            response: `🎬 **Video generado exitosamente**\n\nHe creado un video basado en: _"${message.substring(0, 100)}"_\n\n[Ver video](${vidResponse.data[0].url})`,
-            videoUrl: vidResponse.data[0].url,
-            videoBase64: vidResponse.data[0].base64 || '',
-            model: 'z-ai-video-gen',
-            routing: { intent: 'video', confidence: 0.99, engine: 'z-ai-sdk-video', reasoning: 'Video intent detected → direct generation' },
-            datacenter: false,
-          }, { headers: corsHeaders });
-        }
-        if (vidResponse?.data?.[0]?.taskId) {
+        if (vidResponse?.id) {
           return NextResponse.json({
             response: `🎬 **Video en proceso de generación**\n\nTu video basado en: _"${message.substring(0, 100)}"_ se está generando. Esto puede tardar unos segundos...`,
-            taskId: vidResponse.data[0].taskId,
+            taskId: vidResponse.id,
             model: 'z-ai-video-gen',
             routing: { intent: 'video', confidence: 0.99, engine: 'z-ai-sdk-video-async', reasoning: 'Video intent → async generation' },
             datacenter: false,
