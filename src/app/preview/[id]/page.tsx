@@ -14,11 +14,12 @@ function getRedis(): Redis | null {
     return _redis;
 }
 
-export default async function PreviewPage({ params }: { params: { id: string } }) {
+export default async function PreviewPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const redis = getRedis();
     if (!redis) return notFound();
 
-    const data: any = await redis.get(`preview:${params.id}`);
+    const data: any = await redis.get(`preview:${id}`);
     
     if (!data) return notFound();
 

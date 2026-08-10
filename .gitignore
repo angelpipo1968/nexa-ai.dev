@@ -27,3 +27,4 @@ nexa-backend.log
 
 # Next.js
 .next/
+.vercel

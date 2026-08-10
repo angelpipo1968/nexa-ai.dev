@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-// @ts-expect-error pdf-parse has no default export in its types, but works at runtime
-import pdfParse from 'pdf-parse';
 import { logger } from '@/lib/nexa-core/logger';
 
 export const runtime = 'nodejs'; // pdf-parse requires Node.js runtime
@@ -15,7 +13,11 @@ export async function POST(req: NextRequest) {
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
+        
+        // Dynamically require to avoid build-time DOMMatrix evaluation and export issues
+        const pdfParse = require('pdf-parse');
         const data = await pdfParse(buffer);
+
         
         return NextResponse.json({ text: data.text });
     } catch (error: any) {
