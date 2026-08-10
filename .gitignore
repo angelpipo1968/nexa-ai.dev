@@ -24,3 +24,6 @@ memory_db_backup*/
 *.sqlite3
 *.log
 nexa-backend.log
+
+# Next.js
+.next/
