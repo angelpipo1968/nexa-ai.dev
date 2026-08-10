@@ -1,0 +1,42 @@
+{
+  "queue": [
+    {
+      "id": "EVO-001",
+      "priority": "HIGH",
+      "topic": "Optimizar latencia y VRAM de inferencia vLLM en GPU RTX 3090",
+      "status": "completed",
+      "result": "FAIL"
+    },
+    {
+      "id": "EVO-1E21",
+      "topic": "Resolver timeout de lectura del GPU Worker",
+      "status": "completed",
+      "priority_score": 15.1,
+      "metrics": {
+        "topic": "Resolver timeout de lectura del GPU Worker",
+        "impact": 9,
+        "confidence": 8,
+        "reproducibility": 9,
+        "feasibility": 7,
+        "risk": 3,
+        "priority": 15.1
+      },
+      "result": "FAIL"
+    },
+    {
+      "id": "EVO-D23C",
+      "topic": "Optimizar latencia y VRAM de inferencia vLLM en GPU RTX 3090",
+      "status": "pending",
+      "priority_score": 12.8,
+      "metrics": {
+        "topic": "Optimizar latencia y VRAM de inferencia vLLM en GPU RTX 3090",
+        "impact": 8,
+        "confidence": 6,
+        "reproducibility": 7,
+        "feasibility": 5,
+        "risk": 4,
+        "priority": 12.8
+      }
+    }
+  ]
+}
