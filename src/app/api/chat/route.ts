@@ -249,8 +249,9 @@ export async function POST(req: NextRequest) {
 
     // ============================================
     // 2. LITELLM GATEWAY (puerto 4000)
-    //    API Key: sk-nexa-master-3090
+    //    API Key: read from NEXA_API_KEY env var
     // ============================================
+    const nexaApiKey = process.env.NEXA_API_KEY || '';
     const litellmEndpoints = [
       'http://127.0.0.1:4000/v1/chat/completions',
       'http://127.0.0.1:4000/chat/completions',
@@ -262,7 +263,7 @@ export async function POST(req: NextRequest) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer sk-nexa-master-3090',
+            'Authorization': `Bearer ${nexaApiKey}`,
           },
           body: JSON.stringify({
             model: model || 'fast',
