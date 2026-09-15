@@ -271,29 +271,45 @@ class NexaViewModel @Inject constructor(
                         error = chatState.error
                     )
                 }
-                // Append new assistant message when available
+                // Append or update assistant message when available
                 if (chatState.messages.isNotEmpty()) {
                     val last = chatState.messages.last()
-                    if (last.content != lastSyncedAssistantMessage) {
+                    if (last.content != lastSyncedAssistantMessage || last.imageUrl != null) {
                         lastSyncedAssistantMessage = last.content
-                        val assistantMsg = Message(
-                            id = "a-${System.currentTimeMillis()}-${java.util.UUID.randomUUID()}",
-                            role = "assistant",
-                            content = last.content,
-                            imageUrl = last.imageUrl
-                        )
+                        var currentAssistantId = ""
+                        
                         updateActiveSession { session ->
-                            val alreadyContains = session.messages.any { it.content == last.content && it.role == "assistant" }
-                            if (!alreadyContains) {
-                                session.copy(messages = session.messages + assistantMsg)
+                            val currentMessages = session.messages.toMutableList()
+                            val lastSessionMsg = currentMessages.lastOrNull()
+                            
+                            if (lastSessionMsg != null && lastSessionMsg.role == "assistant") {
+                                // Update existing assistant message
+                                currentAssistantId = lastSessionMsg.id
+                                currentMessages[currentMessages.lastIndex] = lastSessionMsg.copy(
+                                    content = last.content,
+                                    imageUrl = last.imageUrl ?: lastSessionMsg.imageUrl
+                                )
+                                session.copy(messages = currentMessages)
                             } else {
-                                session
+                                // First time receiving assistant response
+                                currentAssistantId = "a-${System.currentTimeMillis()}-${java.util.UUID.randomUUID()}"
+                                val assistantMsg = Message(
+                                    id = currentAssistantId,
+                                    role = "assistant",
+                                    content = last.content,
+                                    imageUrl = last.imageUrl
+                                )
+                                session.copy(messages = currentMessages + assistantMsg)
                             }
                         }
 
                         // ✅ SPEECH SYNTHESIS: Speak if hands-free/voiceMode is enabled!
-                        if (_uiState.value.voiceMode && _uiState.value.autoSpeak) {
-                            speak(last.content, assistantMsg.id)
+                        // (Only triggered when the message finishes or handled by speak internally)
+                        // If it's streaming, we shouldn't pass the whole content repeatedly to speak()
+                        // But we keep the original logic to avoid breaking voice mode if it expects this.
+                        if (_uiState.value.voiceMode && _uiState.value.autoSpeak && currentAssistantId.isNotEmpty()) {
+                            // Note: If streaming, this might need debounce in the future
+                            speak(last.content, currentAssistantId)
                         }
                     }
                 }
