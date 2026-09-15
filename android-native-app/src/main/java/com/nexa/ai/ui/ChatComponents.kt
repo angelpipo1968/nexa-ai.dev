@@ -873,11 +873,19 @@ fun InputBar(text: String, language: AppLanguage, isListening: Boolean, isSpeaki
                         onValueChange = onTextChange,
                         modifier = Modifier.weight(1f).defaultMinSize(minHeight = btnSize),
                         placeholder = { Text(if (isListening) NexaStrings.get("listening", language) else NexaStrings.get("input_hint", language), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontSize = 15.sp) },
-                        colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent, 
+                            unfocusedContainerColor = Color.Transparent, 
+                            focusedIndicatorColor = Color.Transparent, 
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            cursorColor = LocalAccentColor.current
+                        ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = { onSend(); keyboardController?.hide() }),
                         maxLines = 5,
-                        textStyle = LocalTextStyle.current.copy(fontSize = 15.sp)
+                        textStyle = LocalTextStyle.current.copy(fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
                     )
 
                     // 3. Microphone icon inside (STT)
@@ -893,49 +901,33 @@ fun InputBar(text: String, language: AppLanguage, isListening: Boolean, isSpeaki
                         )
                     }
 
-                    // 4. Right Action Button (Waveform / Arrow / Stop)
+                    // 4. Right Action Button (Hands-Free / Send / Stop)
                     val isTyping = text.isNotBlank()
                     val showStop = isSpeaking || isListening
-                    
-                    // Triple tap logic
-                    var tapCount by remember { mutableIntStateOf(0) }
-                    var lastTapTime by remember { mutableLongStateOf(0L) }
+                    val accentColor = LocalAccentColor.current
                     
                     Surface(
                         onClick = {
-                            val now = System.currentTimeMillis()
-                            if (now - lastTapTime < 500) tapCount++ else tapCount = 1
-                            lastTapTime = now
-
-                            if (!isTyping && !showStop && tapCount >= 3) {
-                                tapCount = 0
-                                onToggleVoiceMode()
-                            } else {
-                                when {
-                                    showStop -> { if (isSpeaking) onInterrupt() else onStopListening() }
-                                    isTyping -> { onSend(); keyboardController?.hide() }
-                                    else -> { onStartListening() } // Waveform enters STT for Nexa
-                                }
+                            when {
+                                showStop -> { if (isSpeaking) onInterrupt() else onStopListening() }
+                                isTyping -> { onSend(); keyboardController?.hide() }
+                                else -> { onToggleVoiceMode() } // Toggle Hands-Free Mode
                             }
                         },
                         shape = CircleShape,
-                        color = Color.Black,
+                        color = if (isTyping) accentColor else MaterialTheme.colorScheme.surfaceVariant,
                         modifier = Modifier.size(btnSize)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             if (showStop) {
                                 // Stop icon (square)
-                                Box(modifier = Modifier.size(14.dp).background(Color.White, RoundedCornerShape(2.dp)))
+                                Box(modifier = Modifier.size(14.dp).background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(2.dp)))
                             } else if (isTyping) {
                                 // Arrow icon (Send)
-                                Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Color.Black, modifier = Modifier.size(20.dp))
                             } else {
-                                // Waveform icon (Rayitas)
-                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    repeat(3) { i ->
-                                        Box(modifier = Modifier.width(2.dp).height(if (i==1) 12.dp else 8.dp).background(Color.White, CircleShape))
-                                    }
-                                }
+                                // Headset icon for Hands-Free mode
+                                Icon(Icons.Default.Headset, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                             }
                         }
                     }
