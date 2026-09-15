@@ -477,6 +477,10 @@ fun MessageBubble(message: Message, isSpeaking: Boolean, language: AppLanguage,
                     }
 
                     // Render segments
+                    if (message.imageUrl != null) {
+                        MessageImage(url = message.imageUrl, alt = "")
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                     segments.forEach { segment ->
                         when (segment) {
                             is MessageSegment.Text -> {

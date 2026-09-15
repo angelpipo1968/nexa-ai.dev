@@ -279,7 +279,8 @@ class NexaViewModel @Inject constructor(
                         val assistantMsg = Message(
                             id = "a-${System.currentTimeMillis()}-${java.util.UUID.randomUUID()}",
                             role = "assistant",
-                            content = last.content
+                            content = last.content,
+                            imageUrl = last.imageUrl
                         )
                         updateActiveSession { session ->
                             val alreadyContains = session.messages.any { it.content == last.content && it.role == "assistant" }

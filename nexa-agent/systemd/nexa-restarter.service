@@ -1,0 +1,12 @@
+[Unit]
+Description=NEXA IPC Restarter Daemon
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nexa-restarter.sh
+Restart=always
+User=root
+
+[Install]
+WantedBy=multi-user.target

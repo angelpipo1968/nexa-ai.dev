@@ -13,7 +13,8 @@ data class Message(
     val role: String,
     val content: String,
     val isStreaming: Boolean = false,
-    val attachmentName: String? = null
+    val attachmentName: String? = null,
+    val imageUrl: String? = null
 )
 
 data class ChatSession(

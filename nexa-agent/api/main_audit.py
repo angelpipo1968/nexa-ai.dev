@@ -15,17 +15,8 @@ from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTEN
 from vram_controller import VRAMController
 from queue_manager import QueueManager
 from comfyui_client import build_client_from_env
-from intent_classifier import classify_intent
-from nexa_agent import NexaAgent
 
-import logging.handlers
-
-log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-handlers = [logging.StreamHandler()]
-if os.path.exists("/logs"):
-    handlers.append(logging.handlers.RotatingFileHandler("/logs/router.log", maxBytes=10*1024*1024, backupCount=3))
-
-logging.basicConfig(level=logging.INFO, format=log_format, handlers=handlers)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="NEXA-3.0 Router", version="3.0.0")
@@ -76,7 +67,6 @@ app.add_middleware(
 vram_controller = VRAMController(max_vram_gb=22)
 queue_manager = QueueManager()
 comfyui_client = build_client_from_env()  # F1: None si no configurado
-nexa_agent = NexaAgent()
 
 # Modelos de Solicitud
 class ModelLoadRequest(BaseModel):
@@ -134,134 +124,18 @@ async def unload_all():
     vram_controller.unload_all()
     return {"status": "all_unloaded"}
 
-@app.post("/agent")
-async def agent_chat(request: ChatRequest):
-    """Endpoint aislado para interactuar con NexaAgent de forma segura."""
-    request_id = str(uuid.uuid4())
-    logger.info(f"Agent request {request_id}: model={request.model}")
-    
-    messages_dicts = []
-    for m in request.messages:
-        messages_dicts.append(m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else m))
-
-    try:
-        final_response = await nexa_agent.run(messages_dicts, model=request.model)
-        return {
-            "id": f"chatcmpl-{int(time.time())}",
-            "object": "chat.completion",
-            "created": int(time.time()),
-            "model": request.model or nexa_agent.default_model,
-            "choices": [{
-                "index": 0,
-                "message": final_response,
-                "finish_reason": "stop"
-            }]
-        }
-    except Exception as e:
-        logger.error(f"Error en /api/agent: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/chat")
 @app.post("/v1/chat/completions")
 async def chat_completions(request: ChatRequest):
     """Endpoint principal de chat compatible con la APK Android (/chat) y la especificación de OpenAI (/v1/chat/completions)"""
     request_id = str(uuid.uuid4())
-    # 1. Detectar si la petición contiene imágenes (multimodal)
+    # Detectar si la petición contiene imágenes (multimodal)
     has_images = False
-    if request.messages:
-        last_m = request.messages[-1]
-        m_dict = last_m.model_dump() if hasattr(last_m, "model_dump") else (last_m.dict() if hasattr(last_m, "dict") else last_m)
-        if isinstance(m_dict, dict) and bool(m_dict.get("images")):
-            has_images = True
-
-    # 2. Clasificar la intención del usuario
-    req_lang = request.lang or "es"
-    intent = classify_intent(request.messages, has_images, req_lang)
-    logger.info(f"Chat request {request_id}: Intent='{intent}', has_images={has_images}, lang='{req_lang}'")
-
-    # --- ACTIVE ORCHESTRATOR ---
-    if intent == "agent":
-        logger.info(f"Orquestador redirigiendo a AGENT para {request_id}")
-        start_time = time.time()
-        try:
-            agent_model = request.model or nexa_agent.default_model
-            final_response = await nexa_agent.run(request.messages, model=agent_model)
-            duration = time.time() - start_time
-            logger.info(f"Agent Completado ({duration:.2f}s) para {request_id}")
-            
-            if request.stream:
-                async def agent_streamer():
-                    content = final_response.get("content", "")
-                    sse_payload = json.dumps({"content": content})
-                    yield f"data: {sse_payload}\n\n"
-                    yield "data: [DONE]\n\n"
-                return StreamingResponse(agent_streamer(), media_type="text/event-stream")
-            else:
-                return {
-                    "id": f"chatcmpl-{int(time.time())}",
-                    "object": "chat.completion",
-                    "created": int(time.time()),
-                    "model": agent_model,
-                    "choices": [{"index": 0, "message": final_response, "finish_reason": "stop"}]
-                }
-        except Exception as agent_e:
-            logger.error(f"Fallo en Agente para {request_id}: {agent_e}. Fallback a CHAT NORMAL.")
-            # Fallback seguro: dejamos que continúe hacia el flujo normal de chat
-    elif intent in ["text2image", "image_edit"]:
-        logger.info(f"Orquestador redirigiendo a GENERATION/EDIT para {request_id}")
-    elif intent == "caption":
-        logger.info(f"Orquestador redirigiendo a MULTIMODAL para {request_id}")
-    else:
-        logger.info(f"Orquestador redirigiendo a CHAT NORMAL para {request_id}")
-    # --------------------------------
-
-    # 3. Enrutamiento directo a FLUX si la intención es text2image (F2.3)
-    if intent == "text2image":
-        last_user_msg = ""
-        for m in reversed(request.messages):
-            m_dict = m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else m)
-            if isinstance(m_dict, dict) and m_dict.get("role") == "user":
-                content = m_dict.get("content", "")
-                if isinstance(content, list):
-                    text_parts = [item.get("text", "") for item in content if isinstance(item, dict) and item.get("type") == "text"]
-                    last_user_msg = " ".join(text_parts)
-                elif isinstance(content, str):
-                    last_user_msg = content
-                break
-        
-        if not last_user_msg:
-            last_user_msg = "Genera una imagen artística"
-            
-        gen_request = GenerateImageRequest(prompt=last_user_msg)
-        return await generate_image(gen_request)
-
-    # 4. Inyección del idioma (F2.1)
-    LANG_SYSTEM_PROMPTS = {
-        "es": "Eres NEXA, un asistente de IA creativo. Responde siempre en español, sin excepción.",
-        "en": "You are NEXA, a creative AI assistant. Always respond in English.",
-        "fr": "Tu es NEXA, un assistant IA créatif. Réponds toujours en français.",
-        "de": "Du bist NEXA, ein kreativer KI-Assistent. Antworte immer auf Deutsch.",
-        "pt": "Você é NEXA, um assistente de IA criativo. Responda sempre em português.",
-    }
-    lang_prefix = req_lang.split("-")[0].lower() if req_lang else "es"
-    sys_prompt = LANG_SYSTEM_PROMPTS.get(lang_prefix, LANG_SYSTEM_PROMPTS["es"])
-    
-    messages_dicts = []
-    has_system = False
     for m in request.messages:
         m_dict = m.model_dump() if hasattr(m, "model_dump") else (m.dict() if hasattr(m, "dict") else m)
-        if isinstance(m_dict, dict):
-            if m_dict.get("role") == "system":
-                has_system = True
-                m_dict["content"] = sys_prompt + "\n\n" + str(m_dict.get("content", ""))
-            messages_dicts.append(m_dict)
-        else:
-            messages_dicts.append(m)
-            
-    if not has_system:
-        messages_dicts.insert(0, {"role": "system", "content": sys_prompt})
-        
-    request.messages = messages_dicts
+        if isinstance(m_dict, dict) and bool(m_dict.get("images")):
+            has_images = True
+            break
 
     installed_models = []
     try:
@@ -272,17 +146,13 @@ async def chat_completions(request: ChatRequest):
     except Exception as tag_err:
         logger.warning(f"No se pudo consultar tags de Ollama: {tag_err}")
 
-    # 5. Enrutamiento de modelos LLM / VLM basado en intención
-    if intent == "caption" and any(v in installed_models for v in ["moondream", "llava", "qwen2-vl", "llama3.2-vision"]):
+    if has_images and any(v in installed_models for v in ["moondream", "llava", "qwen2-vl", "llama3.2-vision"]):
         target_model_name = next(v for v in ["moondream", "llava", "qwen2-vl", "llama3.2-vision"] if v in installed_models)
-        logger.info(f"Chat request {request_id}: INTENT CAPTION -> Enrutando a modelo de visión activo '{target_model_name}'")
-    elif intent == "image_edit":
-        target_model_name = request.model or "deepseek-v3-lite"
-        logger.info(f"Chat request {request_id}: INTENT IMAGE_EDIT -> F2.4 img2img not ready, fallback to '{target_model_name}'")
+        logger.info(f"Chat request {request_id}: IMAGEN DETECTADA -> Enrutando a modelo de visión activo '{target_model_name}'")
     else:
         target_model_name = request.model or "deepseek-v3-lite"
-        if has_images and intent != "image_edit":
-            logger.info(f"Chat request {request_id}: Imagen recibida pero sin modelo de visión o intent fallback. Usando '{target_model_name}'")
+        if has_images:
+            logger.info(f"Chat request {request_id}: Imagen recibida pero modelo de visión aún en descarga. Usando '{target_model_name}'")
         else:
             logger.info(f"Chat request {request_id}: model={target_model_name}, stream={request.stream}")
     
@@ -429,6 +299,47 @@ async def chat_completions(request: ChatRequest):
                 }
             }
 
+        # 5. Inferencia mediante PyTorch
+        try:
+            model, tokenizer = model_ref
+            device = next(model.parameters()).device
+            input_text = tokenizer.apply_chat_template(request.messages, tokenize=False, add_generation_prompt=True)
+            inputs = tokenizer(input_text, return_tensors="pt").to(device)
+            
+            outputs = await asyncio.to_thread(
+                model.generate,
+                **inputs,
+                max_new_tokens=request.max_tokens or 200,
+                temperature=request.temperature or 0.7,
+                pad_token_id=getattr(tokenizer, 'eos_token_id', 0)
+            )
+            
+            generated_ids = outputs[0][len(inputs.input_ids[0]):]
+            response_text = tokenizer.decode(generated_ids, skip_special_tokens=True)
+            
+            return {
+                "id": f"chatcmpl-{int(time.time())}",
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": target_model_name,
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": response_text
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": len(inputs.input_ids[0]),
+                    "completion_tokens": len(generated_ids),
+                    "total_tokens": len(inputs.input_ids[0]) + len(generated_ids)
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error durante la inferencia para {target_model_name}: {e}")
+            raise HTTPException(status_code=500, detail="Error durante la generación de texto")
             
     finally:
         # Liberar el turno en la cola si no fue delegado a stream_generator
@@ -439,7 +350,7 @@ async def chat_completions(request: ChatRequest):
 
 # ─── F1: Endpoint de diagnóstico Router ↔ ComfyUI ────────────────────────────
 
-@app.get("/comfyui/health")
+@app.get("/api/comfyui/health")
 async def comfyui_health():
     """
     Diagnóstico de conectividad Router ↔ ComfyUI.

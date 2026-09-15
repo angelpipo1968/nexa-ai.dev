@@ -23,7 +23,8 @@ import javax.inject.Singleton
 
 data class ChatMessage(
     val role: String,
-    val content: String
+    val content: String,
+    val imageUrl: String? = null
 )
 
 data class ChatRequest(
@@ -116,6 +117,10 @@ class NexaRepository @Inject constructor() {
                         trySend(StreamEvent.Provider(obj.get("provider").asString))
                     }
 
+                    if (obj.has("image_url")) {
+                        trySend(StreamEvent.Image(obj.get("image_url").asString))
+                    }
+
                     if (obj.has("error")) {
                         trySend(StreamEvent.Error(obj.get("error").asString))
                     }
@@ -206,6 +211,7 @@ sealed class StreamEvent {
     data class Text(val text: String) : StreamEvent()
     data class Provider(val name: String) : StreamEvent()
     data class Error(val message: String) : StreamEvent()
+    data class Image(val url: String) : StreamEvent()
     data object Done : StreamEvent()
     data object AuthExpired : StreamEvent()
 }
