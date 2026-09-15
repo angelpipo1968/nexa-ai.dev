@@ -32,8 +32,10 @@ jobs:
 
     - name: Install SDK components
       run: |
+        command -v sdkmanager
+        sdkmanager --version
         yes | sdkmanager --licenses || true
-        sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+        sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
     - name: Verify tools
       run: |
