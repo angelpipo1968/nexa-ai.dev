@@ -317,7 +317,7 @@ private fun MessageImage(url: String, alt: String) {
                 val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
                 if (bitmap != null) {
                     androidx.compose.foundation.Image(
-                        bitmap = androidx.compose.ui.graphics.asImageBitmap(bitmap),
+                        bitmap = bitmap.asImageBitmap(),
                         contentDescription = alt.ifEmpty { stringResource(R.string.generated_image) },
                         modifier = Modifier
                             .fillMaxWidth()
