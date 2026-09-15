@@ -89,6 +89,7 @@ class NexaViewModel @Inject constructor(
 
     // Track last synced assistant message to avoid duplicate UI additions and trigger TTS in voiceMode
     private var lastSyncedAssistantMessage: String? = null
+    private var lastSyncedImageUrl: String? = null
 
     // Voice command handler — extracted from this ViewModel to reduce complexity
     private val voiceCommandsHandler = VoiceCommandsHandler(iotManager, videoGenerator)
@@ -274,8 +275,10 @@ class NexaViewModel @Inject constructor(
                 // Append or update assistant message when available
                 if (chatState.messages.isNotEmpty()) {
                     val last = chatState.messages.last()
-                    if (last.content != lastSyncedAssistantMessage || last.imageUrl != null) {
+                    // Fix: Check if content actually changed or if image actually changed to avoid infinite loops
+                    if (last.content != lastSyncedAssistantMessage || last.imageUrl != lastSyncedImageUrl) {
                         lastSyncedAssistantMessage = last.content
+                        lastSyncedImageUrl = last.imageUrl
                         var currentAssistantId = ""
                         
                         updateActiveSession { session ->
