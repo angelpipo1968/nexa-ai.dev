@@ -5,25 +5,45 @@ on:
     branches: [ feat/android-multimodal-contract ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        submodules: false
+        lfs: false
+        clean: true
+
+    - name: Verify repository structure
+      run: |
+        test -d android-native-app || (echo "Directory android-native-app not found" && exit 1)
+        test -f gradlew || (echo "File gradlew not found" && exit 1)
 
     - name: Set up JDK 17
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v6
       with:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Verify Java version
+      run: java -version
+
     - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
+      uses: android-actions/setup-android@v4
 
     - name: Accept Android SDK licenses
       run: yes | sdkmanager --licenses || true
+
+    - name: Install required SDK components
+      run: |
+        sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
     - name: Cache Gradle packages
       uses: actions/cache@v4
@@ -37,6 +57,9 @@ jobs:
 
     - name: Make Gradle executable
       run: chmod +x gradlew
+
+    - name: Verify Gradle version
+      run: ./gradlew --version
 
     - name: Build Debug APK
       run: ./gradlew :android-native-app:assembleDebug --no-daemon
