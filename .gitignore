@@ -28,3 +28,6 @@ nexa-backend.log
 # Next.js
 .next/
 .vercel
+.gradle/
+build/
+android-native-app/build/
