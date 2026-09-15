@@ -54,12 +54,7 @@ class ChatUseCase @Inject constructor(private val repository: NexaRepository) {
                         }
                         is StreamEvent.Done -> {
                             _state.update { it.copy(isLoading = false) }
-                            // SIMULATED RESPONSE AS REQUESTED
-                            if (text.contains("simul", ignoreCase = true) || text.contains("imag", ignoreCase = true)) {
-                                updateAssistantMessage { 
-                                    it.copy(imageUrl = "https://nexa-ai.dev/api/images/simulated.png", content = it.content + "\n[Imagen simulada adjunta]") 
-                                }
-                            }
+                            // La respuesta SSE ahora enviará el StreamEvent.Image directamente.
                         }
                         else -> {}
                     }

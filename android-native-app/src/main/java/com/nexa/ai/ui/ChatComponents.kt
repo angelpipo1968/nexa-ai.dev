@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.asImageBitmap
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -310,18 +311,35 @@ private fun MessageImage(url: String, alt: String) {
         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
     ) {
         Column {
-            AsyncImage(
-                model = ImageRequest.Builder(context)
-                    .data(url)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = alt.ifEmpty { stringResource(R.string.generated_image) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 120.dp, max = 300.dp)
-                    .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
-            )
+            if (url.startsWith("data:image")) {
+                val base64String = url.substringAfter("base64,")
+                val imageBytes = android.util.Base64.decode(base64String, android.util.Base64.DEFAULT)
+                val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                if (bitmap != null) {
+                    androidx.compose.foundation.Image(
+                        bitmap = androidx.compose.ui.graphics.asImageBitmap(bitmap),
+                        contentDescription = alt.ifEmpty { stringResource(R.string.generated_image) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 120.dp, max = 300.dp)
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            } else {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(url)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = alt.ifEmpty { stringResource(R.string.generated_image) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp, max = 300.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
+            }
             if (alt.isNotEmpty()) {
                 Text(
                     alt,

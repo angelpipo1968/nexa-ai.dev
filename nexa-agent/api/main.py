@@ -233,7 +233,35 @@ async def chat_completions(request: ChatRequest):
             last_user_msg = "Genera una imagen artística"
             
         gen_request = GenerateImageRequest(prompt=last_user_msg)
-        return await generate_image(gen_request)
+        try:
+            img_response = await generate_image(gen_request)
+            import base64
+            b64_img = base64.b64encode(img_response.body).decode("utf-8")
+            image_uri = f"data:image/png;base64,{b64_img}"
+            
+            if request.stream:
+                async def img_streamer():
+                    sse_payload = json.dumps({"type": "image", "image_url": image_uri})
+                    yield f"data: {sse_payload}\n\n"
+                    yield "data: [DONE]\n\n"
+                return StreamingResponse(img_streamer(), media_type="text/event-stream")
+            else:
+                return {
+                    "id": f"chatcmpl-{int(time.time())}",
+                    "object": "chat.completion",
+                    "created": int(time.time()),
+                    "model": "flux",
+                    "choices": [{"index": 0, "message": {"role": "assistant", "content": "", "image_url": image_uri}, "finish_reason": "stop"}]
+                }
+        except Exception as e:
+            logger.error(f"Error generando imagen text2image: {e}")
+            if request.stream:
+                async def err_streamer():
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                    yield "data: [DONE]\n\n"
+                return StreamingResponse(err_streamer(), media_type="text/event-stream")
+            else:
+                raise HTTPException(status_code=500, detail=str(e))
 
     # 4. Inyección del idioma (F2.1)
     LANG_SYSTEM_PROMPTS = {

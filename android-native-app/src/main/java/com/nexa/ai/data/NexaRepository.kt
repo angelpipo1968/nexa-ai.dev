@@ -108,10 +108,8 @@ class NexaRepository @Inject constructor() {
                         return
                     }
 
-                    if (obj.has("text")) {
-                        val text = obj.get("text").asString
-                        if (text.isNotEmpty()) trySend(StreamEvent.Text(text))
-                    }
+                    val text = if (obj.has("content")) obj.get("content").asString else if (obj.has("text")) obj.get("text").asString else ""
+                    if (text.isNotEmpty()) trySend(StreamEvent.Text(text))
 
                     if (obj.has("provider")) {
                         trySend(StreamEvent.Provider(obj.get("provider").asString))
