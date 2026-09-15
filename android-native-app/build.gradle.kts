@@ -24,9 +24,9 @@ android {
     signingConfigs {
         create("release") {
             storeFile = file("../android/nexa-release.keystore")
-            storePassword = "NexaAI2024!Release"
-            keyAlias = "nexa"
-            keyPassword = "NexaAI2024!Release"
+            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "nexa"
+            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
         }
     }
 

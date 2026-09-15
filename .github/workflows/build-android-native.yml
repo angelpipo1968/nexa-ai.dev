@@ -13,30 +13,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
+    - name: Checkout
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
-
-    - name: Verify repository structure
-      run: |
-        test -d android-native-app || (echo "Directory android-native-app not found" && exit 1)
-        test -f gradlew || (echo "File gradlew not found" && exit 1)
+        fetch-depth: 1
+        persist-credentials: false
+        submodules: false
+        lfs: false
 
     - name: Set up JDK 17
       uses: actions/setup-java@v5
       with:
         java-version: '17'
-        distribution: 'temurin'
-
-    - name: Verify Java version
-      run: java -version
+        distribution: temurin
 
     - name: Setup Android SDK
-      run: echo "Using pre-installed Android SDK"
+      uses: android-actions/setup-android@v4
 
-    - name: Accept Android SDK licenses
-      run: yes | sdkmanager --licenses || true
+    - name: Install SDK components
+      run: |
+        yes | sdkmanager --licenses || true
+        sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+    - name: Verify tools
+      run: |
+        java -version
+        sdkmanager --version
+        ./gradlew --version
 
     - name: Cache Gradle packages
       uses: actions/cache@v4
@@ -47,12 +50,6 @@ jobs:
         key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           gradle-
-
-    - name: Make Gradle executable
-      run: chmod +x gradlew
-
-    - name: Verify Gradle version
-      run: ./gradlew --version
 
     - name: Build Debug APK
       run: ./gradlew :android-native-app:assembleDebug --no-daemon

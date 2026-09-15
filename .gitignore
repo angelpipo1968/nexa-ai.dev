@@ -31,3 +31,6 @@ nexa-backend.log
 .gradle/
 build/
 android-native-app/build/
+.gradle/
+build/
+*/build/
