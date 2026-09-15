@@ -65,6 +65,7 @@ class NexaRepository @Inject constructor() {
     ): Flow<StreamEvent> = callbackFlow {
         val chatRequest = ChatRequest(messages, provider, language, systemPrompt)
         val body = gson.toJsonTree(chatRequest).asJsonObject
+        body.addProperty("stream", true)
 
         // Remove systemPrompt from body and inject as first message instead
         if (body.has("systemPrompt")) body.remove("systemPrompt")
