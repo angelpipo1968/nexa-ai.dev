@@ -840,9 +840,30 @@ fun InputBar(text: String, language: AppLanguage, isListening: Boolean, isSpeaki
                             Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
                         }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                            val accentColor = LocalAccentColor.current
-                            DropdownMenuItem(text = { Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Photo, null, modifier = Modifier.size(20.dp), tint = accentColor); Text(NexaStrings.get("upload_photo", language), fontSize = 14.sp) } }, onClick = { showMenu = false; onAttachFile() })
-                            DropdownMenuItem(text = { Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.PictureAsPdf, null, modifier = Modifier.size(20.dp), tint = accentColor); Text(NexaStrings.get("upload_pdf", language), fontSize = 14.sp) } }, onClick = { showMenu = false; onAttachFile() })
+                            DropdownMenuItem(
+                                text = { Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Description, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface); Text(NexaStrings.get("upload_document", language), fontSize = 14.sp) } },
+                                onClick = { showMenu = false; onAttachFile() }
+                            )
+                            DropdownMenuItem(
+                                text = { Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Image, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface); Text(NexaStrings.get("upload_image", language), fontSize = 14.sp) } },
+                                onClick = { showMenu = false; onAttachFile() }
+                            )
+                            DropdownMenuItem(
+                                text = { Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Videocam, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface); Text(NexaStrings.get("upload_video", language), fontSize = 14.sp) } },
+                                onClick = { showMenu = false; onAttachFile() }
+                            )
+                            DropdownMenuItem(
+                                text = { Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Audiotrack, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface); Text(NexaStrings.get("upload_audio", language), fontSize = 14.sp) } },
+                                onClick = { showMenu = false; onAttachFile() }
+                            )
+                            DropdownMenuItem(
+                                text = { Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface); Text(NexaStrings.get("take_photo", language), fontSize = 14.sp) } },
+                                onClick = { showMenu = false; onAttachFile() }
+                            )
+                            DropdownMenuItem(
+                                text = { Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Videocam, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface); Text(NexaStrings.get("record_video", language), fontSize = 14.sp) } },
+                                onClick = { showMenu = false; onAttachFile() }
+                            )
                         }
                     }
 

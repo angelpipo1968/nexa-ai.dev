@@ -193,6 +193,12 @@
     <string name="update_now">Update</string>
     <string name="upload_pdf">Upload PDF</string>
     <string name="upload_photo">Upload photo</string>
+    <string name="upload_document">Upload document</string>
+    <string name="upload_image">Upload image</string>
+    <string name="upload_video">Upload video</string>
+    <string name="upload_audio">Upload audio</string>
+    <string name="take_photo">Take photo</string>
+    <string name="record_video">Record video</string>
     <string name="vision_analyzing">Analyzing image…</string>
     <string name="vision_camera">Vision camera</string>
     <string name="voice">Voice</string>
