@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import './chat.css';
+import { AnimatedNexaFace } from '@/components/AnimatedNexaFace';
+
 
 // Type definitions
 interface Message {
@@ -402,7 +404,17 @@ export default function ChatPage() {
     html = html.replace(/\[([^\]]*)\]\(([^)]+\.mp4)\)/g, '<video src="$2" controls style="max-width:100%; border-radius:8px; margin-top:5px;"></video>');
     html = html.replace(/\[([^\]]*)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:var(--accent);">$1</a>');
     
-    return (
+    
+  let faceState: "WAITING" | "LISTENING" | "THINKING" | "SPEAKING" = "WAITING";
+  if (hfStatus === 'Respondiendo...') {
+    faceState = "SPEAKING";
+  } else if (isBusy || hfStatus === 'Procesando...') {
+    faceState = "THINKING";
+  } else if (recOn || hfStatus === 'Escuchando...') {
+    faceState = "LISTENING";
+  }
+
+  return (
       <>
         {images && images.map((img, i) => (
           <div key={i}>
@@ -414,6 +426,16 @@ export default function ChatPage() {
       </>
     );
   };
+
+  
+  let faceState: "WAITING" | "LISTENING" | "THINKING" | "SPEAKING" = "WAITING";
+  if (hfStatus === 'Respondiendo...') {
+    faceState = "SPEAKING";
+  } else if (isBusy || hfStatus === 'Procesando...') {
+    faceState = "THINKING";
+  } else if (recOn || hfStatus === 'Escuchando...') {
+    faceState = "LISTENING";
+  }
 
   return (
     <div style={{height:'100vh', display:'flex', flexDirection:'column', background:'var(--bg)', color:'var(--text)', overflow:'hidden'}}>
@@ -524,7 +546,7 @@ export default function ChatPage() {
         <button className="hf-x" onClick={(e) => { e.stopPropagation(); toggleHF(); }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        <div className={`hf-av ${isBusy ? 'speak' : ''} ${recOn ? 'listen' : ''}`} id="hfA">&#10024;</div>
+        <div style={{ marginBottom: "2rem" }}><AnimatedNexaFace state={faceState} size={300} /></div>
         <div className="hf-st" id="hfSt">{hfStatus}</div>
         <div className={`hf-prev ${hfTranscript ? 'vis' : ''}`} id="hfPr">{hfTranscript}</div>
       </div>
