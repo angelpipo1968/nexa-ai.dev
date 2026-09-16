@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { SettingsPanel } from './SettingsPanel';
 import { CanvasMode } from './CanvasMode';
+import { AnimatedNexaFace, NexaFaceState } from './AnimatedNexaFace';
 
 // ═══════════════════════════════════════════
 //  THEME PRESETS — Multiple color schemes
@@ -155,6 +156,8 @@ export function NexaApp() {
     const [canvasInitialCode, setCanvasInitialCode] = useState<string | undefined>(undefined);
     const [analyzingImage, setAnalyzingImage] = useState(false);
     const [activeProvider, setActiveProvider] = useState<string>('groq');
+    const [showHandsFree, setShowHandsFree] = useState(false);
+    const [nexaState, setNexaState] = useState<NexaFaceState>('WAITING');
 
     // Settings (Persisted)
     const [accent, setAccent] = useState(THEME_PRESETS.emerald.accent);
@@ -344,6 +347,14 @@ export function NexaApp() {
         localStorage.setItem('nexa_lang', lang);
         document.documentElement.style.setProperty('--nexa-accent', accent);
     }, [accent, themePreset, themeName, autoSpeak, autoSend, voiceGender, voiceIndex, lang]);
+
+    // ─── HandsFree State Sync ───
+    useEffect(() => {
+        if (speaking) setNexaState('SPEAKING');
+        else if (thinking) setNexaState('THINKING');
+        else if (recording) setNexaState('LISTENING');
+        else setNexaState('WAITING');
+    }, [speaking, thinking, recording]);
 
     // ═══════════════════════════════════════════
     //  SUPABASE
@@ -1022,6 +1033,10 @@ export function NexaApp() {
                             <button aria-label="Canvas" onClick={() => { setCanvasInitialCode(undefined); setShowCanvas(true); }} style={{ ...ibtn, width: 32, height: 32 }}>
                                 <Code2 size={18} />
                             </button>
+                            {/* HandsFree */}
+                            <button aria-label="Manos Libres" onClick={() => setShowHandsFree(true)} style={{ ...ibtn, width: 32, height: 32, color: accent }}>
+                                <Mic size={18} />
+                            </button>
                             {/* New chat */}
                             <button aria-label="Nuevo Chat" onClick={() => createConv()} style={{ ...ibtn, width: 32, height: 32 }}>
                                 <Plus size={22} />
@@ -1270,6 +1285,49 @@ export function NexaApp() {
                         resolvedTheme={resolvedTheme}
                         initialCode={canvasInitialCode}
                     />
+                )}
+            </AnimatePresence>
+
+            {/* HANDS-FREE OVERLAY */}
+            <AnimatePresence>
+                {showHandsFree && (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        style={{
+                            position: 'fixed', inset: 0, zIndex: 100,
+                            background: `${T.bg}E6`, backdropFilter: 'blur(20px)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+                        }}
+                    >
+                        <button onClick={() => setShowHandsFree(false)} style={{ position: 'absolute', top: 20, right: 20, background: 'none', border: 'none', color: T.text, cursor: 'pointer', padding: 10 }}>
+                            <X size={32} />
+                        </button>
+                        
+                        <div style={{ marginBottom: 40 }}>
+                            <AnimatedNexaFace state={nexaState} color1={preset.accent} color2={preset.accent} size={300} />
+                        </div>
+
+                        <div style={{ fontSize: 24, fontWeight: 700, color: T.text, marginBottom: 20, minHeight: 32 }}>
+                            {recording ? 'Escuchando...' : thinking ? 'Procesando...' : speaking ? 'Hablando...' : 'Modo Manos Libres Activo'}
+                        </div>
+
+                        <button 
+                            onClick={toggleRec}
+                            style={{
+                                width: 80, height: 80, borderRadius: '50%', border: 'none',
+                                background: recording ? '#ef4444' : preset.accent,
+                                color: '#000', cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: `0 0 40px ${recording ? '#ef444480' : preset.glow}`,
+                                transition: 'all 0.3s',
+                                animation: recording ? 'pulse 1.5s ease-in-out infinite' : 'none'
+                            }}
+                        >
+                            <Mic size={36} />
+                        </button>
+                    </motion.div>
                 )}
             </AnimatePresence>
 
