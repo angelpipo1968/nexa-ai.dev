@@ -3,6 +3,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './chat.css';
 import { AnimatedNexaFace } from '@/components/AnimatedNexaFace';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_key';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+import { supabase } from '@/lib/supabase';
 
 interface Message { role: 'user' | 'assistant' | 'system'; content: string; images?: string[]; }
 interface ChatSession { id: string; title: string; messages: Message[]; }
@@ -12,6 +19,11 @@ export default function NexaAndroidWebClone() {
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: '¡Hola! Soy NEXA AI, tu asistente virtual avanzado. ¿En qué te puedo ayudar hoy?' }
   ]);
+  const [user, setUser] = useState<any>(null);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
   const [input, setInput] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -19,7 +31,7 @@ export default function NexaAndroidWebClone() {
 
   // UI Navigation states
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeScreen, setActiveScreen] = useState<'chat' | 'settings'>('chat');
+  const [activeScreen, setActiveScreen] = useState<'chat' | 'settings' | 'login' | 'register'>('chat');
   const [showAttach, setShowAttach] = useState(false);
 
   // Voice/Hands-free states
@@ -59,6 +71,23 @@ export default function NexaAndroidWebClone() {
       const s = localStorage.getItem('nexa_sessions');
       if (s) setChats(JSON.parse(s));
     } catch(e){}
+
+    // Supabase auth listener
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data?.session?.user || null);
+    });
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
+    return () => { authListener?.subscription.unsubscribe(); };
+  }, []);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setUser(session.user);
+    });
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null);
+    });
   }, []);
 
   useEffect(() => {
@@ -85,6 +114,12 @@ export default function NexaAndroidWebClone() {
     window.speechSynthesis.speak(u);
   };
 
+  
+  const clearChat = () => {
+    if (confirm('¿Estás seguro de que deseas limpiar los mensajes actuales?')) {
+      setMessages([{ role: 'assistant', content: '¡Hola! Soy NEXA AI, tu asistente virtual avanzado. ¿En qué te puedo ayudar hoy?' }]);
+    }
+  };
   const clearData = () => {
     if (confirm('¿Estás seguro de que deseas limpiar todos los datos? Esto eliminará tu historial de chat local.')) {
       setMessages([{ role: 'assistant', content: '¡Hola! Soy NEXA AI, tu asistente virtual avanzado. ¿En qué te puedo ayudar hoy?' }]);
@@ -100,15 +135,20 @@ export default function NexaAndroidWebClone() {
 
     try {
       const msgsToSend = currentMsgs.map(m => m.images?.length ? { role: m.role, content: m.content, images: m.images } : { role: m.role, content: m.content });
-      const res = await fetch('/api/chat', {
+      
+      // Fix 503: Try hitting the production endpoint which the Android app uses successfully
+      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://www.nexa-ai.dev';
+      const endpoint = baseUrl.includes('localhost') ? '/api/chat' : `${baseUrl}/api/chat`;
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'nexa', messages: msgsToSend, stream: false })
+        body: JSON.stringify({ messages: msgsToSend })
       });
 
       if (!res.ok) throw new Error(`Error del servidor: ${res.status}`);
       const data = await res.json();
-      const reply = data.choices?.[0]?.message?.content || data.message || "Respuesta recibida";
+      const reply = data.choices?.[0]?.message?.content || data.message || data.response || "Respuesta recibida";
       
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
       if (voiceMode) { setVoiceState("SPEAKING"); setTimeout(() => setVoiceState("LISTENING"), 3000); }
@@ -168,6 +208,29 @@ export default function NexaAndroidWebClone() {
     reader.readAsDataURL(file); e.target.value = '';
   };
 
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true); setAuthError('');
+    const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword });
+    if (error) setAuthError(error.message);
+    else { setActiveScreen('chat'); setDrawerOpen(false); }
+    setAuthLoading(false);
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true); setAuthError('');
+    const { error } = await supabase.auth.signUp({ email: authEmail, password: authPassword });
+    if (error) setAuthError(error.message);
+    else { alert('Registro exitoso. Revisa tu correo para confirmar.'); setActiveScreen('login'); }
+    setAuthLoading(false);
+  };
+
+  const handleGoogleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+    if (error) alert(error.message);
+  };
+
   return (
     <div className="nexa-root">
       
@@ -183,9 +246,18 @@ export default function NexaAndroidWebClone() {
           </button>
         </div>
         <div className="drawer-content">
-          <button className="btn-new-chat" onClick={() => { setMessages([]); setDrawerOpen(false); setActiveScreen('chat'); }}>
+          <button className="btn-new-chat" onClick={() => { clearChat(); setDrawerOpen(false); setActiveScreen('chat'); }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Nuevo Chat
+          </button>
+          <button className="btn-new-chat" style={{background: 'rgba(255, 68, 68, 0.1)', color: '#ff4444', marginTop: '-8px'}} onClick={() => {
+            if(confirm('¿Estás seguro de que deseas limpiar este chat?')) {
+              setMessages([{ role: 'assistant', content: '¡Hola! Soy NEXA AI, tu asistente virtual avanzado. ¿En qué te puedo ayudar hoy?' }]);
+              setDrawerOpen(false);
+            }
+          }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Limpiar Chat
           </button>
           <div className="search-bar">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -197,59 +269,28 @@ export default function NexaAndroidWebClone() {
             ))}
           </div>
         </div>
+        
         <div className="drawer-footer">
           <div className="drawer-menu-items">
-            <button className="session-item" onClick={() => alert('OCRI functionality')}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2 12h4l2-9 5 18 3-10h4"></path></svg>
-              <span className="session-title">OCRI</span>
-            </button>
             <button className="session-item" onClick={() => { setActiveScreen('settings'); setDrawerOpen(false); }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-              <span className="session-title">Ajustes / Configuración</span>
+              <span className="session-title">Ajustes</span>
+            </button>
+            <button className="session-item" onClick={() => { setActiveScreen('login'); setDrawerOpen(false); }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+              <span className="session-title">Configuración / Iniciar sesión</span>
             </button>
           </div>
-          <button className="user-profile" onClick={() => alert('Perfil functionality')}>
-            <div className="user-avatar">A</div>
+          <button className="user-profile" onClick={() => user ? supabase.auth.signOut().then(()=>setUser(null)) : setActiveScreen('login')}>
+            <div className="user-avatar">{user ? user.email[0].toUpperCase() : 'A'}</div>
             <div className="user-info">
-              <span className="user-name">Angel</span>
-              <span className="user-plan">Perfil</span>
+              <span className="user-name">{user ? user.email.split('@')[0] : 'Ángel'}</span>
+              <span className="user-plan">{user ? 'Cerrar sesión' : 'Perfil'}</span>
             </div>
           </button>
         </div>
+
       </div>
-      
-      {drawerOpen && <div className="drawer-overlay" onClick={() => setDrawerOpen(false)}></div>}
-
-      {/* MAIN CONTENT */}
-      <div className="nexa-main">
-        {activeScreen === 'chat' && (
-          <>
-            <div className="top-bar">
-              <button className="icon-btn" onClick={() => setDrawerOpen(true)}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-              </button>
-              <div className="top-title"><span>NEXA AI</span><div className="status-dot"></div></div>
-              <div style={{width: 40}}></div>
-            </div>
-
-            <div className="chat-area">
-              <div className="chat-container">
-                {messages.map((m, i) => (
-                  <div key={i} className={`message-row ${m.role}`}>
-                    {m.role === 'assistant' && <div className="message-avatar">N</div>}
-                    <div className="message-bubble">
-                      {m.images && m.images.map((img, idx) => (
-                        <img key={idx} src={`data:image/jpeg;base64,${img}`} style={{maxWidth:'100%', borderRadius:'8px', marginBottom:'8px'}} alt="uploaded" />
-                      ))}
-                      {m.content}
-                    </div>
-                  </div>
-                ))}
-                {isBusy && !errorMsg && (
-                  <div className="message-row assistant">
-                    <div className="message-avatar">N</div>
-                    <div className="message-bubble"><div className="dots"><span></span><span></span><span></span></div></div>
-                  </div>
                 )}
                 {errorMsg && (
                   <div className="message-row assistant">
@@ -291,6 +332,60 @@ export default function NexaAndroidWebClone() {
               </div>
             </div>
           </>
+        )}
+
+        
+        {/* LOGIN SCREEN */}
+        {activeScreen === 'login' && (
+          <div style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'24px', position:'relative'}}>
+            <button className="icon-btn" onClick={() => setActiveScreen('chat')} style={{position:'absolute', top:'16px', left:'16px'}}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            </button>
+            <div style={{width:'100%', maxWidth:'400px', background:'rgba(15,15,20,0.6)', border:'1px solid var(--border)', borderRadius:'24px', padding:'32px', display:'flex', flexDirection:'column', gap:'16px'}}>
+              <h2 style={{textAlign:'center', marginBottom:'16px'}}>Iniciar Sesión</h2>
+              
+              {authError && <div style={{color:'#ff4444', fontSize:'14px', textAlign:'center'}}>{authError}</div>}
+              
+              <input type="email" placeholder="Correo electrónico" value={email} onChange={e=>setEmail(e.target.value)} style={{width:'100%', padding:'16px', borderRadius:'12px', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border)', color:'#fff', outline:'none'}} />
+              <input type="password" placeholder="Contraseña" value={password} onChange={e=>setPassword(e.target.value)} style={{width:'100%', padding:'16px', borderRadius:'12px', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border)', color:'#fff', outline:'none'}} />
+              
+              <button 
+                onClick={async () => {
+                  setAuthError('');
+                  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                  if (error) setAuthError(error.message);
+                  else { setUser(data.user); setActiveScreen('chat'); }
+                }}
+                style={{width:'100%', padding:'16px', borderRadius:'12px', background:'var(--accent)', color:'#000', fontWeight:'bold', border:'none', cursor:'pointer'}}>
+                Iniciar sesión
+              </button>
+              
+              <div style={{textAlign:'center', fontSize:'14px', color:'var(--text-muted)', marginTop:'8px'}}>¿No tienes cuenta?</div>
+              
+              <button 
+                onClick={async () => {
+                  setAuthError('');
+                  const { data, error } = await supabase.auth.signUp({ email, password });
+                  if (error) setAuthError(error.message);
+                  else { setUser(data.user); setActiveScreen('chat'); }
+                }}
+                style={{width:'100%', padding:'16px', borderRadius:'12px', background:'transparent', border:'1px solid var(--accent)', color:'var(--accent)', fontWeight:'bold', cursor:'pointer'}}>
+                Registrarse / Crear cuenta
+              </button>
+
+              <div style={{width:'100%', height:'1px', background:'var(--border)', margin:'16px 0'}}></div>
+
+              <button 
+                onClick={async () => {
+                  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+                  if (error) setAuthError(error.message);
+                }}
+                style={{width:'100%', padding:'16px', borderRadius:'12px', background:'#fff', color:'#000', fontWeight:'bold', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px'}}>
+                <svg width="18" height="18" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44-3.92 0-7.1-3.18-7.1-7.1s3.18-7.1 7.1-7.1c1.92 0 3.63.74 4.9 1.94l1.92-1.93c-1.74-1.61-4.14-2.61-6.82-2.61-5.36 0-9.7 4.34-9.7 9.7s4.34 9.7 9.7 9.7c5.68 0 9.28-4.08 9.28-9.45 0-.58-.07-1.12-.12-1.32z"/></svg>
+                Continuar con Google
+              </button>
+            </div>
+          </div>
         )}
 
         {/* SETTINGS SCREEN */}
@@ -410,6 +505,69 @@ export default function NexaAndroidWebClone() {
                 </div>
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* AUTH SCREENS */}
+        {(activeScreen === 'login' || activeScreen === 'register') && (
+          <div style={{flex:1, overflowY:'auto', display:'flex', flexDirection:'column'}}>
+            <div className="top-bar">
+              <button className="icon-btn" onClick={() => setActiveScreen('chat')}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+              </button>
+              <div className="top-title"><span style={{letterSpacing:'2px'}}>{activeScreen === 'login' ? 'INICIAR SESIÓN' : 'REGISTRARSE'}</span></div>
+              <div style={{width: 40}}></div>
+            </div>
+            
+            <div style={{padding:'24px 16px', display:'flex', flexDirection:'column', gap:'24px', maxWidth:'400px', margin:'0 auto', width:'100%', marginTop: '40px'}}>
+              <form onSubmit={activeScreen === 'login' ? handleLogin : handleRegister} style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+                <input 
+                  type="email" 
+                  value={authEmail} 
+                  onChange={e => setAuthEmail(e.target.value)} 
+                  placeholder="Correo electrónico" 
+                  style={{padding:'16px', borderRadius:'12px', background:'rgba(255,255,255,0.05)', color:'var(--text-main)', border:'1px solid var(--border)', outline:'none'}} 
+                  required 
+                />
+                <input 
+                  type="password" 
+                  value={authPassword} 
+                  onChange={e => setAuthPassword(e.target.value)} 
+                  placeholder="Contraseña" 
+                  style={{padding:'16px', borderRadius:'12px', background:'rgba(255,255,255,0.05)', color:'var(--text-main)', border:'1px solid var(--border)', outline:'none'}} 
+                  required 
+                />
+                
+                {authError && <div style={{color:'#ff4444', fontSize:'13px', textAlign:'center'}}>{authError}</div>}
+                
+                <button type="submit" disabled={authLoading} style={{padding:'16px', borderRadius:'12px', background:'var(--accent)', color:'#000', border:'none', fontWeight:'600', cursor:'pointer', marginTop:'8px'}}>
+                  {authLoading ? 'Cargando...' : (activeScreen === 'login' ? 'Iniciar sesión' : 'Crear cuenta')}
+                </button>
+              </form>
+
+              <div style={{display:'flex', flexDirection:'column', alignItems:'center', gap:'12px', marginTop:'16px'}}>
+                <span style={{fontSize:'13px', color:'var(--text-muted)'}}>
+                  {activeScreen === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}
+                </span>
+                <button 
+                  onClick={() => setActiveScreen(activeScreen === 'login' ? 'register' : 'login')}
+                  style={{background:'transparent', border:'none', color:'var(--text-main)', fontWeight:'600', cursor:'pointer'}}
+                >
+                  {activeScreen === 'login' ? 'Registrarse' : 'Iniciar sesión'}
+                </button>
+              </div>
+
+              <div style={{display:'flex', alignItems:'center', gap:'16px', margin:'16px 0'}}>
+                <div style={{flex:1, height:'1px', background:'var(--border)'}}></div>
+                <span style={{fontSize:'13px', color:'var(--text-muted)'}}>o</span>
+                <div style={{flex:1, height:'1px', background:'var(--border)'}}></div>
+              </div>
+
+              <button onClick={handleGoogleLogin} style={{padding:'16px', borderRadius:'12px', background:'rgba(255,255,255,0.05)', color:'var(--text-main)', border:'1px solid var(--border)', fontWeight:'500', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'12px'}}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                Continuar con Google
+              </button>
             </div>
           </div>
         )}
